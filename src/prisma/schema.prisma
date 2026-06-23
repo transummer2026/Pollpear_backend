@@ -1,0 +1,496 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  user
+  moderator
+  admin
+}
+
+enum Gender {
+  male
+  female
+  other
+  prefer_not_to_say
+}
+
+enum Visibility {
+  public
+  private
+}
+
+enum UserTheme {
+  light
+  dark
+  system
+  other
+}
+
+enum OauthProvider {
+  google
+  school42 @map("42")
+  github
+}
+
+enum GrantType {
+  client_credentials
+}
+
+enum FriendshipStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum ReportReason {
+  spam
+  harassment
+  inappropriate_content
+  other
+}
+
+enum NotificationType {
+  friend_request
+  poll_update
+  room_invitation
+  room_message
+  other
+}
+
+enum PollType {
+  single_choice
+  multiple_choice
+  slider
+  free_field
+}
+
+enum PollStatus {
+  active
+  draft
+  locked
+  archived
+}
+
+enum RoomStatus {
+  active
+  draft
+  locked
+  archived
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  rejected
+}
+
+model User {
+  id           Int         @id @default(autoincrement())
+  username     String      @unique @db.VarChar(32)
+  name         String?     @db.VarChar(255)
+  surname      String?     @db.VarChar(255)
+  email        String      @unique @db.VarChar(255)
+  birthdate    DateTime    @db.Date
+  passwordHash String      @map("password_hash") @db.VarChar(255)
+  role         UserRole
+  gender       Gender
+  nationality  String      @db.VarChar(255)
+  city         String?     @db.VarChar(255)
+  state        String?     @db.VarChar(255)
+  country      String?     @db.VarChar(255)
+  company      String?     @db.VarChar(255)
+  bio          String?     @db.VarChar(255)
+  score        Int         @default(0)
+  isBanned     Boolean     @default(false) @map("is_banned")
+  isDeleted    Boolean     @default(false) @map("is_deleted")
+  visibility   Visibility?
+  deletedAt    DateTime?   @map("deleted_at")
+  // FIXME: Provisoire avatarUrl et bannerUrl
+  avatarUrl    String      @default("assets/avatars/default.png") @map("avatar_url") @db.VarChar(255)
+  bannerUrl    String      @default("assets/banners/default.png") @map("banner_url") @db.VarChar(255)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  userTheme    UserTheme   @map("user_theme")
+
+  oauths               Oauth[]
+  bansReceived         Ban[]          @relation("BannedUser")
+  bansDone             Ban[]          @relation("BannedBy")
+  bansLifted           Ban[]          @relation("UnbannedBy")
+  pollsCreated         Poll[]         @relation("PollCreator")
+  roomsCreated         Room[]         @relation("RoomCreator")
+  votes                Vote[]
+  messages             Message[]
+  notifications        Notification[]
+  pollTemplates        PollTemplate[]
+  roomMembers          RoomMember[]
+  invitationsSent      Invitation[]   @relation("Inviter")
+  invitationsReceived  Invitation[]   @relation("Invitee")
+  friendshipsRequested Friendship[]   @relation("Requester")
+  friendshipsReceived  Friendship[]   @relation("Addressee")
+  blocksGiven          Block[]        @relation("Blocker")
+  blocksReceived       Block[]        @relation("Blocked")
+  reportsGiven         Report[]       @relation("Reporter")
+  reportsReceived      Report[]       @relation("Reported")
+
+  @@map("users")
+}
+
+model Oauth {
+  id             Int           @id @default(autoincrement())
+  provider       OauthProvider
+  providerUserId String        @map("provider_user_id") @db.VarChar(255)
+  providerUrl    String        @map("provider_url") @db.VarChar(255)
+  accessToken    String        @map("access_token") @db.VarChar(255)
+  refreshToken   String        @map("refresh_token") @db.VarChar(255)
+  tokenType      String        @map("token_type") @db.VarChar(255)
+  expiresAt      DateTime      @map("expires_at")
+  scope          String        @db.VarChar(255)
+  grantType      GrantType     @map("grant_type")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("oauths")
+}
+
+model Ban {
+  id          Int      @id @default(autoincrement())
+  banReason   String   @map("ban_reason") @db.Text
+  bannedAt    DateTime @map("banned_at")
+  unbannedAt  DateTime @map("unbanned_at")
+  unbanReason String?  @map("unban_reason") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userId       Int  @map("user_id")
+  bannedById   Int  @map("banned_by")
+  unbannedById Int? @map("unbanned_by")
+
+  user       User  @relation("BannedUser", fields: [userId], references: [id])
+  bannedBy   User  @relation("BannedBy", fields: [bannedById], references: [id])
+  unbannedBy User? @relation("UnbannedBy", fields: [unbannedById], references: [id])
+
+  attachments BanAttachment[]
+
+  @@index([userId])
+  @@index([bannedById])
+  @@index([unbannedById])
+  @@map("bans")
+}
+
+model BanAttachment {
+  id            Int    @id @default(autoincrement())
+  attachmentUrl String @map("attachment_url") @db.VarChar(255)
+
+  banId Int @map("ban_id")
+  ban   Ban @relation(fields: [banId], references: [id], onDelete: Cascade)
+
+  @@index([banId])
+  @@map("ban_attachments")
+}
+
+model Friendship {
+  id        Int              @id @default(autoincrement())
+  status    FriendshipStatus
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  requesterId Int @map("requester_id")
+  addresseeId Int @map("addressee_id")
+
+  requester User @relation("Requester", fields: [requesterId], references: [id])
+  addressee User @relation("Addressee", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
+  @@map("friendships")
+}
+
+model Block {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  blockerId Int @map("blocker_id")
+  blockedId Int @map("blocked_id")
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id])
+  blocked User @relation("Blocked", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+model Report {
+  id        Int          @id @default(autoincrement())
+  reason    ReportReason
+  content   String       @db.Text
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  reporterId Int  @map("reporter_id")
+  reportedId Int  @map("reported_id")
+  roomId     Int? @map("room_id")
+  messageId  Int? @map("message_id")
+  pollId     Int? @map("poll_id")
+  optionId   Int? @map("option_id")
+  hashtagId  Int? @map("hashtag_id")
+
+  reporter User     @relation("Reporter", fields: [reporterId], references: [id])
+  reported User     @relation("Reported", fields: [reportedId], references: [id])
+  room     Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  message  Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  poll     Poll?    @relation(fields: [pollId], references: [id], onDelete: SetNull)
+  option   Option?  @relation(fields: [optionId], references: [id], onDelete: SetNull)
+  hashtag  Hashtag? @relation(fields: [hashtagId], references: [id], onDelete: SetNull)
+
+  @@index([reporterId])
+  @@index([reportedId])
+  @@index([roomId])
+  @@index([messageId])
+  @@index([pollId])
+  @@index([optionId])
+  @@index([hashtagId])
+  @@map("reports")
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  type      NotificationType
+  content   String           @db.Text
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model Poll {
+  id              Int        @id @default(autoincrement())
+  title           String     @db.VarChar(255)
+  description     String?    @db.Text
+  type            PollType
+  createdAt       DateTime   @default(now()) @map("created_at")
+  publishedAt     DateTime?  @map("published_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  endsAt          DateTime   @map("ends_at")
+  visibility      Visibility
+  allowChangeVote Boolean    @map("allow_change_vote")
+  isAnonymous     Boolean    @map("is_anonymous")
+  status          PollStatus
+
+  createdById Int  @map("created_by")
+  roomId      Int? @map("room_id")
+
+  createdBy         User             @relation("PollCreator", fields: [createdById], references: [id])
+  room              Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  options           Option[]
+  pollHashtags      PollHashtag[]
+  pollTemplates     PollTemplate[]
+  reports           Report[]
+  childDependencies PollDependency[] @relation("ChildPoll")
+
+  @@index([createdById])
+  @@index([roomId])
+  @@map("polls")
+}
+
+model Option {
+  id               Int     @id @default(autoincrement())
+  label            String  @db.VarChar(255)
+  sliderLeftLabel  String? @map("slider_left_label") @db.VarChar(255)
+  sliderRightLabel String? @map("slider_right_label") @db.VarChar(255)
+  order            Int
+
+  pollId Int  @map("poll_id")
+  poll   Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  voteOptions      VoteOption[]
+  votes            Vote[]
+  pollDependencies PollDependency[]
+  reports          Report[]
+
+  @@index([pollId])
+  @@map("options")
+}
+
+model PollDependency {
+  id Int @id @default(autoincrement())
+
+  childPollId Int @map("child_poll_id")
+  optionId    Int @map("option_id")
+
+  childPoll Poll   @relation("ChildPoll", fields: [childPollId], references: [id], onDelete: Cascade)
+  option    Option @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@index([childPollId])
+  @@index([optionId])
+  @@map("poll_dependencies")
+}
+
+model Vote {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  label     String?  @db.VarChar(255)
+
+  createdById Int @map("created_by")
+  optionId    Int @map("option_id")
+
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  option      Option       @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  voteOptions VoteOption[]
+
+  @@index([createdById])
+  @@index([optionId])
+  @@map("votes")
+}
+
+model VoteOption {
+  voteId   Int @map("vote_id")
+  optionId Int @map("option_id")
+
+  vote   Vote   @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  option Option @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([voteId, optionId])
+  @@index([optionId])
+  @@map("vote_options")
+}
+
+model Hashtag {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique @db.VarChar(255)
+  isVisible Boolean @map("is_visible")
+
+  pollHashtags PollHashtag[]
+  reports      Report[]
+
+  @@map("hashtags")
+}
+
+model PollHashtag {
+  pollId    Int @map("poll_id")
+  hashtagId Int @map("hashtag_id")
+
+  poll    Poll    @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([pollId, hashtagId])
+  @@index([hashtagId])
+  @@map("poll_hashtags")
+}
+
+model PollTemplate {
+  userId Int @map("user_id")
+  pollId Int @map("poll_id")
+
+  user User @relation(fields: [userId], references: [id])
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@id([userId, pollId])
+  @@index([pollId])
+  @@map("poll_templates")
+}
+
+model Room {
+  id          Int        @id @default(autoincrement())
+  name        String     @db.VarChar(255)
+  description String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  publishedAt DateTime?  @map("published_at")
+  bannerUrl   String     @map("banner_url") @db.VarChar(255)
+  visibility  Visibility
+  status      RoomStatus
+
+  createdById Int @map("created_by")
+
+  createdBy   User         @relation("RoomCreator", fields: [createdById], references: [id])
+  polls       Poll[]
+  messages    Message[]
+  invitations Invitation[]
+  roomMembers RoomMember[]
+  reports     Report[]
+
+  @@index([createdById])
+  @@map("rooms")
+}
+
+model Message {
+  id        Int       @id @default(autoincrement())
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  authorId Int @map("author_id")
+  roomId   Int @map("room_id")
+
+  author  User     @relation(fields: [authorId], references: [id])
+  room    Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reports Report[]
+
+  @@index([authorId])
+  @@index([roomId])
+  @@map("messages")
+}
+
+model Invitation {
+  id        Int              @id @default(autoincrement())
+  status    InvitationStatus
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  label     String?          @db.VarChar(255)
+
+  roomId    Int @map("room_id")
+  inviterId Int @map("inviter_id")
+  inviteeId Int @map("invitee_id")
+
+  room    Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  inviter User @relation("Inviter", fields: [inviterId], references: [id])
+  invitee User @relation("Invitee", fields: [inviteeId], references: [id])
+
+  @@index([roomId])
+  @@index([inviterId])
+  @@index([inviteeId])
+  @@map("invitations")
+}
+
+model RoomMember {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  joinedAt  DateTime @map("joined_at")
+
+  roomId Int @map("room_id")
+  userId Int @map("user_id")
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([userId])
+  @@map("room_members")
+}
