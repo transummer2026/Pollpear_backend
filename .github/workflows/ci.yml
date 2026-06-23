@@ -17,7 +17,8 @@ jobs:
       pull-requests: read
     uses: transummer2026/.github/.github/workflows/ci-service.yml@main
     with:
-      service_name: api
+      service_name: backend
+      install_cmd: npm ci
       lint_cmd: npx eslint .
       test_cmd: npm test -- --watchAll=false
       build_cmd: npm run build
