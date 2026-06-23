@@ -10,6 +10,7 @@ export class CatsModule {}
 
 
 // import { Module } from '@nestjs/common';
+import { CatsService } from './cats.service';
 
 // @Module({})
 // export class CatsModule {}
