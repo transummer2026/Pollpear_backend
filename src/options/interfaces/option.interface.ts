@@ -1,1 +1,1 @@
-export interface option {}
+export interface Option {}

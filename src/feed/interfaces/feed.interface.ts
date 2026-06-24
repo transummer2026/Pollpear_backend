@@ -1,1 +1,1 @@
-export interface feed {}
+export interface Feed {}

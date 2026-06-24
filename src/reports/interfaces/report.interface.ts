@@ -1,1 +1,1 @@
-export interface report {}
+export interface Report {}

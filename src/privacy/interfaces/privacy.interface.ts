@@ -1,1 +1,1 @@
-export interface privacy {}
+export interface Privacy {}

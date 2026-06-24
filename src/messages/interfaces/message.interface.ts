@@ -1,1 +1,1 @@
-export interface message {}
+export interface Message {}

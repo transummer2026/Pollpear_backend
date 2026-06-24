@@ -1,1 +1,1 @@
-export interface legal {}
+export interface Legal {}

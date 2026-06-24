@@ -1,1 +1,1 @@
-export interface secret {}
+export interface Secret {}

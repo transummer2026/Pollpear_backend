@@ -1,1 +1,1 @@
-export interface metric {}
+export interface Metric {}

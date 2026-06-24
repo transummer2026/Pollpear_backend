@@ -1,1 +1,1 @@
-export interface hashtag {}
+export interface Hashtag {}

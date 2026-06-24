@@ -1,1 +1,1 @@
-export interface poll {}
+export interface Poll {}

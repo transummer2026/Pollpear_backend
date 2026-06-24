@@ -1,1 +1,1 @@
-export interface me {}
+export interface Me {}
