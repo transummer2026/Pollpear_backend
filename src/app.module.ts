@@ -13,6 +13,27 @@ import { MeController } from './me/me.controller';
 import { UsersController } from './users/users.controller';
 import { PollsController } from './polls/polls.controller';
 import { RoomsController } from './rooms/rooms.controller';
+import { AuthModule } from './auth/auth.module';
+import { FeedModule } from './feed/feed.module';
+import { MeModule } from './me/me.module';
+import { PollsModule } from './polls/polls.module';
+import { ReportsModule } from './reports/reports.module';
+import { BansModule } from './bans/bans.module';
+import { HashtagsModule } from './hashtags/hashtags.module';
+import { MessagesModule } from './messages/messages.module';
+import { RoomsModule } from './rooms/rooms.module';
+import { AdminModule } from './admin/admin.module';
+import { CatsModule } from './cats/cats.module';
+import { LegalModule } from './legal/legal.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { SecretsModule } from './secrets/secrets.module';
+import { AiModule } from './ai/ai.module';
+import { ContactModule } from './contact/contact.module';
+import { OptionsModule } from './options/options.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { UsersModule } from './users/users.module';
+import { DogsModule } from './dogs/dogs.module';
+import { Cat } from './cat/cat';
 import { UsersService } from './users/users.service';
 import { SecretsService } from './secrets/secrets.service';
 import { RoomsService } from './rooms/rooms.service';
@@ -48,8 +69,27 @@ import { MessagesController } from './messages/messages.controller';
       envFilePath: '../../.env',
     }),
     CatsModule,
+    DogsModule,
+    UsersModule,
+    PrivacyModule,
+    OptionsModule,
+    ContactModule,
+    AiModule,
+    SecretsModule,
+    MetricsModule,
+    LegalModule,
+    AdminModule,
+    RoomsModule,
+    MessagesModule,
+    HashtagsModule,
+    BansModule,
+    ReportsModule,
+    PollsModule,
+    MeModule,
+    FeedModule,
+    AuthModule,
   ],
   controllers: [AppController, AuthController, LegalController, PrivacyController, ContactController, FeedController, MeController, UsersController, PollsController, RoomsController, MessagesController, HashtagsController, ReportsController, OptionsController, BansController, AdminController, MetricsController, AiController, SecretsController],
-  providers: [AppService, PrismaService, AdminService, AiService, AuthService, BansService, ContactService, FeedService, HashtagsService, LegalService, MeService, MessagesService, MetricsService, OptionsService, PollsService, PrivacyService, ReportsService, RoomsService, SecretsService, UsersService],
+  providers: [AppService, PrismaService, AdminService, AiService, AuthService, BansService, ContactService, FeedService, HashtagsService, LegalService, MeService, MessagesService, MetricsService, OptionsService, PollsService, PrivacyService, ReportsService, RoomsService, SecretsService, UsersService, Cat],
 })
 export class AppModule {}

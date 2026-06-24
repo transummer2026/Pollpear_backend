@@ -1,18 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSecretDto } from './dto/create-secret.dto';
+import { UpdateSecretDto } from './dto/update-secret.dto';
 
 @Injectable()
 export class SecretsService {
-  constructor(private readonly prisma: PrismaService) {}
+  create(createSecretDto: CreateSecretDto) {
+    return 'This action adds a new secret';
+  }
 
-  create(createSecretDto: CreateSecretDto) {}
+  findAll() {
+    return `This action returns all secrets`;
+  }
 
-  findAll() {}
+  findOne(id: number) {
+    return `This action returns a #${id} secret`;
+  }
 
-  findOne(id: string) {}
+  update(id: number, updateSecretDto: UpdateSecretDto) {
+    return `This action updates a #${id} secret`;
+  }
 
-  update(id: string, updateSecretDto: Partial<CreateSecretDto>) {}
-
-  remove(id: string) {}
+  remove(id: number) {
+    return `This action removes a #${id} secret`;
+  }
 }

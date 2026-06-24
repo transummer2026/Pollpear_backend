@@ -1,19 +1,34 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
-import { CreateMessageDto } from './dto/create-message.dto';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { MessagesService } from './messages.service';
-import { Message } from './interfaces/message.interface';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 
 @Controller('messages')
 export class MessagesController {
-  constructor(private messagesService: MessagesService) {}
+  constructor(private readonly messagesService: MessagesService) {}
 
   @Post()
-  async create(@Body() createMessageDto: CreateMessageDto) {
-    this.messagesService.create(createMessageDto);
+  create(@Body() createMessageDto: CreateMessageDto) {
+    return this.messagesService.create(createMessageDto);
   }
 
   @Get()
-  async findAll(): Promise<Message[]> {
+  findAll() {
     return this.messagesService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.messagesService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateMessageDto: UpdateMessageDto) {
+    return this.messagesService.update(+id, updateMessageDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.messagesService.remove(+id);
   }
 }

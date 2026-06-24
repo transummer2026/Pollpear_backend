@@ -1,18 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { CreateHashtagDto } from './dto/create-hashtag.dto';
+import { UpdateHashtagDto } from './dto/update-hashtag.dto';
 
 @Injectable()
 export class HashtagsService {
-  constructor(private readonly prisma: PrismaService) {}
+  create(createHashtagDto: CreateHashtagDto) {
+    return 'This action adds a new hashtag';
+  }
 
-  create(createHashtagDto: CreateHashtagDto) {}
+  findAll() {
+    return `This action returns all hashtags`;
+  }
 
-  findAll() {}
+  findOne(id: number) {
+    return `This action returns a #${id} hashtag`;
+  }
 
-  findOne(id: string) {}
+  update(id: number, updateHashtagDto: UpdateHashtagDto) {
+    return `This action updates a #${id} hashtag`;
+  }
 
-  update(id: string, updateHashtagDto: Partial<CreateHashtagDto>) {}
-
-  remove(id: string) {}
+  remove(id: number) {
+    return `This action removes a #${id} hashtag`;
+  }
 }

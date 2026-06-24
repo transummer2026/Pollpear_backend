@@ -1,19 +1,34 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
-import { CreateSecretDto } from './dto/create-secret.dto';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { SecretsService } from './secrets.service';
-import { Secret } from './interfaces/secret.interface';
+import { CreateSecretDto } from './dto/create-secret.dto';
+import { UpdateSecretDto } from './dto/update-secret.dto';
 
 @Controller('secrets')
 export class SecretsController {
-  constructor(private secretsService: SecretsService) {}
+  constructor(private readonly secretsService: SecretsService) {}
 
   @Post()
-  async create(@Body() createSecretDto: CreateSecretDto) {
-    this.secretsService.create(createSecretDto);
+  create(@Body() createSecretDto: CreateSecretDto) {
+    return this.secretsService.create(createSecretDto);
   }
 
   @Get()
-  async findAll(): Promise<Secret[]> {
+  findAll() {
     return this.secretsService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.secretsService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateSecretDto: UpdateSecretDto) {
+    return this.secretsService.update(+id, updateSecretDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.secretsService.remove(+id);
   }
 }

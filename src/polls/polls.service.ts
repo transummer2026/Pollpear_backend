@@ -1,18 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePollDto } from './dto/create-poll.dto';
+import { UpdatePollDto } from './dto/update-poll.dto';
 
 @Injectable()
 export class PollsService {
-  constructor(private readonly prisma: PrismaService) {}
+  create(createPollDto: CreatePollDto) {
+    return 'This action adds a new poll';
+  }
 
-  create(createPollDto: CreatePollDto) {}
+  findAll() {
+    return `This action returns all polls`;
+  }
 
-  findAll() {}
+  findOne(id: number) {
+    return `This action returns a #${id} poll`;
+  }
 
-  findOne(id: string) {}
+  update(id: number, updatePollDto: UpdatePollDto) {
+    return `This action updates a #${id} poll`;
+  }
 
-  update(id: string, updatePollDto: Partial<CreatePollDto>) {}
-
-  remove(id: string) {}
+  remove(id: number) {
+    return `This action removes a #${id} poll`;
+  }
 }

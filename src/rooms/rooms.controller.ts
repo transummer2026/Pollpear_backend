@@ -1,19 +1,34 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
-import { CreateRoomDto } from './dto/create-room.dto';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
-import { Room } from './interfaces/room.interface';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { UpdateRoomDto } from './dto/update-room.dto';
 
 @Controller('rooms')
 export class RoomsController {
-  constructor(private roomsService: RoomsService) {}
+  constructor(private readonly roomsService: RoomsService) {}
 
   @Post()
-  async create(@Body() createRoomDto: CreateRoomDto) {
-    this.roomsService.create(createRoomDto);
+  create(@Body() createRoomDto: CreateRoomDto) {
+    return this.roomsService.create(createRoomDto);
   }
 
   @Get()
-  async findAll(): Promise<Room[]> {
+  findAll() {
     return this.roomsService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.roomsService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateRoomDto: UpdateRoomDto) {
+    return this.roomsService.update(+id, updateRoomDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.roomsService.remove(+id);
   }
 }

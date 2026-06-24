@@ -1,18 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 
 @Injectable()
 export class MessagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  create(createMessageDto: CreateMessageDto) {
+    return 'This action adds a new message';
+  }
 
-  create(createMessageDto: CreateMessageDto) {}
+  findAll() {
+    return `This action returns all messages`;
+  }
 
-  findAll() {}
+  findOne(id: number) {
+    return `This action returns a #${id} message`;
+  }
 
-  findOne(id: string) {}
+  update(id: number, updateMessageDto: UpdateMessageDto) {
+    return `This action updates a #${id} message`;
+  }
 
-  update(id: string, updateMessageDto: Partial<CreateMessageDto>) {}
-
-  remove(id: string) {}
+  remove(id: number) {
+    return `This action removes a #${id} message`;
+  }
 }

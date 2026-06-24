@@ -1,19 +1,34 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
-import { CreateReportDto } from './dto/create-report.dto';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { ReportsService } from './reports.service';
-import { Report } from './interfaces/report.interface';
+import { CreateReportDto } from './dto/create-report.dto';
+import { UpdateReportDto } from './dto/update-report.dto';
 
 @Controller('reports')
 export class ReportsController {
-  constructor(private reportsService: ReportsService) {}
+  constructor(private readonly reportsService: ReportsService) {}
 
   @Post()
-  async create(@Body() createReportDto: CreateReportDto) {
-    this.reportsService.create(createReportDto);
+  create(@Body() createReportDto: CreateReportDto) {
+    return this.reportsService.create(createReportDto);
   }
 
   @Get()
-  async findAll(): Promise<Report[]> {
+  findAll() {
     return this.reportsService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.reportsService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateReportDto: UpdateReportDto) {
+    return this.reportsService.update(+id, updateReportDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.reportsService.remove(+id);
   }
 }
