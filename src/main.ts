@@ -11,6 +11,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
  * methods exclusively available for Express.
  * 
  * TODO: create the type submodule git when making the interfaces with front
+ * TODO: capitalise all interfaces 
  */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
