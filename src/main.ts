@@ -6,12 +6,9 @@ import { NestExpressApplication } from '@nestjs/platform-express';
  * NestFactory exposes static methods that allow creating an application
  * instance. The create() method returns the app object, which fulfills
  * the INestApplication interface (provides a set of methods used later).
- * 
  * The Express api is used in this case. The methods of app will have 
  * methods exclusively available for Express.
- * 
  * TODO: create the type submodule git when making the interfaces with front
- * TODO: capitalise all interfaces 
  */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
