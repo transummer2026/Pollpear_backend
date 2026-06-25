@@ -18,6 +18,10 @@ import { PollsModule } from './polls/polls.module';
 import { SecretsModule } from './secrets/secrets.module';
 import { MeModule } from './me/me.module';
 import { ContactModule } from './contact/contact.module';
+import { ApiModule } from './api/api.module';
+import { SearchModule } from './search/search.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { SecretsModule } from './secrets/secrets.module';
 
 @Module({
   imports: [
@@ -37,6 +41,9 @@ import { ContactModule } from './contact/contact.module';
     MeModule,
     AiModule,
     ContactModule,
+    ApiModule,
+    SearchModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
