@@ -5,7 +5,7 @@ import { V1Module } from './v1/v1.module';
 
 @Module({
   controllers: [ApiController],
-  providers: [ApiService],
+  providers: [ApiService], // no need to register in app.module.ts
   imports: [V1Module],
 })
 export class ApiModule {}

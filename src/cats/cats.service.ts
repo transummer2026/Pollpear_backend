@@ -1,26 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { CreateCatDto } from './dto/create-cat.dto';
-import { UpdateCatDto } from './dto/update-cat.dto';
+import { Cat } from './interfaces/cat.interface';
 
+/**
+ * the Injectable decorator attaches metadata to the class,
+ * indicating that CatService is a class that can
+ * be managed by the NestJs IoC container.
+ * This example makes the use of a cat interface to create
+ * an array of classes.
+ */
 @Injectable()
 export class CatsService {
-  create(createCatDto: CreateCatDto) {
-    return 'This action adds a new cat';
+  private readonly cats: Cat[] = []; // readonly means you can add but not assign
+
+  create(cat: Cat) {
+    this.cats.push(cat);
   }
 
-  findAll() {
-    return `This action returns all cats`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} cat`;
-  }
-
-  update(id: number, updateCatDto: UpdateCatDto) {
-    return `This action updates a #${id} cat`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} cat`;
+  findAll(): Cat[] {
+    return this.cats;
   }
 }

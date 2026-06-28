@@ -9,6 +9,8 @@ import { NestExpressApplication } from '@nestjs/platform-express';
  * The Express api is used in this case. The methods of app will have 
  * methods exclusively available for Express.
  * TODO: create the type submodule git when making the interfaces with front
+ * TODO: ?filter[where][name]=John&filter[where][age]=30
+ * ?item[]=1&item[]=2
  */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
