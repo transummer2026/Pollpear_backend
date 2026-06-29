@@ -113,10 +113,11 @@ model User {
   company      String?     @db.VarChar(255)
   bio          String?     @db.VarChar(255)
   score        Int         @default(0)
-  isBanned     Boolean     @default(false) @map("is_banned")
+  isOnline     Boolean     @default(false) @map("is_online")
   isDeleted    Boolean     @default(false) @map("is_deleted")
   visibility   Visibility?
   deletedAt    DateTime?   @map("deleted_at")
+  lastSeenAt   DateTime?   @map("last_seen_at")
   // FIXME: Provisoire avatarUrl et bannerUrl
   avatarUrl    String      @default("assets/avatars/default.png") @map("avatar_url") @db.VarChar(255)
   bannerUrl    String      @default("assets/banners/default.png") @map("banner_url") @db.VarChar(255)
