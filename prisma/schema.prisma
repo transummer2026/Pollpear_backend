@@ -324,12 +324,12 @@ model Option {
   sliderLeftLabel  String? @map("slider_left_label") @db.VarChar(255)
   sliderRightLabel String? @map("slider_right_label") @db.VarChar(255)
   order            Int
+  isDeleted        Boolean @default(false) @map("is_deleted")
 
   pollId Int  @map("poll_id")
   poll   Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   voteOptions      VoteOption[]
-  votes            Vote[]
   pollDependencies PollDependency[]
   reports          Report[]
 
@@ -361,8 +361,6 @@ model Vote {
 
   createdBy   User         @relation(fields: [createdById], references: [id])
   voteOptions VoteOption[]
-  option      Option?      @relation(fields: [optionId], references: [id])
-  optionId    Int?
 
   @@index([createdById])
   @@map("votes")
@@ -507,4 +505,7 @@ model ApiKey {
   ownerId Int @map("owner_id")
 
   user User @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@map("api_keys")
 }
