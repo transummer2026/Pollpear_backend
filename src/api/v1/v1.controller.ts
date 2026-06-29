@@ -12,6 +12,10 @@ export class V1Controller {
     return this.v1Service.create(createV1Dto);
   }
 
+  @Post('register')
+  register() {
+    return this.v1Service.register();
+
   @Get()
   findAll() {
     return this.v1Service.findAll();

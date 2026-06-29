@@ -23,4 +23,8 @@ export class V1Service {
   remove(id: number) {
     return `This action removes a #${id} v1`;
   }
+
+  register() {
+    return 'register works';
+  }
 }
