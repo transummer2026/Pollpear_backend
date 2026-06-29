@@ -113,10 +113,11 @@ model User {
   company      String?     @db.VarChar(255)
   bio          String?     @db.VarChar(255)
   score        Int         @default(0)
-  isBanned     Boolean     @default(false) @map("is_banned")
+  isOnline     Boolean     @default(false) @map("is_online")
   isDeleted    Boolean     @default(false) @map("is_deleted")
   visibility   Visibility?
   deletedAt    DateTime?   @map("deleted_at")
+  lastSeenAt   DateTime?   @map("last_seen_at")
   // FIXME: Provisoire avatarUrl et bannerUrl
   avatarUrl    String      @default("assets/avatars/default.png") @map("avatar_url") @db.VarChar(255)
   bannerUrl    String      @default("assets/banners/default.png") @map("banner_url") @db.VarChar(255)
@@ -143,6 +144,7 @@ model User {
   blocksReceived       Block[]        @relation("Blocked")
   reportsGiven         Report[]       @relation("Reporter")
   reportsReceived      Report[]       @relation("Reported")
+  apiKeys              ApiKey[]
 
   @@map("users")
 }
@@ -322,12 +324,12 @@ model Option {
   sliderLeftLabel  String? @map("slider_left_label") @db.VarChar(255)
   sliderRightLabel String? @map("slider_right_label") @db.VarChar(255)
   order            Int
+  isDeleted        Boolean @default(false) @map("is_deleted")
 
   pollId Int  @map("poll_id")
   poll   Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   voteOptions      VoteOption[]
-  votes            Vote[]
   pollDependencies PollDependency[]
   reports          Report[]
 
@@ -356,14 +358,11 @@ model Vote {
   label     String?  @db.VarChar(255)
 
   createdById Int @map("created_by")
-  optionId    Int @map("option_id")
 
   createdBy   User         @relation(fields: [createdById], references: [id])
-  option      Option       @relation(fields: [optionId], references: [id], onDelete: Cascade)
   voteOptions VoteOption[]
 
   @@index([createdById])
-  @@index([optionId])
   @@map("votes")
 }
 
@@ -493,4 +492,20 @@ model RoomMember {
   @@unique([roomId, userId])
   @@index([userId])
   @@map("room_members")
+}
+
+model ApiKey {
+  id        Int      @id @default(autoincrement())
+  keyHash   String   @db.VarChar(255)
+  appName   String   @db.VarChar(255)
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ownerId Int @map("owner_id")
+
+  user User @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@map("api_keys")
 }

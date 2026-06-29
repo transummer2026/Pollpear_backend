@@ -55,10 +55,11 @@ CREATE TABLE "users" (
     "company" VARCHAR(255),
     "bio" VARCHAR(255),
     "score" INTEGER NOT NULL DEFAULT 0,
-    "is_banned" BOOLEAN NOT NULL DEFAULT false,
+    "is_online" BOOLEAN NOT NULL DEFAULT false,
     "is_deleted" BOOLEAN NOT NULL DEFAULT false,
     "visibility" "Visibility",
     "deleted_at" TIMESTAMP(3),
+    "last_seen_at" TIMESTAMP(3),
     "avatar_url" VARCHAR(255) NOT NULL DEFAULT 'assets/avatars/default.png',
     "banner_url" VARCHAR(255) NOT NULL DEFAULT 'assets/banners/default.png',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -193,6 +194,7 @@ CREATE TABLE "options" (
     "slider_left_label" VARCHAR(255),
     "slider_right_label" VARCHAR(255),
     "order" INTEGER NOT NULL,
+    "is_deleted" BOOLEAN NOT NULL DEFAULT false,
     "poll_id" INTEGER NOT NULL,
 
     CONSTRAINT "options_pkey" PRIMARY KEY ("id")
@@ -214,7 +216,6 @@ CREATE TABLE "votes" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "label" VARCHAR(255),
     "created_by" INTEGER NOT NULL,
-    "option_id" INTEGER NOT NULL,
 
     CONSTRAINT "votes_pkey" PRIMARY KEY ("id")
 );
@@ -307,6 +308,19 @@ CREATE TABLE "room_members" (
     CONSTRAINT "room_members_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "api_keys" (
+    "id" SERIAL NOT NULL,
+    "keyHash" VARCHAR(255) NOT NULL,
+    "appName" VARCHAR(255) NOT NULL,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "owner_id" INTEGER NOT NULL,
+
+    CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 
@@ -386,9 +400,6 @@ CREATE INDEX "poll_dependencies_option_id_idx" ON "poll_dependencies"("option_id
 CREATE INDEX "votes_created_by_idx" ON "votes"("created_by");
 
 -- CreateIndex
-CREATE INDEX "votes_option_id_idx" ON "votes"("option_id");
-
--- CreateIndex
 CREATE INDEX "vote_options_option_id_idx" ON "vote_options"("option_id");
 
 -- CreateIndex
@@ -423,6 +434,9 @@ CREATE INDEX "room_members_user_id_idx" ON "room_members"("user_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "room_members_room_id_user_id_key" ON "room_members"("room_id", "user_id");
+
+-- CreateIndex
+CREATE INDEX "api_keys_owner_id_idx" ON "api_keys"("owner_id");
 
 -- AddForeignKey
 ALTER TABLE "oauths" ADD CONSTRAINT "oauths_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -494,9 +508,6 @@ ALTER TABLE "poll_dependencies" ADD CONSTRAINT "poll_dependencies_option_id_fkey
 ALTER TABLE "votes" ADD CONSTRAINT "votes_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "votes" ADD CONSTRAINT "votes_option_id_fkey" FOREIGN KEY ("option_id") REFERENCES "options"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "vote_options" ADD CONSTRAINT "vote_options_vote_id_fkey" FOREIGN KEY ("vote_id") REFERENCES "votes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -537,3 +548,6 @@ ALTER TABLE "room_members" ADD CONSTRAINT "room_members_room_id_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "room_members" ADD CONSTRAINT "room_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
