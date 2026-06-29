@@ -144,6 +144,7 @@ model User {
   blocksReceived       Block[]        @relation("Blocked")
   reportsGiven         Report[]       @relation("Reporter")
   reportsReceived      Report[]       @relation("Reported")
+  apiKeys              ApiKey[]
 
   @@map("users")
 }
@@ -357,14 +358,13 @@ model Vote {
   label     String?  @db.VarChar(255)
 
   createdById Int @map("created_by")
-  optionId    Int @map("option_id")
 
   createdBy   User         @relation(fields: [createdById], references: [id])
-  option      Option       @relation(fields: [optionId], references: [id], onDelete: Cascade)
   voteOptions VoteOption[]
+  option      Option?      @relation(fields: [optionId], references: [id])
+  optionId    Int?
 
   @@index([createdById])
-  @@index([optionId])
   @@map("votes")
 }
 
@@ -494,4 +494,17 @@ model RoomMember {
   @@unique([roomId, userId])
   @@index([userId])
   @@map("room_members")
+}
+
+model ApiKey {
+  id        Int      @id @default(autoincrement())
+  keyHash   String   @db.VarChar(255)
+  appName   String   @db.VarChar(255)
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ownerId Int @map("owner_id")
+
+  user User @relation(fields: [ownerId], references: [id])
 }
