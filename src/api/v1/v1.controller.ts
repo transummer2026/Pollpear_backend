@@ -15,6 +15,7 @@ export class V1Controller {
   @Post('register')
   register() {
     return this.v1Service.register();
+  }
 
   @Get()
   findAll() {
