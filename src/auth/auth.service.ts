@@ -23,6 +23,11 @@ export class AuthService {
   }
 
   oauth(provider: string) {
-    return `Oath with ${provider}`;
+    // redirection to the provider happens here
+    return `Oauth with ${provider}`;
+  }
+
+  callback() {
+    return 'callback route works';
   }
 }
