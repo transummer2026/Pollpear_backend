@@ -1,15 +1,49 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
 import { PollsService } from './polls.service';
-import { CreatePollDto } from './dto/create-poll.dto';
-import { UpdatePollDto } from './dto/update-poll.dto';
 
 @Controller('polls')
 export class PollsController {
   constructor(private readonly pollsService: PollsService) {}
 
-  @Post()
-  create(@Body() createPollDto: CreatePollDto) {
-    return this.pollsService.create(createPollDto);
+  @Post('new')
+  @HttpCode(503)
+  create() {
+    return this.pollsService.create();
+  }
+
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.update(+id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.remove(+id);
+  }
+
+  @Post(':id/report')
+  @HttpCode(503)
+  reportPoll(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.reportPoll(+id);
+  }
+
+  @Post(':id/options/:optionId/report')
+  @HttpCode(503)
+  reportPollOption(
+    @Param('id', ParseIntPipe) id: string,
+    @Param('optionId', ParseIntPipe) optionId: string,
+  ) {
+    return this.pollsService.reportPollOption(+id, +optionId);
+  }
+
+  // moderator Guard green
+  @Delete(':id/options/:optionId/report')
+  @HttpCode(503)
+  removePollOption(
+    @Param('id', ParseIntPipe) id: string,
+    @Param('optionId', ParseIntPipe) optionId: string,
+  ) {
+    return this.pollsService.removePollOption(+id, +optionId);
   }
 
   @Get()
@@ -22,13 +56,5 @@ export class PollsController {
     return this.pollsService.findOne(+id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePollDto: UpdatePollDto) {
-    return this.pollsService.update(+id, updatePollDto);
-  }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.pollsService.remove(+id);
-  }
 }

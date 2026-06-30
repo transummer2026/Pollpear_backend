@@ -1,11 +1,31 @@
-import { Injectable } from '@nestjs/common';
-import { CreatePollDto } from './dto/create-poll.dto';
-import { UpdatePollDto } from './dto/update-poll.dto';
+import { HttpCode, Injectable, Post } from '@nestjs/common';
 
 @Injectable()
 export class PollsService {
-  create(createPollDto: CreatePollDto) {
-    return 'This action adds a new poll';
+  @Post()
+  @HttpCode(503)
+  create() {
+    return 'add new poll route works';
+  }
+
+  update(id: number) {
+    return `update poll #${id} works`;
+  }
+
+  remove(id: number) {
+    return `remove poll #${id} works`;
+  }
+
+  reportPoll(id: number) {
+    return `Report Poll #${id} works`;
+  }
+
+  reportPollOption(id: number, optionId: number) {
+    return `Report option #${optionId} for Poll #${id} works`;
+  }
+
+  removePollOption(id: number, optionId: number) {
+    return `Remove option #${optionId} for Poll #${id} works`;
   }
 
   findAll() {
@@ -13,14 +33,8 @@ export class PollsService {
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} poll`;
+    return `remove poll #${id} works`;
   }
 
-  update(id: number, updatePollDto: UpdatePollDto) {
-    return `This action updates a #${id} poll`;
-  }
 
-  remove(id: number) {
-    return `This action removes a #${id} poll`;
-  }
 }
