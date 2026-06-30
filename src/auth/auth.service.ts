@@ -3,28 +3,28 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class AuthService {
   login() {
-    return 'login works';
+    return 'login route works';
   }
 
   logout() {
-    return 'logout works';
+    return 'logout route works';
   }
 
   register() {
-    return 'register works';
+    return 'register route works';
   }
 
   passwordForgot() {
-    return 'password forgot works';
+    return 'password forgot route works';
   }
 
   passwordReset() {
-    return 'password reset works';
+    return 'password reset route works';
   }
 
   oauth(provider: string) {
     // redirection to the provider happens here
-    return `Oauth with ${provider}`;
+    return `Oauth with ${provider} works`;
   }
 
   callback() {
