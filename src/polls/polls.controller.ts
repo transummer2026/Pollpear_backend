@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Patch, Param, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
 import { PollsService } from './polls.service';
 
 @Controller('polls')
@@ -46,15 +46,30 @@ export class PollsController {
     return this.pollsService.removePollOption(+id, +optionId);
   }
 
-  @Get()
-  findAll() {
-    return this.pollsService.findAll();
+  //routes will dissapear because later we will use wbesockets
+  @Post(':id/votes')
+  @HttpCode(503)
+  createVote(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.createVote(+id);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.pollsService.findOne(+id);
+  //TODO: check this with the voteId as route is not in the sequence diagram
+  // @Patch(':id/votes/:voteId')
+  // @HttpCode(503)
+  // updateVote(@Param('id', ParseIntPipe) id: string) {
+  //   return this.pollsService.updateVote(+id);
+  // }
+
+  //admin guard red
+  @Delete(':id/vote')
+  @HttpCode(503)
+  deletePollVote(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.deletePollVote(+id);
   }
 
-
+  @Post(':id/vote/report')
+  @HttpCode(503)
+  reportPollVote(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.reportPollVote(+id);
+  }
 }

@@ -1,9 +1,7 @@
-import { HttpCode, Injectable, Post } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class PollsService {
-  @Post()
-  @HttpCode(503)
   create() {
     return 'add new poll route works';
   }
@@ -17,24 +15,26 @@ export class PollsService {
   }
 
   reportPoll(id: number) {
-    return `Report Poll #${id} works`;
+    return `report Poll #${id} works`;
   }
 
   reportPollOption(id: number, optionId: number) {
-    return `Report option #${optionId} for Poll #${id} works`;
+    return `report option #${optionId} for Poll #${id} works`;
   }
 
   removePollOption(id: number, optionId: number) {
-    return `Remove option #${optionId} for Poll #${id} works`;
+    return `remove option #${optionId} for Poll #${id} works`;
   }
 
-  findAll() {
-    return `This action returns all polls`;
+  createVote(id: number) {
+    return `create vote in Poll #${id} works`;
   }
 
-  findOne(id: number) {
-    return `remove poll #${id} works`;
+  deletePollVote(id: number) {
+    return `remove vote in Poll #${id} works`;
   }
 
-
+  reportPollVote(id: number) {
+    return `report vote in Poll #${id} works`;
+  }
 }
