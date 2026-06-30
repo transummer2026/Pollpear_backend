@@ -1,34 +1,52 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Param, Delete, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
-import { CreateRoomDto } from './dto/create-room.dto';
-import { UpdateRoomDto } from './dto/update-room.dto';
 
 @Controller('rooms')
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
-  @Post()
-  create(@Body() createRoomDto: CreateRoomDto) {
-    return this.roomsService.create(createRoomDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.roomsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.roomsService.findOne(+id);
+  @Post('new')
+  create() {
+    return this.roomsService.create();
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateRoomDto: UpdateRoomDto) {
-    return this.roomsService.update(+id, updateRoomDto);
+  update(@Param('id', ParseIntPipe) id: string) {
+    return this.roomsService.update(+id);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.roomsService.remove(+id);
+  }
+
+  @Post(':id/participants/:userId')
+  @HttpCode(503)
+  addUserToRoom(
+    @Param('id', ParseIntPipe) id: string,
+    @Param('userId', ParseIntPipe) userId: string,
+  ) {
+    return this.roomsService.addUserToRoom(+id, +userId);
+  }
+
+  @Delete(':id/participants/:userId')
+  @HttpCode(503)
+  removeUserFromRoom(
+    @Param('id', ParseIntPipe) id: string,
+    @Param('userId', ParseIntPipe) userId: string,
+  ) {
+    return this.roomsService.removeUserFromRoom(+id, +userId);
+  }
+
+  @Get(':id/messages')
+  @HttpCode(503)
+  getMessagesFromRoom(@Param('id', ParseIntPipe) id: string) {
+    return this.roomsService.getMessagesFromRoom(+id);
+  }
+
+  @Post(':id/messages')
+  @HttpCode(503)
+  createMessage(@Param('id', ParseIntPipe) id: string) {
+    return this.roomsService.createMessage(+id);
   }
 }
