@@ -7,7 +7,23 @@ export class MeService {
     return `This action updates a #${id} user`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} room`;
+  editProfile() {
+    return 'my editProfile route works';
+  }
+
+  uploadAvatar() {
+    return 'upload avatar route works';
+  }
+
+  settings() {
+    return 'settings route works';
+  }
+
+  changePassword() {
+    return 'change password route works';
+  }
+
+  remove() {
+    return `This action removes a profile`;
   }
 }
