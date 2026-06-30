@@ -7,7 +7,7 @@ import { LoggerMiddleware } from 'src/common/middleware/logger.middleware';
   controllers: [FeedController],
   providers: [FeedService],
 })
-export class MeModule implements NestModule {
+export class FeedModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes('feed');
   }
