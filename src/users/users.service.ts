@@ -3,38 +3,38 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class UsersService {
   report(id: number) {
-    return `report user #${id} worked`;
+    return `report user #${id} works`;
   }
 
   block(id: number) {
-    return `block user #${id} worked`;
+    return `block user #${id} works`;
   }
 
   sendFriendRequest(id: number) {
-    return `send friendship request to user #${id} worked`;
+    return `send friendship request to user #${id} works`;
   }
 
   updateFriendRequestStatus(id: number) {
-    return `update friendship with user #${id} worked`;
+    return `update friendship with user #${id} works`;
   }
 
   deleteFriendship(id: number) {
-    return `delete friendship with user #${id} worked`;
+    return `delete friendship with user #${id} works`;
   }
 
   banUser(id: number) {
-    return `ban user #${id} worked`;
+    return `ban user #${id} works`;
   }
 
   updateBan(id: number) {
-    return `updated ban for user #${id} worked`;
+    return `updated ban for user #${id} works`;
   }
 
   update(id: number) {
-    return `update user #${id} worked`;
+    return `update user #${id} works`;
   }
 
   remove(id: number) {
-    return `remove user #${id} worked`;
+    return `remove user #${id} works`;
   }
 }
