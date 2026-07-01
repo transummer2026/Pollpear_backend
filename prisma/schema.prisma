@@ -9,6 +9,12 @@ generator client {
   moduleFormat = "cjs"
 }
 
+generator zod {
+  provider = "prisma-zod-generator"
+  output   = "../Pollpear_shared/src/prisma"
+  config   = "./zod-generator.config.json"
+}
+
 datasource db {
   provider = "postgresql"
 }
