@@ -1,30 +1,41 @@
+// src/api/v1/v1.service.ts
 import { Injectable } from '@nestjs/common';
-import { CreateV1Dto } from './dto/create-v1.dto';
-import { UpdateV1Dto } from './dto/update-v1.dto';
 
 @Injectable()
 export class V1Service {
-  create(createV1Dto: CreateV1Dto) {
-    return 'This action adds a new v1';
+  findAllUsers() {
+    return 'Get all users - not implemented';
   }
 
-  findAll() {
-    return `This action returns all v1`;
+  findOneUser(id: number) {
+    return `Get user ${id} - not implemented`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} v1`;
+  findAllPolls() {
+    return 'Get all polls - not implemented';
   }
 
-  update(id: number, updateV1Dto: UpdateV1Dto) {
-    return `This action updates a #${id} v1`;
+  findOnePoll(id: number) {
+    return `Get poll ${id} - not implemented`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} v1`;
+  findPollResults(id: number) {
+    return `Get poll ${id} results - not implemented`;
   }
 
-  register() {
-    return 'register works';
+  findAllRooms() {
+    return 'Get all rooms - not implemented';
+  }
+
+  findOneRoom(id: number) {
+    return `Get room ${id} - not implemented`;
+  }
+
+  findAllHashtags() {
+    return 'Get all hashtags - not implemented';
+  }
+
+  findOneHashtag(id: number) {
+    return `Get hashtag ${id} - not implemented`;
   }
 }
