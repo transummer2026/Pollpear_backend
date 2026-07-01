@@ -30,6 +30,10 @@ export class PollsService {
     return `create vote in Poll #${id} works`;
   }
 
+  updateVote(id: number){
+    return `update vote in Poll ${id}`;
+  }
+
   removeVote(id: number) {
     return `remove vote in Poll #${id} works`;
   }

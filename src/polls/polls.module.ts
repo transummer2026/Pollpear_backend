@@ -11,3 +11,4 @@ export class PollsModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes(PollsController);
   }
+}

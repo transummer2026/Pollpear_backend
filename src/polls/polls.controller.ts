@@ -12,12 +12,14 @@ export class PollsController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: string) {
+  @HttpCode(503)
+  update(@Param('id') id: string) {
     return this.pollsService.update(+id);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: string) {
+  @HttpCode(503)
+  remove(@Param('id') id: string) {
     return this.pollsService.remove(+id);
   }
 
@@ -37,7 +39,7 @@ export class PollsController {
   }
 
   // moderator Guard green
-  @Delete(':id/options/:optionId/report')
+  @Delete(':id/options/:optionId')
   @HttpCode(503)
   removeOption(
     @Param('id', ParseIntPipe) id: string,
@@ -47,20 +49,18 @@ export class PollsController {
   }
 
   //routes will dissapear because later we will use wbesockets
-  @Post(':id/votes')
+  @Post(':id/vote')
   @HttpCode(503)
   createVote(@Param('id', ParseIntPipe) id: string) {
     return this.pollsService.createVote(+id);
   }
 
-  //TODO: check this with the voteId as route is not in the sequence diagram
-  // @Patch(':id/votes/:voteId')
-  // @HttpCode(503)
-  // updateVote(@Param('id', ParseIntPipe) id: string) {
-  //   return this.pollsService.updateVote(+id);
-  // }
+  @Patch(':id/vote')
+  @HttpCode(503)
+  updateVote(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.updateVote(+id);
+  }
 
-  //admin guard red
   @Delete(':id/vote')
   @HttpCode(503)
   removeVote(@Param('id', ParseIntPipe) id: string) {
@@ -70,6 +70,6 @@ export class PollsController {
   @Post(':id/vote/report')
   @HttpCode(503)
   reportVote(@Param('id', ParseIntPipe) id: string) {
-    return this.pollsService.reportPollVote(+id);
+    return this.pollsService.reportVote(+id);
   }
 }
