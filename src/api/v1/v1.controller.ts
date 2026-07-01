@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { ApiV1Service } from './v1.service';
 
 @Controller('api/v1')

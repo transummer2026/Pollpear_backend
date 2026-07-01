@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { CreateKeyDto } from './dto/create-key.dto';
-import { UpdateKeyDto } from './dto/update-key.dto';
 
 @Injectable()
 export class ApiKeysService {
-  create(createKeyDto: CreateKeyDto) {
+  create() {
     return 'This action adds a new key';
   }
 
@@ -16,7 +14,7 @@ export class ApiKeysService {
     return `This action returns a #${id} key`;
   }
 
-  update(id: number, updateKeyDto: UpdateKeyDto) {
+  update(id: number) {
     return `This action updates a #${id} key`;
   }
 

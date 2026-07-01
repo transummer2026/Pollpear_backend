@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { CreateFeedDto } from './dto/create-feed.dto';
-import { UpdateFeedDto } from './dto/update-feed.dto';
 
 @Injectable()
 export class FeedService {
-  create(createFeedDto: CreateFeedDto) {
+  create() {
     return 'This action adds a new feed';
   }
 
@@ -16,7 +14,7 @@ export class FeedService {
     return `This action returns a #${id} feed`;
   }
 
-  update(id: number, updateFeedDto: UpdateFeedDto) {
+  update(id: number) {
     return `This action updates a #${id} feed`;
   }
 
