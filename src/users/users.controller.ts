@@ -58,6 +58,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @HttpCode(503)
   remove(@Param('id', ParseIntPipe) id: string) {
     return this.usersService.remove(+id);
   }
