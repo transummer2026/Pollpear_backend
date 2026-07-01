@@ -1,17 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PollsController } from './polls.controller';
-import { PollsService } from './polls.service';
+import { ApiPollsController } from './polls.controller';
+import { ApiPollsService } from './polls.service';
 
-describe('PollsController', () => {
-  let controller: PollsController;
+describe('ApiPollsController', () => {
+  let controller: ApiPollsController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [PollsController],
-      providers: [PollsService],
+      controllers: [ApiPollsController],
+      providers: [ApiPollsService],
     }).compile();
 
-    controller = module.get<PollsController>(PollsController);
+    controller = module.get<ApiPollsController>(ApiPollsController);
   });
 
   it('should be defined', () => {

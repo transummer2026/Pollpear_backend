@@ -1,17 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { KeysController } from './keys.controller';
-import { KeysService } from './keys.service';
+import { ApiKeysController } from './keys.controller';
+import { ApiKeysService } from './keys.service';
 
-describe('KeysController', () => {
-  let controller: KeysController;
+describe('ApiKeysController', () => {
+  let controller: ApiKeysController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [KeysController],
-      providers: [KeysService],
+      controllers: [ApiKeysController],
+      providers: [ApiKeysService],
     }).compile();
 
-    controller = module.get<KeysController>(KeysController);
+    controller = module.get<ApiKeysController>(ApiKeysController);
   });
 
   it('should be defined', () => {

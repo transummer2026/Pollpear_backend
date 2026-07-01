@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class RoomsService {
+export class ApiRoomsService {
   findAllRooms() {
     return 'Get all rooms - not implemented';
   }

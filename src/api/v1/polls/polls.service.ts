@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class PollsService {
+export class ApiPollsService {
   findAllPolls() {
     return 'Get all polls - not implemented';
   }

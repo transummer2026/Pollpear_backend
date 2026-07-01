@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { RegisterService } from './register.service';
-import { RegisterController } from './register.controller';
+import { ApiRegisterService } from './register.service';
+import { ApiRegisterController } from './register.controller';
 
 @Module({
-  controllers: [RegisterController],
-  providers: [RegisterService],
+  controllers: [ApiRegisterController],
+  providers: [ApiRegisterService],
 })
-export class RegisterModule {}
+export class ApiRegisterModule {}

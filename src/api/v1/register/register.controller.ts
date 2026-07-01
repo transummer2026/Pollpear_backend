@@ -1,9 +1,9 @@
 import { Controller, HttpCode, Post } from '@nestjs/common';
-import { RegisterService } from './register.service';
+import { ApiRegisterService } from './register.service';
 
 @Controller('api/v1/register')
-export class RegisterController {
-  constructor(private readonly registerService: RegisterService) {}
+export class ApiRegisterController {
+  constructor(private readonly registerService: ApiRegisterService) {}
 
   @Post()
   @HttpCode(503)

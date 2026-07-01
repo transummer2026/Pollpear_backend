@@ -15,8 +15,8 @@ import { ContactModule } from './contact/contact.module';
 import { ApiModule } from './api/api.module';
 import { SearchModule } from './search/search.module';
 import { SecretsModule } from './secrets/secrets.module';
-import { KeysModule } from './api/v1/keys/keys.module';
-import { RegisterModule } from './api/v1/register/register.module';
+import { ApiKeysModule } from './api/v1/keys/keys.module';
+import { ApiRegisterModule } from './api/v1/register/register.module';
 import { ApiUsersModule } from './api/v1/users/users.module';
 
 /**
@@ -44,8 +44,8 @@ import { ApiUsersModule } from './api/v1/users/users.module';
     ContactModule,
     ApiModule,
     SearchModule,
-    KeysModule,
-    RegisterModule,
+    ApiKeysModule,
+    ApiRegisterModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

@@ -1,9 +1,9 @@
 import { Controller, Get, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
-import { PollsService } from './polls.service';
+import { ApiPollsService } from './polls.service';
 
 @Controller('polls')
-export class PollsController {
-  constructor(private readonly pollsService: PollsService) {}
+export class ApiPollsController {
+  constructor(private readonly pollsService: ApiPollsService) {}
 
   @Get()
   @HttpCode(503)

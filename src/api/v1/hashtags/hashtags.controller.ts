@@ -1,9 +1,9 @@
 import { Controller, Get, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
-import { HashtagsService } from './hashtags.service';
+import { ApiHashtagsService } from './hashtags.service';
 
 @Controller('hashtags')
-export class HashtagsController {
-  constructor(private readonly hashtagsService: HashtagsService) {}
+export class ApiHashtagsController {
+  constructor(private readonly hashtagsService: ApiHashtagsService) {}
 
   @Get('hashtags')
   @HttpCode(503)

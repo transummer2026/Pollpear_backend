@@ -3,7 +3,7 @@ import { CreateKeyDto } from './dto/create-key.dto';
 import { UpdateKeyDto } from './dto/update-key.dto';
 
 @Injectable()
-export class KeysService {
+export class ApiKeysService {
   create(createKeyDto: CreateKeyDto) {
     return 'This action adds a new key';
   }

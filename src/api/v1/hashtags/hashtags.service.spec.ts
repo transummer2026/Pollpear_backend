@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HashtagsService } from './hashtags.service';
+import { ApiHashtagsService } from './hashtags.service';
 
-describe('HashtagsService', () => {
-  let service: HashtagsService;
+describe('ApiHashtagsService', () => {
+  let service: ApiHashtagsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [HashtagsService],
+      providers: [ApiHashtagsService],
     }).compile();
 
-    service = module.get<HashtagsService>(HashtagsService);
+    service = module.get<ApiHashtagsService>(ApiHashtagsService);
   });
 
   it('should be defined', () => {

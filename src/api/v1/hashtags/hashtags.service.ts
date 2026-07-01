@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class HashtagsService {
+export class ApiHashtagsService {
   findAllHashtags() {
     return 'Get all hashtags - not implemented';
   }

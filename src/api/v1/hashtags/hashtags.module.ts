@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { HashtagsService } from './hashtags.service';
-import { HashtagsController } from './hashtags.controller';
+import { ApiHashtagsService } from './hashtags.service';
+import { ApiHashtagsController } from './hashtags.controller';
 
 @Module({
-  controllers: [HashtagsController],
-  providers: [HashtagsService],
+  controllers: [ApiHashtagsController],
+  providers: [ApiHashtagsService],
 })
-export class HashtagsModule {}
+export class ApiHashtagsModule {}

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { PollsService } from './polls.service';
-import { PollsController } from './polls.controller';
+import { ApiPollsService } from './polls.service';
+import { ApiPollsController } from './polls.controller';
 
 @Module({
-  controllers: [PollsController],
-  providers: [PollsService],
+  controllers: [ApiPollsController],
+  providers: [ApiPollsService],
 })
-export class PollsModule {}
+export class ApiPollsModule {}

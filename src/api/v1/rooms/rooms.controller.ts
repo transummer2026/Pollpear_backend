@@ -1,9 +1,9 @@
 import { Controller, Get, Param, HttpCode, ParseIntPipe } from '@nestjs/common';
-import { RoomsService } from './rooms.service';
+import { ApiRoomsService } from './rooms.service';
 
 @Controller('rooms')
-export class RoomsController {
-  constructor(private readonly roomsService: RoomsService) {}
+export class ApiRoomsController {
+  constructor(private readonly roomsService: ApiRoomsService) {}
 
   @Get('rooms')
   @HttpCode(503)
