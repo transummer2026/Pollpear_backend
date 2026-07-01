@@ -1,7 +1,7 @@
 import { Controller, Get, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { ApiPollsService } from './polls.service';
 
-@Controller('polls')
+@Controller('api/v1/polls')
 export class ApiPollsController {
   constructor(private readonly pollsService: ApiPollsService) {}
 

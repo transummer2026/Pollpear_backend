@@ -18,6 +18,7 @@ import { SecretsModule } from './secrets/secrets.module';
 import { ApiKeysModule } from './api/v1/keys/keys.module';
 import { ApiRegisterModule } from './api/v1/register/register.module';
 import { ApiUsersModule } from './api/v1/users/users.module';
+import { ApiPollsModule } from './api/v1/polls/polls.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -46,6 +47,8 @@ import { ApiUsersModule } from './api/v1/users/users.module';
     SearchModule,
     ApiKeysModule,
     ApiRegisterModule,
+    ApiPollsModule,
+    ApiUsersModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
