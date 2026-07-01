@@ -19,28 +19,28 @@ export class UsersController {
 
   @Post(':id/friendship')
   @HttpCode(503)
-  sendFriendRequest(@Param('id', ParseIntPipe) id: string) {
-    return this.usersService.sendFriendRequest(+id);
+  createFriendRequest(@Param('id', ParseIntPipe) id: string) {
+    return this.usersService.createFriendRequest(+id);
   }
 
   // respond to friend request to update the result of the friendship
   @Patch(':id/friendship')
   @HttpCode(503)
-  updateFriendRequestStatus(@Param('id', ParseIntPipe) id: string) {
-    return this.usersService.updateFriendRequestStatus(+id);
+  updateFriendRequest(@Param('id', ParseIntPipe) id: string) {
+    return this.usersService.updateFriendRequest(+id);
   }
 
   @Delete(':id/friendship')
   @HttpCode(503)
-  deleteFriendship(@Param('id', ParseIntPipe) id: string) {
-    return this.usersService.deleteFriendship(+id);
+  removeFriendship(@Param('id', ParseIntPipe) id: string) {
+    return this.usersService.removeFriendship(+id);
   }
 
   // add Guard for moderator from here on (green arrows on sequence diagram)
   @Post(':id/ban')
   @HttpCode(503)
-  banUser(@Param('id', ParseIntPipe) id: string) {
-    return this.usersService.banUser(+id);
+  ban(@Param('id', ParseIntPipe) id: string) {
+    return this.usersService.ban(+id);
   }
 
   @Patch(':id/ban')

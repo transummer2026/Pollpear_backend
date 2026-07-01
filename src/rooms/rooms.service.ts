@@ -13,19 +13,23 @@ export class RoomsService {
     return `remove room #${id} works`;
   }
 
-  addUserToRoom(id: number, userId: number) {
+  addParticipant(id: number, userId: number) {
     return `add user #${userId} for Room #${id} works`;
   }
 
-  removeUserFromRoom(id: number, userId: number) {
+  removeParticipant(id: number, userId: number) {
     return `remove user #${userId} from room #${id} works`;
   }
 
-  getMessagesFromRoom(id: number) {
+  getMessages(id: number) {
     return `get messages from room #${id} works`;
   }
 
   createMessage(id: number) {
     return `create message in room #${id} works`;
+  }
+
+  removeMessage(id: number, messageId: number) {
+    return `remove message #${messageId} from room #${id} works`;
   }
 }

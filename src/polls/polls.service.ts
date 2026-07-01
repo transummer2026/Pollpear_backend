@@ -14,15 +14,15 @@ export class PollsService {
     return `remove poll #${id} works`;
   }
 
-  reportPoll(id: number) {
+  report(id: number) {
     return `report Poll #${id} works`;
   }
 
-  reportPollOption(id: number, optionId: number) {
+  reportOption(id: number, optionId: number) {
     return `report option #${optionId} for Poll #${id} works`;
   }
 
-  removePollOption(id: number, optionId: number) {
+  removeOption(id: number, optionId: number) {
     return `remove option #${optionId} for Poll #${id} works`;
   }
 
@@ -30,11 +30,11 @@ export class PollsService {
     return `create vote in Poll #${id} works`;
   }
 
-  deletePollVote(id: number) {
+  removeVote(id: number) {
     return `remove vote in Poll #${id} works`;
   }
 
-  reportPollVote(id: number) {
+  reportVote(id: number) {
     return `report vote in Poll #${id} works`;
   }
 }

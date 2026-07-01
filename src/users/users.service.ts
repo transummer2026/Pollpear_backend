@@ -10,19 +10,19 @@ export class UsersService {
     return `block user #${id} works`;
   }
 
-  sendFriendRequest(id: number) {
+  createFriendRequest(id: number) {
     return `send friendship request to user #${id} works`;
   }
 
-  updateFriendRequestStatus(id: number) {
+  updateFriendRequest(id: number) {
     return `update friendship with user #${id} works`;
   }
 
-  deleteFriendship(id: number) {
+  removeFriendship(id: number) {
     return `delete friendship with user #${id} works`;
   }
 
-  banUser(id: number) {
+  ban(id: number) {
     return `ban user #${id} works`;
   }
 

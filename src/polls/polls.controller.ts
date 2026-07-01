@@ -23,27 +23,27 @@ export class PollsController {
 
   @Post(':id/report')
   @HttpCode(503)
-  reportPoll(@Param('id', ParseIntPipe) id: string) {
-    return this.pollsService.reportPoll(+id);
+  report(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.report(+id);
   }
 
   @Post(':id/options/:optionId/report')
   @HttpCode(503)
-  reportPollOption(
+  reportOption(
     @Param('id', ParseIntPipe) id: string,
     @Param('optionId', ParseIntPipe) optionId: string,
   ) {
-    return this.pollsService.reportPollOption(+id, +optionId);
+    return this.pollsService.reportOption(+id, +optionId);
   }
 
   // moderator Guard green
   @Delete(':id/options/:optionId/report')
   @HttpCode(503)
-  removePollOption(
+  removeOption(
     @Param('id', ParseIntPipe) id: string,
     @Param('optionId', ParseIntPipe) optionId: string,
   ) {
-    return this.pollsService.removePollOption(+id, +optionId);
+    return this.pollsService.removeOption(+id, +optionId);
   }
 
   //routes will dissapear because later we will use wbesockets
@@ -63,13 +63,13 @@ export class PollsController {
   //admin guard red
   @Delete(':id/vote')
   @HttpCode(503)
-  deletePollVote(@Param('id', ParseIntPipe) id: string) {
-    return this.pollsService.deletePollVote(+id);
+  removeVote(@Param('id', ParseIntPipe) id: string) {
+    return this.pollsService.removeVote(+id);
   }
 
   @Post(':id/vote/report')
   @HttpCode(503)
-  reportPollVote(@Param('id', ParseIntPipe) id: string) {
+  reportVote(@Param('id', ParseIntPipe) id: string) {
     return this.pollsService.reportPollVote(+id);
   }
 }
