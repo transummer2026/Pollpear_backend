@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class UsersService {
+export class ApiUsersService {
   findAllUsers() {
     return 'Get all users - not implemented';
   }

@@ -17,6 +17,7 @@ import { SearchModule } from './search/search.module';
 import { SecretsModule } from './secrets/secrets.module';
 import { KeysModule } from './api/v1/keys/keys.module';
 import { RegisterModule } from './api/v1/register/register.module';
+import { ApiUsersModule } from './api/v1/users/users.module';
 
 /**
  * module is used by Nest to organise the application structure
