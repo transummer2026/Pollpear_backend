@@ -1,34 +1,25 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { PollsService } from './polls.service';
-import { CreatePollDto } from './dto/create-poll.dto';
-import { UpdatePollDto } from './dto/update-poll.dto';
 
 @Controller('polls')
 export class PollsController {
   constructor(private readonly pollsService: PollsService) {}
 
-  @Post()
-  create(@Body() createPollDto: CreatePollDto) {
-    return this.pollsService.create(createPollDto);
-  }
-
   @Get()
-  findAll() {
-    return this.pollsService.findAll();
+  @HttpCode(503)
+  findAllPolls() {
+    return this.pollsService.findAllPolls();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.pollsService.findOne(+id);
+  @HttpCode(503)
+  findOnePoll(@Param('id', ParseIntPipe) id: number) {
+    return this.pollsService.findOnePoll(+id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePollDto: UpdatePollDto) {
-    return this.pollsService.update(+id, updatePollDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.pollsService.remove(+id);
+  @Get(':id/results')
+  @HttpCode(503)
+  findPollResults(@Param('id', ParseIntPipe) id: number) {
+    return this.pollsService.findPollResults(+id);
   }
 }

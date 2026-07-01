@@ -1,26 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { CreatePollDto } from './dto/create-poll.dto';
-import { UpdatePollDto } from './dto/update-poll.dto';
 
 @Injectable()
 export class PollsService {
-  create(createPollDto: CreatePollDto) {
-    return 'This action adds a new poll';
+  findAllPolls() {
+    return 'Get all polls - not implemented';
   }
 
-  findAll() {
-    return `This action returns all polls`;
+  findOnePoll(id: number) {
+    return `Get poll ${id} - not implemented`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} poll`;
-  }
-
-  update(id: number, updatePollDto: UpdatePollDto) {
-    return `This action updates a #${id} poll`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} poll`;
+  findPollResults(id: number) {
+    return `Get poll ${id} results - not implemented`;
   }
 }
