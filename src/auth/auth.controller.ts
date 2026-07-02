@@ -1,4 +1,9 @@
-import { Controller, Post, Get, Param, HttpCode } from '@nestjs/common';
+import { Body, Controller, Post, Get, Param, HttpCode } from '@nestjs/common';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import {
+  RegisterSchema,
+  type RegisterDTO,
+} from '../../Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -19,9 +24,8 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(503)
-  // TODO: add the userdto or see with pieric with the zod
-  register() {
-    return this.authService.register();
+  register(@Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDTO) {
+    return this.authService.register(body);
   }
 
   @Post('password-forgot')

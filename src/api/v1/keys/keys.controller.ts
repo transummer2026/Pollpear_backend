@@ -1,4 +1,10 @@
-import { Controller, Param, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Param,
+  Delete,
+  HttpCode,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ApiKeysService } from './keys.service';
 
 @Controller('api/v1/keys')
