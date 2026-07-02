@@ -54,7 +54,7 @@ export class UsersController {
   @HttpCode(503)
   update(@Param('id', ParseIntPipe) id: string, @Body() body: any) {
     console.log(body);
-    return this.usersService.updateBan(+id);
+    return this.usersService.update(+id);
   }
 
   @Delete(':id')
