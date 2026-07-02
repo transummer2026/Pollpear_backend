@@ -1,4 +1,5 @@
 {
+  "exclude": ["node_modules", "Pollpear_shared"],
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
