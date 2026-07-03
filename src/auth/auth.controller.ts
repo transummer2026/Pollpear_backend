@@ -23,8 +23,8 @@ export class AuthController {
   }
 
   @Post('register')
-  @HttpCode(503)
-  register(@Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDTO) {
+  // @HttpCode(503)
+  register(@Body() body: RegisterDTO) {
     return this.authService.register(body);
   }
 

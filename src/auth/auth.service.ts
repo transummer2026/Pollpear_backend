@@ -12,7 +12,7 @@ export class AuthService {
   }
 
   register(body: RegisterDTO) {
-    console.log(body);
+    console.log(body); // json
     return 'register route works';
   }
 
