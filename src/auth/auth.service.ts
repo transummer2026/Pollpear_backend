@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
+import { UserDTOSchema } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma.service';
 import {
-  type User,
   UserRole,
   Visibility,
   UserTheme,
 } from 'src/generated/prisma/client';
 import * as argon2 from 'argon2';
+import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 
 @Injectable()
 export class AuthService {
@@ -21,30 +22,37 @@ export class AuthService {
     return 'logout route works';
   }
 
-  async register(body: RegisterDTO): Promise<User> {
+  async register(body: RegisterDTO): Promise<UserDTO> {
     const passwordHash = await argon2.hash(body.password); // TODO: login verify password
-    return this.prisma.user.create({
-      data: {
-        username: body.username,
-        name: body.name,
-        surname: body.surname,
-        email: body.email,
-        birthdate: body.birthdate,
-        passwordHash: passwordHash,
-        role: UserRole.user,
-        gender: body.gender,
-        nationality: body.nationality,
-        city: body.city,
-        state: body.state,
-        country: body.country,
-        company: body.company,
-        score: 0,
-        isOnline: false,
-        isDeleted: false,
-        visibility: Visibility.private,
-        userTheme: UserTheme.light,
-      },
-    });
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          username: body.username,
+          name: body.name,
+          surname: body.surname,
+          email: body.email,
+          birthdate: body.birthdate,
+          passwordHash: passwordHash,
+          role: UserRole.user,
+          gender: body.gender,
+          nationality: body.nationality,
+          city: body.city,
+          state: body.state,
+          country: body.country,
+          company: body.company,
+          score: 0,
+          isOnline: false,
+          isDeleted: false,
+          visibility: Visibility.private,
+          userTheme: UserTheme.light,
+        },
+      });
+      console.log('User created:', user);
+      return UserDTOSchema.parse(user);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw new Error('Failed to create user');
+    }
   }
 
   passwordForgot() {
