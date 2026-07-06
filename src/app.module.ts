@@ -24,6 +24,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { FileUploadModule } from './file-upload/file-upload.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { VaultModule } from './vault/vault.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -37,7 +38,10 @@ import { MailModule } from './mail/mail.module';
  */
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['/vault/approle/pollpear-backend.env', '.vault-approle.env'],
+    }),
     AdminModule,
     AuthModule,
     HealthModule,
@@ -66,6 +70,7 @@ import { MailModule } from './mail/mail.module';
     }),
     FileUploadModule,
     MailModule,
+    VaultModule,
   ],
   providers: [
     {
