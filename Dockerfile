@@ -23,8 +23,7 @@ FROM builder AS dev
 COPY . .
 
 #RUN the command to build, npm run in this case, 
-RUN npm run build
+CMD ["npm", "run", "start:dev"]
 
-# update and install in second time focus to build and dev
 FROM builder AS prod
 
