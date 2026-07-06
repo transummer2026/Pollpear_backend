@@ -14,7 +14,6 @@ export class AuthService {
   register(body: RegisterDTO) {
     // we checked the data received is valid
     console.log(body); // json
-    const username = body.username;
     // if there is a user, login
     // omce I created the new user, send back the DTO
     return 'register route works';
