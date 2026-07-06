@@ -25,6 +25,7 @@ export class AuthController {
   @Post('register')
   //@HttpCode(503)
   register(@Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDTO) {
+    console.log('Registering user with body:', body);
     return this.authService.register(body);
   }
 
