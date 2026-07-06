@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
 
 @Injectable()
 export class AuthService {
@@ -10,7 +11,11 @@ export class AuthService {
     return 'logout route works';
   }
 
-  register() {
+  register(body: RegisterDTO) {
+    // we checked the data received is valid
+    console.log(body); // json
+    // if there is a user, login
+    // omce I created the new user, send back the DTO
     return 'register route works';
   }
 

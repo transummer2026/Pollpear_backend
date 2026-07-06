@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Patch, Param, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpCode,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -54,7 +63,7 @@ export class UsersController {
   @HttpCode(503)
   update(@Param('id', ParseIntPipe) id: string, @Body() body: any) {
     console.log(body);
-    return this.usersService.update(+id);
+    return this.usersService.updateBan(+id);
   }
 
   @Delete(':id')

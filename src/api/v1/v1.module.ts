@@ -11,6 +11,13 @@ import { ApiUsersModule } from './users/users.module';
 @Module({
   controllers: [ApiV1Controller],
   providers: [ApiV1Service],
-  imports: [ApiRegisterModule, ApiKeysModule, ApiPollsModule, ApiHashtagsModule, ApiRoomsModule, ApiUsersModule],
+  imports: [
+    ApiRegisterModule,
+    ApiKeysModule,
+    ApiPollsModule,
+    ApiHashtagsModule,
+    ApiRoomsModule,
+    ApiUsersModule,
+  ],
 })
 export class ApiV1Module {}

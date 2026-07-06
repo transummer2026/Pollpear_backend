@@ -30,7 +30,7 @@ export class PollsService {
     return `create vote in Poll #${id} works`;
   }
 
-  updateVote(id: number){
+  updateVote(id: number) {
     return `update vote in Poll ${id}`;
   }
 

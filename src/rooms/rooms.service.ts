@@ -1,4 +1,3 @@
-
 export class RoomsService {
   create() {
     return 'add a new room works';

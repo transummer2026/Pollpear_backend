@@ -16,6 +16,4 @@ export class ApiUsersController {
   findOneUser(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOneUser(+id);
   }
-
-
 }
