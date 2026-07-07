@@ -1,14 +1,14 @@
 import { Body, Controller, Post, Get, Param, HttpCode } from '@nestjs/common';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   RegisterSchema,
   type RegisterDTO,
-} from '../../Pollpear_shared/src/schemas/auth.schema';
+} from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {} // ← closes here with {}
+  constructor(private readonly authService: AuthService) { } // ← closes here with {}
 
   @Post('login')
   @HttpCode(503)
