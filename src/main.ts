@@ -3,6 +3,7 @@ dotenv.config({ path: '../.env' });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filters';
 
 /**
  * NestFactory exposes static methods that allow creating an application
@@ -16,6 +17,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
  */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useGlobalFilters(new PrismaExceptionFilter());
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? ['http://localhost:5173'],
     credentials: true,

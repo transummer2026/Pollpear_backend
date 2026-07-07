@@ -33,48 +33,32 @@ export class AuthService {
       type: argon2id,
       secret: Buffer.from(process.env.PEPPER ?? 'pepper'),
     }); // TODO: login verify password
-    try {
-      return await this.prisma.user.create({
-        data: {
-          username: body.username,
-          name: body.name,
-          surname: body.surname,
-          email: body.email,
-          birthdate: body.birthdate,
-          passwordHash: passwordHash,
-          role: UserRole.user,
-          gender: body.gender,
-          nationality: body.nationality,
-          city: body.city,
-          state: body.state,
-          country: body.country,
-          company: body.company,
-          score: 0,
-          isOnline: false,
-          isDeleted: false,
-          visibility: Visibility.private,
-          userTheme: UserTheme.light,
-        },
-        omit: {
-          passwordHash: true,
-          updatedAt: true,
-        },
-      });
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        switch (e.code) {
-          case 'P2000':
-            throw new BadRequestException(
-              'Invalid data provided for user creation.',
-            );
-          case 'P2002':
-            throw new ConflictException('User account already exists.');
-          default:
-            throw new InternalServerErrorException('Failed to create user');
-        }
-      }
-      throw new InternalServerErrorException('Failed to create user');
-    }
+    return await this.prisma.user.create({
+      data: {
+        username: body.username,
+        name: body.name,
+        surname: body.surname,
+        email: body.email,
+        birthdate: body.birthdate,
+        passwordHash: passwordHash,
+        role: UserRole.user,
+        gender: body.gender,
+        nationality: body.nationality,
+        city: body.city,
+        state: body.state,
+        country: body.country,
+        company: body.company,
+        score: 0,
+        isOnline: false,
+        isDeleted: false,
+        visibility: Visibility.private,
+        userTheme: UserTheme.light,
+      },
+      omit: {
+        passwordHash: true,
+        updatedAt: true,
+      },
+    });
   }
 
   passwordForgot() {
