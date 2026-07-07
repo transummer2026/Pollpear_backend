@@ -12,6 +12,7 @@ WORKDIR /app
 
 #COPY from local comp to the container package.json and package.log.json
 COPY package*.json ./
+COPY prisma ./prisma
 
 #install the dependencies with the RUN command (ci is the quivalent of install and is cleaner as it reinstalls everything from scratch (nodemodules)) https://docs.npmjs.com/cli/v9/commands/npm-ci
 RUN npm ci
