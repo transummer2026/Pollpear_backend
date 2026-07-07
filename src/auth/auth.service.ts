@@ -1,14 +1,8 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id } from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
-import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -23,6 +17,9 @@ export class AuthService {
     return 'logout route works';
   }
 
+  /**
+   * using primsa ommit is more sercure than zod as zod
+   */
   async register(body: RegisterDTO): Promise<UserDTO> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const passwordHash = await hash('password', {
