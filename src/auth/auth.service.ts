@@ -1,14 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
-import { UserDTOSchema } from 'Pollpear_shared/src/schemas/users.schema';
-import { PrismaService } from 'src/prisma.service';
 import {
-  UserRole,
-  Visibility,
-  UserTheme,
-} from 'src/generated/prisma/client';
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
+import { PrismaService } from 'src/prisma.service';
+import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import * as argon2 from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
+import { Prisma } from 'src/generated/prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +26,7 @@ export class AuthService {
   async register(body: RegisterDTO): Promise<UserDTO> {
     const passwordHash = await argon2.hash(body.password); // TODO: login verify password
     try {
-      const user = await this.prisma.user.create({
+      return await this.prisma.user.create({
         data: {
           username: body.username,
           name: body.name,
@@ -46,12 +47,25 @@ export class AuthService {
           visibility: Visibility.private,
           userTheme: UserTheme.light,
         },
+        omit: {
+          passwordHash: true,
+          updatedAt: true,
+        },
       });
-      console.log('User created:', user);
-      return UserDTOSchema.parse(user);
-    } catch (error) {
-      console.error('Error creating user:', error);
-      throw new Error('Failed to create user');
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        switch (e.code) {
+          case 'P2000':
+            throw new BadRequestException(
+              'Invalid data provided for user creation.',
+            );
+          case 'P2002':
+            throw new ConflictException('User account already exists.');
+          default:
+            throw new InternalServerErrorException('Failed to create user');
+        }
+      }
+      throw new InternalServerErrorException('Failed to create user');
     }
   }
 
