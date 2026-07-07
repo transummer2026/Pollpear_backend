@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
-import * as argon2 from 'argon2';
+import { hash, argon2id } from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -24,7 +24,15 @@ export class AuthService {
   }
 
   async register(body: RegisterDTO): Promise<UserDTO> {
-    const passwordHash = await argon2.hash(body.password); // TODO: login verify password
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const passwordHash = await hash('password', {
+      hashLength: 32,
+      timeCost: 3, // the passord will be hashed 3x like potato salad
+      parallelism: 4, // 4 threads are used to compute the hash
+      memoryCost: 2 ** 16,
+      type: argon2id,
+      secret: Buffer.from(process.env.PEPPER ?? 'pepper'),
+    }); // TODO: login verify password
     try {
       return await this.prisma.user.create({
         data: {
