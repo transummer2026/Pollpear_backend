@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApiHashtagsController } from './hashtags.controller';
 import { ApiHashtagsService } from './hashtags.service';
+import { prismaMock } from 'src/prisma/prisma.service.mock';
 
 describe('ApiHashtagsController', () => {
   let controller: ApiHashtagsController;
@@ -8,7 +9,7 @@ describe('ApiHashtagsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ApiHashtagsController],
-      providers: [ApiHashtagsService],
+      providers: [ApiHashtagsService, prismaMock],
     }).compile();
 
     controller = module.get<ApiHashtagsController>(ApiHashtagsController);

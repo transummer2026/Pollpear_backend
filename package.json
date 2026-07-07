@@ -9,6 +9,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "postinstall": "prisma generate --generator client",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -82,6 +83,11 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1",
+      "^Pollpear_shared/(.*)$": "<rootDir>/../Pollpear_shared/$1",
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

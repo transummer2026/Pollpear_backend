@@ -16,7 +16,7 @@ import {
 /**
  * Since this will be used for all the error exceptions in our code base,
  * we need to make this generic
- * argum,enthost is to have a link to the request object which calls 
+ * argum,enthost is to have a link to the request object which calls
  * the excption. // for sneaky hackers
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
