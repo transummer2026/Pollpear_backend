@@ -32,19 +32,9 @@ export class AuthService {
     }); // TODO: login verify password
     return await this.prisma.user.create({
       data: {
-        username: body.username,
-        name: body.name,
-        surname: body.surname,
-        email: body.email,
-        birthdate: body.birthdate,
-        passwordHash: passwordHash,
+        ...body,
+        passwordHash,
         role: UserRole.user,
-        gender: body.gender,
-        nationality: body.nationality,
-        city: body.city,
-        state: body.state,
-        country: body.country,
-        company: body.company,
         score: 0,
         isOnline: false,
         isDeleted: false,
