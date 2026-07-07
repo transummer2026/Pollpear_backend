@@ -5,11 +5,11 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
-import { PrismaService } from 'src/prisma.service';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import * as argon2 from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { Prisma } from 'src/generated/prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
