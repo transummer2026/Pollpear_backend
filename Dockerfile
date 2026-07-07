@@ -22,7 +22,8 @@ FROM builder AS dev
 #copy everything inside the working dir ./app
 COPY . .
 
-#RUN the command to build, npm run in this case, 
+USER node
+
 CMD ["npm", "run", "start:dev"]
 
 FROM builder AS prod
