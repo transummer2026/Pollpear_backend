@@ -18,6 +18,7 @@ import {
  * we need to make this generic
  * argum,enthost is to have a link to the request object which calls
  * the excption. // for sneaky hackers
+ * It says that it catches the Prisma exceptions
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {

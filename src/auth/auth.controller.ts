@@ -1,8 +1,10 @@
 import { Body, Controller, Post, Get, Param, HttpCode } from '@nestjs/common';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
+  LoginSchema,
   RegisterSchema,
   type RegisterDTO,
+  type LoginDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 
@@ -12,8 +14,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(503)
-  login() {
-    return this.authService.login();
+  login(@Body(new ZodValidationPipe(LoginSchema)) body: LoginDTO) {
+    return this.authService.login(body);
   }
 
   @Post('logout')

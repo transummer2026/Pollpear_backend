@@ -1,7 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { type RegisterDTO } from 'Pollpear_shared/src/schemas/auth.schema';
+import {
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import {
+  type RegisterDTO,
+  type LoginDTO,
+} from 'Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
-import { hash, argon2id } from 'argon2';
+import { hash, argon2id, verify } from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -9,7 +16,29 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class AuthService {
   constructor(private prisma: PrismaService) {}
 
-  login() {
+  async login(body: LoginDTO) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: body.email },
+    });
+    try {
+      if (!user || !(await verify(user.passwordHash, body.password))) {
+        throw new InternalServerErrorException('Invalid credentials');
+      }
+    } catch (e) {
+      console.error('Verfication error:', e);
+      throw new InternalServerErrorException(e);
+    }
+    const userBan = await this.prisma.ban.findFirst({
+      where: {
+        userId: user.id,
+        unbannedAt: {
+          gt: new Date(),
+        },
+      },
+    });
+    if (userBan) {
+      throw new ForbiddenException('User is banned.');
+    }
     return 'login route works';
   }
 
@@ -21,14 +50,19 @@ export class AuthService {
    * using primsa ommit is more sercure than zod as zod
    */
   async register(body: RegisterDTO): Promise<UserDTO> {
-    const passwordHash = await hash(body.password, {
-      hashLength: 32,
-      timeCost: 3,
-      parallelism: 4,
-      memoryCost: 2 ** 16,
-      type: argon2id,
-      secret: Buffer.from(process.env.NESTJS_PEPPER ?? 'pepper'),
-    });
+    let passwordHash: string;
+    try {
+      passwordHash = await hash(body.password, {
+        hashLength: 32,
+        timeCost: 3,
+        parallelism: 4,
+        memoryCost: 2 ** 16,
+        type: argon2id,
+        secret: Buffer.from(process.env.NESTJS_PEPPER ?? 'pepper'),
+      });
+    } catch (e) {
+      throw new InternalServerErrorException(e);
+    }
     return await this.prisma.user.create({
       data: {
         username: body.username,
