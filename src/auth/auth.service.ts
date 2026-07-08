@@ -20,14 +20,14 @@ export class AuthService {
   /**
    * using primsa ommit is more sercure than zod as zod
    */
-async register(body: RegisterDTO): Promise<UserDTO> {
+  async register(body: RegisterDTO): Promise<UserDTO> {
     const passwordHash = await hash(body.password, {
       hashLength: 32,
       timeCost: 3,
       parallelism: 4,
       memoryCost: 2 ** 16,
       type: argon2id,
-      secret: Buffer.from(process.env.PEPPER ?? 'pepper'),
+      secret: Buffer.from(process.env.NESTJS_PEPPER ?? 'pepper'),
     });
     return await this.prisma.user.create({
       data: {
