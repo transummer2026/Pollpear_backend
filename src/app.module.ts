@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaService } from './prisma.service';
 import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
@@ -35,6 +33,7 @@ import { ApiPollsModule } from './api/v1/polls/polls.module';
     ConfigModule.forRoot({ isGlobal: true }),
     AdminModule,
     AuthModule,
+    PrismaModule,
     UsersModule,
     RoomsModule,
     PollsModule,
@@ -50,7 +49,5 @@ import { ApiPollsModule } from './api/v1/polls/polls.module';
     ApiPollsModule,
     ApiUsersModule,
   ],
-  controllers: [AppController],
-  providers: [AppService, PrismaService],
 })
 export class AppModule {}

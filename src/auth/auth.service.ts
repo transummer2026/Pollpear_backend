@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { type RegisterDTO } from '../../Pollpear_shared/src/schemas/auth.schema';
+import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
+import { hash, argon2id } from 'argon2';
+import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
+  constructor(private prisma: PrismaService) {}
+
   login() {
     return 'login route works';
   }
@@ -11,12 +17,35 @@ export class AuthService {
     return 'logout route works';
   }
 
-  register(body: RegisterDTO) {
-    // we checked the data received is valid
-    console.log(body); // json
-    // if there is a user, login
-    // omce I created the new user, send back the DTO
-    return 'register route works';
+  /**
+   * using primsa ommit is more sercure than zod as zod
+   */
+  async register(body: RegisterDTO): Promise<UserDTO> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const passwordHash = await hash('password', {
+      hashLength: 32,
+      timeCost: 3, // the passord will be hashed 3x like potato salad
+      parallelism: 4, // 4 threads are used to compute the hash
+      memoryCost: 2 ** 16,
+      type: argon2id,
+      secret: Buffer.from(process.env.PEPPER ?? 'pepper'),
+    }); // TODO: login verify password
+    return await this.prisma.user.create({
+      data: {
+        ...body,
+        passwordHash,
+        role: UserRole.user,
+        score: 0,
+        isOnline: false,
+        isDeleted: false,
+        visibility: Visibility.private,
+        userTheme: UserTheme.light,
+      },
+      omit: {
+        passwordHash: true,
+        updatedAt: true,
+      },
+    });
   }
 
   passwordForgot() {

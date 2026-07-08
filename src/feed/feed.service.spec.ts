@@ -1,12 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FeedService } from './feed.service';
+import { prismaMock } from 'src/prisma/prisma.service.mock';
 
 describe('FeedService', () => {
   let service: FeedService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [FeedService],
+      providers: [FeedService, prismaMock],
     }).compile();
 
     service = module.get<FeedService>(FeedService);
