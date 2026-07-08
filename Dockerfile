@@ -10,9 +10,13 @@ FROM node:24-slim AS builder
 #current directory which will be created (app) inside the docker
 WORKDIR /app
 
+RUN chown node:node /app
+
+USER node
+
 #COPY from local comp to the container package.json and package.log.json
-COPY package*.json ./
-COPY prisma ./prisma
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node prisma ./prisma
 
 #install the dependencies with the RUN command (ci is the quivalent of install and is cleaner as it reinstalls everything from scratch (nodemodules)) https://docs.npmjs.com/cli/v9/commands/npm-ci
 RUN npm ci
@@ -21,9 +25,7 @@ RUN npm ci
 FROM builder AS dev
 
 #copy everything inside the working dir ./app
-COPY . .
-
-USER node
+COPY --chown=node:node . .
 
 CMD ["npm", "run", "start:dev"]
 
