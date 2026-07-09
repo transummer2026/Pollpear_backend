@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   type RegisterDTO,
@@ -14,20 +15,32 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  private readonly pepper: Buffer;
+  constructor(private prisma: PrismaService) {
+    const pepper = process.env.NESTJS_PEPPER;
+    if (!pepper) throw new Error('NESTJS_PEPPER is not defined');
+    this.pepper = Buffer.from(pepper);
+  }
 
   async login(body: LoginDTO) {
     const user = await this.prisma.user.findUnique({
       where: { email: body.email },
     });
+    let passwordValid: boolean;
     try {
-      if (!user || !(await verify(user.passwordHash, body.password))) {
-        throw new InternalServerErrorException('Invalid credentials');
-      }
+      const DUMMYHASH =
+        '$argon2id$v=19$m=65536,t=3,p=4$hQzqkGQTCVjMXHDAHWALtQ$bquAvFbQv9OIgSxZP4H5OXyFvSwrRvnbolFRUJd70+0';
+      passwordValid = await verify(
+        user?.passwordHash ?? DUMMYHASH,
+        body.password,
+        {
+          secret: this.pepper,
+      });
     } catch (e) {
-      console.error('Verfication error:', e);
       throw new InternalServerErrorException(e);
     }
+    if (!user || !passwordValid)
+      throw new UnauthorizedException('Invalid credentials');
     const userBan = await this.prisma.ban.findFirst({
       where: {
         userId: user.id,
@@ -58,7 +71,7 @@ export class AuthService {
         parallelism: 4,
         memoryCost: 2 ** 16,
         type: argon2id,
-        secret: Buffer.from(process.env.NESTJS_PEPPER ?? 'pepper'),
+        secret: this.pepper,
       });
     } catch (e) {
       throw new InternalServerErrorException(e);
