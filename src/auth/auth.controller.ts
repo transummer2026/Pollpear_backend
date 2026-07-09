@@ -13,7 +13,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {} // ← closes here with {}
 
   @Post('login')
-  @HttpCode(503)
+  @HttpCode(200)
   login(@Body(new ZodValidationPipe(LoginSchema)) body: LoginDTO) {
     return this.authService.login(body);
   }

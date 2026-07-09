@@ -12,6 +12,7 @@ import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -53,6 +54,8 @@ export class AuthService {
     if (userBan) {
       throw new ForbiddenException('User is banned.');
     }
+    const sessionId = randomUUID();
+    
     return 'login route works';
   }
 
