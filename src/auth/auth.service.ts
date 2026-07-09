@@ -35,7 +35,8 @@ export class AuthService {
         body.password,
         {
           secret: this.pepper,
-      });
+        },
+      );
     } catch (e) {
       throw new InternalServerErrorException(e);
     }
