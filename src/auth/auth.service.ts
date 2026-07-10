@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
+  Res,
 } from '@nestjs/common';
 import {
   type RegisterDTO,
@@ -14,6 +15,7 @@ import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
+import { type Response } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -28,7 +30,7 @@ export class AuthService {
     this.pepper = Buffer.from(pepper);
   }
 
-  async login(body: LoginDTO) {
+  async login(body: LoginDTO, @Res({ passthrough: true }) response: Response) {
     const user = await this.userService.findByEmail(body.email);
 
     const userIsDeleted = user?.isDeleted;
@@ -59,15 +61,16 @@ export class AuthService {
       throw new ForbiddenException('User is deleted.');
     }
 
-    await this.redisService.setRedisCache(
-      this.userService.generateSessionId(),
-      user.id,
-    );
+    const sessionId = this.userService.generateSessionId();
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const userSession = await redis.hgetall('sessionId');
-    console.log(JSON.stringify(userSession, null, 2));
+    await this.redisService.setRedisCache(sessionId, user.id);
 
+    console.log('DEBUGA');
+    response.cookie('sessionId', sessionId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 1000,
+    });
     return 'login route works';
   }
 

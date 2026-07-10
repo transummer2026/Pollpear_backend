@@ -8,9 +8,8 @@ export class RedisService {
   constructor(@InjectRedis() private readonly redis: Redis) {}
 
   async setRedisCache(sessionId: UUID, userId: number) {
-    await this.redis.hset('sessionId', {
-      userId,
-      sessionId,
-    });
+    const key = `session:${sessionId}`;
+    await this.redis.hset(key, { userId, sessionId });
+    await this.redis.expire(key, 60 * 60 * 24); // e.g. 24h, tune to your needs
   }
 }
