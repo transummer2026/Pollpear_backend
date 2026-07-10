@@ -48,20 +48,15 @@ export class AuthService {
     if (!user || !passwordValid)
       throw new UnauthorizedException('Invalid credentials');
 
-    const userisBanned = await this.prisma.ban.findFirst({
-      where: {
-        userId: user.id,
-        unbannedAt: {
-          gt: new Date(),
-        },
-      },
-    });
+    const userisBanned = await this.userService.findByBanStatus(user.id);
     if (userisBanned) {
       throw new ForbiddenException('User is banned.');
     }
+
     if (userIsDeleted) {
       throw new ForbiddenException('User is deleted.');
     }
+
     return 'login route works';
   }
 

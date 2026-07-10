@@ -40,9 +40,22 @@ export class UsersService {
     return `remove user #${id} works`;
   }
 
+  // PRISMA REQUESTS
+
   async findByEmail(email: string) {
     return await this.prisma.user.findUnique({
       where: { email },
+    });
+  }
+
+  async findByBanStatus(userId: number) {
+    return await this.prisma.ban.findFirst({
+      where: {
+        userId,
+        unbannedAt: {
+          gt: new Date(),
+        },
+      },
     });
   }
 }
