@@ -8,7 +8,7 @@ import { AuthService } from './auth.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { } // ← closes here with {}
+  constructor(private readonly authService: AuthService) {} // ← closes here with {}
 
   @Post('login')
   @HttpCode(503)
