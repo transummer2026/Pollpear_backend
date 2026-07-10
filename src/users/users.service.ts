@@ -1,9 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { email, uuid } from 'zod';
+import Redis from 'ioredis';
+import { getRedisConnectionToken } from '@nestjs-modules/ioredis';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly redis: Redis,
+  ) {}
+
   report(id: number) {
     return `report user #${id} works`;
   }
@@ -57,5 +67,9 @@ export class UsersService {
         },
       },
     });
+  }
+
+  generateSessionId() {
+    return self.crypto.randomUUID();
   }
 }

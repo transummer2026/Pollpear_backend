@@ -13,6 +13,7 @@ import { hash, argon2id, verify } from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private readonly userService: UsersService,
+    private readonly redisService: RedisService,
   ) {
     const pepper = process.env.NESTJS_PEPPER;
     if (!pepper) throw new Error('NESTJS_PEPPER is not defined');
@@ -56,6 +58,15 @@ export class AuthService {
     if (userIsDeleted) {
       throw new ForbiddenException('User is deleted.');
     }
+
+    await this.redisService.setRedisCache(
+      this.userService.generateSessionId(),
+      user.id,
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const userSession = await redis.hgetall('sessionId');
+    console.log(JSON.stringify(userSession, null, 2));
 
     return 'login route works';
   }
@@ -125,4 +136,6 @@ export class AuthService {
   callback() {
     return 'callback route works';
   }
+
+  //Prisma request functions
 }

@@ -5,7 +5,6 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filters';
 import cookieParser from 'cookie-parser';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 
 /**
  * NestFactory exposes static methods that allow creating an application
@@ -25,14 +24,6 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? ['http://localhost:5173'],
     credentials: true,
-  });
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.REDIS,
-    options: {
-      host: 'localhost',
-      port: 6379,
-    },
   });
 
   await app.startAllMicroservices();
