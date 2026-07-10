@@ -12,21 +12,25 @@ import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
 import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { randomUUID } from 'crypto';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AuthService {
   private readonly pepper: Buffer;
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private readonly userService: UsersService,
+  ) {
     const pepper = process.env.NESTJS_PEPPER;
     if (!pepper) throw new Error('NESTJS_PEPPER is not defined');
     this.pepper = Buffer.from(pepper);
   }
 
   async login(body: LoginDTO) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: body.email },
-    });
+    const user = await this.userService.findByEmail(body.email);
+
+    const userIsDeleted = user?.isDeleted;
+
     let passwordValid: boolean;
     try {
       const DUMMYHASH =
@@ -43,7 +47,8 @@ export class AuthService {
     }
     if (!user || !passwordValid)
       throw new UnauthorizedException('Invalid credentials');
-    const userBan = await this.prisma.ban.findFirst({
+
+    const userisBanned = await this.prisma.ban.findFirst({
       where: {
         userId: user.id,
         unbannedAt: {
@@ -51,11 +56,12 @@ export class AuthService {
         },
       },
     });
-    if (userBan) {
+    if (userisBanned) {
       throw new ForbiddenException('User is banned.');
     }
-    const sessionId = randomUUID();
-    
+    if (userIsDeleted) {
+      throw new ForbiddenException('User is deleted.');
+    }
     return 'login route works';
   }
 
