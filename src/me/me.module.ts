@@ -2,8 +2,10 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { MeService } from './me.service';
 import { MeController } from './me.controller';
 import { LoggerMiddleware } from 'src/common/middleware/logger.middleware';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
+  imports: [UsersModule],
   controllers: [MeController],
   providers: [MeService],
 })
