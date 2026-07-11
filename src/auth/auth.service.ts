@@ -11,7 +11,10 @@ import {
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
-import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
+import {
+  UserDTO,
+  UserDTOSchema,
+} from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
@@ -30,7 +33,10 @@ export class AuthService {
     this.pepper = Buffer.from(pepper);
   }
 
-  async login(body: LoginDTO, @Res({ passthrough: true }) response: Response) {
+  async login(
+    body: LoginDTO,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<UserDTO> {
     const user = await this.userService.findByEmail(body.email);
 
     const userIsDeleted = user?.isDeleted;
@@ -65,11 +71,14 @@ export class AuthService {
 
     await this.redisService.setRedisCache(sessionId, user.id);
 
-    response.cookie('sessionId', sessionId, {
+    response.cookie('sid', sessionId, {
+      // TODO: add secure: true for PROD
       httpOnly: true,
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 1000,
     });
+
+    return UserDTOSchema.parse(user);
   }
 
   logout() {
