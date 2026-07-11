@@ -5,7 +5,7 @@
 #node is chosen because of js
 
 #docker run -it pollpear-backend
-FROM node:24-slim AS builder
+FROM node:25-slim AS builder
 
 #current directory which will be created (app) inside the docker
 WORKDIR /app

@@ -65,13 +65,11 @@ export class AuthService {
 
     await this.redisService.setRedisCache(sessionId, user.id);
 
-    console.log('DEBUGA');
     response.cookie('sessionId', sessionId, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 1000,
     });
-    return 'login route works';
   }
 
   logout() {
