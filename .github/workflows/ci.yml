@@ -9,6 +9,12 @@ on:
     types: [ci-trigger]
   workflow_dispatch:
 
+# Annule les runs obsolètes quand on repush sur une PR ; jamais sur dev
+# (le build/push d'image doit aller au bout).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
 
   ci:
