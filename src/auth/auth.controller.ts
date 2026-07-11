@@ -1,19 +1,33 @@
-import { Body, Controller, Post, Get, Param, HttpCode } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  Param,
+  HttpCode,
+  Res,
+} from '@nestjs/common';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
+  LoginSchema,
   RegisterSchema,
   type RegisterDTO,
+  type LoginDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
+import { type Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {} // ← closes here with {}
 
   @Post('login')
-  @HttpCode(503)
-  login() {
-    return this.authService.login();
+  @HttpCode(200)
+  login(
+    @Body(new ZodValidationPipe(LoginSchema)) body: LoginDTO,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.login(body, res);
   }
 
   @Post('logout')

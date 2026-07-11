@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class UsersService {
+  constructor(private prisma: PrismaService) {}
+
   report(id: number) {
     return `report user #${id} works`;
   }
@@ -36,5 +40,28 @@ export class UsersService {
 
   remove(id: number) {
     return `remove user #${id} works`;
+  }
+
+  // PRISMA REQUESTS
+
+  async findByEmail(email: string) {
+    return await this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async findByBanStatus(userId: number) {
+    return await this.prisma.ban.findFirst({
+      where: {
+        userId,
+        unbannedAt: {
+          gt: new Date(),
+        },
+      },
+    });
+  }
+
+  generateSessionId() {
+    return randomUUID();
   }
 }

@@ -1,16 +1,84 @@
-import { Injectable } from '@nestjs/common';
-import { type RegisterDTO } from 'Pollpear_shared/src/schemas/auth.schema';
+import {
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+  Res,
+} from '@nestjs/common';
+import {
+  type RegisterDTO,
+  type LoginDTO,
+} from 'Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
-import { hash, argon2id } from 'argon2';
-import { UserDTO } from 'Pollpear_shared/src/schemas/users.schema';
+import { hash, argon2id, verify } from 'argon2';
+import {
+  UserDTO,
+  UserDTOSchema,
+} from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UsersService } from 'src/users/users.service';
+import { RedisService } from 'src/redis/redis.service';
+import { type Response } from 'express';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  private readonly pepper: Buffer;
+  constructor(
+    private prisma: PrismaService,
+    private readonly userService: UsersService,
+    private readonly redisService: RedisService,
+  ) {
+    const pepper = process.env.NESTJS_PEPPER;
+    if (!pepper) throw new Error('NESTJS_PEPPER is not defined');
+    this.pepper = Buffer.from(pepper);
+  }
 
-  login() {
-    return 'login route works';
+  async login(
+    body: LoginDTO,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<UserDTO> {
+    const user = await this.userService.findByEmail(body.email);
+
+    const userIsDeleted = user?.isDeleted;
+
+    let passwordValid: boolean;
+    try {
+      const DUMMYHASH =
+        '$argon2id$v=19$m=65536,t=3,p=4$hQzqkGQTCVjMXHDAHWALtQ$bquAvFbQv9OIgSxZP4H5OXyFvSwrRvnbolFRUJd70+0';
+      passwordValid = await verify(
+        user?.passwordHash ?? DUMMYHASH,
+        body.password,
+        {
+          secret: this.pepper,
+        },
+      );
+    } catch (e) {
+      throw new InternalServerErrorException(e);
+    }
+    if (!user || !passwordValid)
+      throw new UnauthorizedException('Invalid credentials');
+
+    const userisBanned = await this.userService.findByBanStatus(user.id);
+    if (userisBanned) {
+      throw new ForbiddenException('User is banned.');
+    }
+
+    if (userIsDeleted) {
+      throw new ForbiddenException('User is deleted.');
+    }
+
+    const sessionId = this.userService.generateSessionId();
+
+    await this.redisService.setRedisCache(sessionId, user.id);
+
+    response.cookie('sid', sessionId, {
+      // TODO: add secure: true for PROD
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 1000,
+    });
+
+    return UserDTOSchema.parse(user);
   }
 
   logout() {
@@ -21,14 +89,19 @@ export class AuthService {
    * using primsa ommit is more sercure than zod as zod
    */
   async register(body: RegisterDTO): Promise<UserDTO> {
-    const passwordHash = await hash(body.password, {
-      hashLength: 32,
-      timeCost: 3,
-      parallelism: 4,
-      memoryCost: 2 ** 16,
-      type: argon2id,
-      secret: Buffer.from(process.env.NESTJS_PEPPER ?? 'pepper'),
-    });
+    let passwordHash: string;
+    try {
+      passwordHash = await hash(body.password, {
+        hashLength: 32,
+        timeCost: 3,
+        parallelism: 4,
+        memoryCost: 2 ** 16,
+        type: argon2id,
+        secret: this.pepper,
+      });
+    } catch (e) {
+      throw new InternalServerErrorException(e);
+    }
     return await this.prisma.user.create({
       data: {
         username: body.username,
@@ -73,4 +146,6 @@ export class AuthService {
   callback() {
     return 'callback route works';
   }
+
+  //Prisma request functions
 }

@@ -17,6 +17,8 @@ import { ApiKeysModule } from './api/v1/keys/keys.module';
 import { ApiRegisterModule } from './api/v1/register/register.module';
 import { ApiUsersModule } from './api/v1/users/users.module';
 import { ApiPollsModule } from './api/v1/polls/polls.module';
+import { RedisModule as RedisModuleIo } from '@nestjs-modules/ioredis';
+import { RedisModule } from './redis/redis.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -48,6 +50,11 @@ import { ApiPollsModule } from './api/v1/polls/polls.module';
     ApiRegisterModule,
     ApiPollsModule,
     ApiUsersModule,
+    RedisModule,
+    RedisModuleIo.forRoot({
+      type: 'single',
+      url: process.env.REDIS_URL,
+    }),
   ],
 })
 export class AppModule {}

@@ -1,8 +1,0 @@
-POST http://localhost:3000/cats
-Content-Type: application/json
-
-{
-	"name": "Masha",
-	"age": 12,
-	"breed": "streetcat"
-}
