@@ -1,9 +1,24 @@
-import { Controller, Post, Patch, Put, HttpCode, Delete } from '@nestjs/common';
+import {
+  Get,
+  Controller,
+  Post,
+  Patch,
+  Put,
+  HttpCode,
+  Delete,
+} from '@nestjs/common';
 import { MeService } from './me.service';
+import { UserId } from 'src/users/user-id.decorator';
 
 @Controller('me')
 export class MeController {
   constructor(private readonly meService: MeService) {}
+
+  @Get()
+  @HttpCode(503)
+  myProfile(@UserId() userId: string) {
+    return this.meService.myProfile(userId);
+  }
 
   @Post('avatar')
   @HttpCode(503)
