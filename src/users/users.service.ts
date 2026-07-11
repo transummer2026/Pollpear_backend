@@ -44,6 +44,12 @@ export class UsersService {
 
   // PRISMA REQUESTS
 
+  async findByUserId(userId: string) {
+    return await this.prisma.user.findUnique({
+      where: { id: Number(userId) },
+    });
+  }
+
   async findByEmail(email: string) {
     return await this.prisma.user.findUnique({
       where: { email },

@@ -1,13 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  UserDTO,
+  UserDTOSchema,
+} from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class MeService {
-  constructor(private readonly prismaservice: PrismaService) {}
-  myProfile(userId: string) {
-    return this.prismaservice.user.findUnique({
-      where: { id: Number(userId) },
-    });
+  constructor(
+    private prisma: PrismaService,
+    private readonly userService: UsersService,
+  ) {}
+
+  async myProfile(userId: string): Promise<UserDTO> {
+    const user = await this.userService.findByUserId(userId);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+    return UserDTOSchema.parse(user);
   }
 
   update(id: number) {

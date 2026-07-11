@@ -6,16 +6,18 @@ import {
   Put,
   HttpCode,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { MeService } from './me.service';
 import { UserId } from 'src/users/user-id.decorator';
+import { AuthGuard } from 'src/auth/auth.guard';
 
+@UseGuards(AuthGuard)
 @Controller('me')
 export class MeController {
   constructor(private readonly meService: MeService) {}
 
   @Get()
-  @HttpCode(503)
   myProfile(@UserId() userId: string) {
     return this.meService.myProfile(userId);
   }
