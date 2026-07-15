@@ -29,5 +29,28 @@ COPY --chown=node:node . .
 
 CMD ["npm", "run", "start:dev"]
 
-FROM builder AS prod
+FROM builder AS build
 
+COPY --chown=node:node . .
+
+RUN npm run build
+
+FROM node:25-slim AS prod
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+RUN chown node:node /app
+USER node
+ENV NODE_ENV=production
+
+COPY --chown=node:node package*.json prisma.config.ts ./
+COPY --chown=node:node prisma ./prisma
+
+RUN npm ci --omit=dev --ignore-scripts
+RUN npm rebuild @prisma/engines
+
+COPY --chown=node:node --from=build /app/dist ./dist
+
+CMD ["node", "dist/src/main" ]
