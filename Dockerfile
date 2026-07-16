@@ -37,7 +37,8 @@ RUN npm run build
 
 FROM node:25-slim AS prod
 
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+# hadolint ignore=DL3008,DL3009
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl=4.0.1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -48,8 +49,7 @@ ENV NODE_ENV=production
 COPY --chown=node:node package*.json prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
 
-RUN npm ci --omit=dev --ignore-scripts
-RUN npm rebuild @prisma/engines
+RUN npm ci --omit=dev --ignore-scripts && npm rebuild @prisma/engines
 
 COPY --chown=node:node --from=build /app/dist ./dist
 
