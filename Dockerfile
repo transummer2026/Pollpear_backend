@@ -10,7 +10,8 @@ FROM node:25-slim AS builder
 #current directory which will be created (app) inside the docker
 WORKDIR /app
 
-RUN chown node:node /app && apt-get update -y && apt-get install -y openssl
+# hadolint ignore=DL3008,DL3009
+RUN chown node:node /app && apt-get update -y && apt-get install -y --no-install-recommends openssl
 
 USER node
 
