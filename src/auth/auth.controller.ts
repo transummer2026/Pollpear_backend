@@ -16,11 +16,19 @@ import {
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 import { type Response } from 'express';
+import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {} // ← closes here with {}
 
+  @Public()
+  @Post('register')
+  register(@Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDTO) {
+    return this.authService.register(body);
+  }
+
+  @Public()
   @Post('login')
   @HttpCode(200)
   login(
@@ -34,11 +42,6 @@ export class AuthController {
   @HttpCode(503)
   logout() {
     return this.authService.logout();
-  }
-
-  @Post('register')
-  register(@Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDTO) {
-    return this.authService.register(body);
   }
 
   @Post('password-forgot')

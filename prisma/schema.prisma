@@ -25,6 +25,14 @@ enum UserRole {
   admin
 }
 
+enum Action {
+  manage
+  create
+  read
+  update
+  delete
+}
+
 enum Gender {
   male
   female

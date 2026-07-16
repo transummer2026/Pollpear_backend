@@ -1,14 +1,11 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PollsService } from './polls.service';
 import { PollsController } from './polls.controller';
-import { LoggerMiddleware } from 'src/common/middleware/logger.middleware';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
+  imports: [UsersModule],
   controllers: [PollsController],
   providers: [PollsService],
 })
-export class PollsModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggerMiddleware).forRoutes(PollsController);
-  }
-}
+export class PollsModule {}

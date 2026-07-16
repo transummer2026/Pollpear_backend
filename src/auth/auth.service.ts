@@ -33,6 +33,51 @@ export class AuthService {
     this.pepper = Buffer.from(pepper);
   }
 
+  /**
+   * using primsa ommit is more sercure than zod as zod
+   */
+  async register(body: RegisterDTO): Promise<UserDTO> {
+    let passwordHash: string;
+    try {
+      passwordHash = await hash(body.password, {
+        hashLength: 32,
+        timeCost: 3,
+        parallelism: 4,
+        memoryCost: 2 ** 16,
+        type: argon2id,
+        secret: this.pepper,
+      });
+    } catch (e) {
+      throw new InternalServerErrorException(e);
+    }
+    return await this.prisma.user.create({
+      data: {
+        username: body.username,
+        name: body.name,
+        surname: body.surname,
+        email: body.email,
+        birthdate: body.birthdate,
+        passwordHash: passwordHash,
+        role: UserRole.user,
+        gender: body.gender,
+        nationality: body.nationality,
+        city: body.city,
+        state: body.state,
+        country: body.country,
+        company: body.company,
+        score: 0,
+        isOnline: false,
+        isDeleted: false,
+        visibility: Visibility.private,
+        userTheme: UserTheme.light,
+      },
+      omit: {
+        passwordHash: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   async login(
     body: LoginDTO,
     @Res({ passthrough: true }) response: Response,
@@ -83,51 +128,6 @@ export class AuthService {
 
   logout() {
     return 'logout route works';
-  }
-
-  /**
-   * using primsa ommit is more sercure than zod as zod
-   */
-  async register(body: RegisterDTO): Promise<UserDTO> {
-    let passwordHash: string;
-    try {
-      passwordHash = await hash(body.password, {
-        hashLength: 32,
-        timeCost: 3,
-        parallelism: 4,
-        memoryCost: 2 ** 16,
-        type: argon2id,
-        secret: this.pepper,
-      });
-    } catch (e) {
-      throw new InternalServerErrorException(e);
-    }
-    return await this.prisma.user.create({
-      data: {
-        username: body.username,
-        name: body.name,
-        surname: body.surname,
-        email: body.email,
-        birthdate: body.birthdate,
-        passwordHash: passwordHash,
-        role: UserRole.user,
-        gender: body.gender,
-        nationality: body.nationality,
-        city: body.city,
-        state: body.state,
-        country: body.country,
-        company: body.company,
-        score: 0,
-        isOnline: false,
-        isDeleted: false,
-        visibility: Visibility.private,
-        userTheme: UserTheme.light,
-      },
-      omit: {
-        passwordHash: true,
-        updatedAt: true,
-      },
-    });
   }
 
   passwordForgot() {

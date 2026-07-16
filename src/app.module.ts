@@ -19,6 +19,9 @@ import { ApiUsersModule } from './api/v1/users/users.module';
 import { ApiPollsModule } from './api/v1/polls/polls.module';
 import { RedisModule as RedisModuleIo } from '@nestjs-modules/ioredis';
 import { RedisModule } from './redis/redis.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from 'src/auth/auth.guard';
+import { FileUploadModule } from './file-upload/file-upload.module';
 import { HealthModule } from './health/health.module';
 
 /**
@@ -57,6 +60,13 @@ import { HealthModule } from './health/health.module';
       type: 'single',
       url: process.env.REDIS_URL,
     }),
+    FileUploadModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
   ],
 })
 export class AppModule {}
