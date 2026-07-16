@@ -22,6 +22,7 @@ import { RedisModule } from './redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { FileUploadModule } from './file-upload/file-upload.module';
+import { HealthModule } from './health/health.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -38,6 +39,7 @@ import { FileUploadModule } from './file-upload/file-upload.module';
     ConfigModule.forRoot({ isGlobal: true }),
     AdminModule,
     AuthModule,
+    HealthModule,
     PrismaModule,
     UsersModule,
     RoomsModule,
