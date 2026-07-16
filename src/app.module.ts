@@ -19,6 +19,7 @@ import { ApiUsersModule } from './api/v1/users/users.module';
 import { ApiPollsModule } from './api/v1/polls/polls.module';
 import { RedisModule as RedisModuleIo } from '@nestjs-modules/ioredis';
 import { RedisModule } from './redis/redis.module';
+import { HealthModule } from './health/health.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -35,6 +36,7 @@ import { RedisModule } from './redis/redis.module';
     ConfigModule.forRoot({ isGlobal: true }),
     AdminModule,
     AuthModule,
+    HealthModule,
     PrismaModule,
     UsersModule,
     RoomsModule,
