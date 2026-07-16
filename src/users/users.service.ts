@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { randomUUID } from 'crypto';
+import {
+  UserDTO,
+  UserDTOSchema,
+  type UserProfileUpdateDTO,
+} from 'Pollpear_shared/src/schemas/users.schema';
 
 @Injectable()
 export class UsersService {
@@ -34,8 +39,9 @@ export class UsersService {
     return `updated ban for user #${id} works`;
   }
 
-  update(id: number) {
-    return `update user #${id} works`;
+  async update(id: number, body: UserProfileUpdateDTO): Promise<UserDTO> {
+    const user = await this.updateUserProfile(id, body);
+    return UserDTOSchema.parse(user);
   }
 
   remove(id: number) {
@@ -44,9 +50,10 @@ export class UsersService {
 
   // PRISMA REQUESTS
 
-  async findByUserId(userId: string) {
+  async findByUserId(userId: number) {
+    if (isNaN(userId)) throw new ForbiddenException('Invalid user id.');
     return await this.prisma.user.findUnique({
-      where: { id: Number(userId) },
+      where: { id: userId },
     });
   }
 
@@ -69,5 +76,27 @@ export class UsersService {
 
   generateSessionId() {
     return randomUUID();
+  }
+
+  private async updateUserProfile(userId: number, body: UserProfileUpdateDTO) {
+    return await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        username: body.username,
+        email: body.email,
+        birthdate: body.birthdate,
+        gender: body.gender,
+        nationality: body.nationality,
+        name: body.name,
+        surname: body.surname,
+        city: body.city,
+        state: body.state,
+        country: body.country,
+        company: body.company,
+        bio: body.bio,
+      },
+    });
   }
 }

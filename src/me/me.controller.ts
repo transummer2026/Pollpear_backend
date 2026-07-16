@@ -6,32 +6,50 @@ import {
   Put,
   HttpCode,
   Delete,
-  UseGuards,
+  Body,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { MeService } from './me.service';
 import { UserId } from 'src/users/user-id.decorator';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import {
+  type UserProfileUpdateDTO,
+  UserProfileUpdateSchema,
+} from 'Pollpear_shared/src/schemas/users.schema';
+import { FileUploadService } from 'src/file-upload/file-upload.service';
+import { FileInterceptor } from '@nestjs/platform-express';
 
-@UseGuards(AuthGuard)
 @Controller('me')
 export class MeController {
-  constructor(private readonly meService: MeService) {}
+  constructor(
+    private readonly meService: MeService,
+    private readonly fileUploadService: FileUploadService,
+  ) {}
 
   @Get()
   myProfile(@UserId() userId: string) {
-    return this.meService.myProfile(userId);
+    return this.meService.myProfile(+userId);
   }
 
   @Post('avatar')
   @HttpCode(503)
-  uploadAvatar() {
-    return this.meService.uploadAvatar();
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAvatar(
+    @UserId() userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.meService.uploadAvatar(+userId, file);
   }
 
   @Patch()
-  @HttpCode(503)
-  editProfile() {
-    return this.meService.editProfile();
+  editProfile(
+    @UserId() userId: string,
+    @Body(new ZodValidationPipe(UserProfileUpdateSchema))
+    body: UserProfileUpdateDTO,
+  ) {
+    console.log('DEBUG HERE IN CONTROLLER');
+    return this.meService.editProfile(+userId, body);
   }
 
   @Patch('settings')
@@ -48,8 +66,8 @@ export class MeController {
   }
 
   @Delete()
-  @HttpCode(503)
-  remove() {
-    return this.meService.remove();
+  @HttpCode(200)
+  remove(@UserId() userId: string) {
+    return this.meService.remove(+userId);
   }
 }

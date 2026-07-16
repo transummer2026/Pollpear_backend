@@ -4,21 +4,40 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { IS_PUBLIC_KEY } from './public.decorator';
+import { User } from 'src/generated/prisma/client';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private prisma: PrismaService) {}
-  canActivate(context: ExecutionContext): boolean {
+  constructor(
+    private reflector: Reflector,
+    private readonly userService: UsersService,
+  ) {}
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
     const request = context
       .switchToHttp()
-      .getRequest<Request & { userId: string }>();
+      .getRequest<Request & { userId: string; user: User }>();
     const rawUserId = request.headers['x-user-id'];
     const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
     if (!userId) {
       throw new UnauthorizedException();
     }
+
+    const user = await this.userService.findByUserId(+userId);
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
     request.userId = userId;
     return true;
   }

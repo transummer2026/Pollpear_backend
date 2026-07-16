@@ -22,7 +22,7 @@ export class RoomsController {
 
   @Patch(':id')
   @HttpCode(503)
-  update(@Param('id', ParseIntPipe) id: string) {
+  update(@Param('id', ParseIntPipe) id: number) {
     return this.roomsService.update(+id);
   }
 
@@ -35,8 +35,8 @@ export class RoomsController {
   @Post(':id/participants/:userId')
   @HttpCode(503)
   addParticipant(
-    @Param('id', ParseIntPipe) id: string,
-    @Param('userId', ParseIntPipe) userId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.roomsService.addParticipant(+id, +userId);
   }
@@ -44,29 +44,29 @@ export class RoomsController {
   @Delete(':id/participants/:userId')
   @HttpCode(503)
   removeParticipant(
-    @Param('id', ParseIntPipe) id: string,
-    @Param('userId', ParseIntPipe) userId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.roomsService.removeParticipant(+id, +userId);
   }
 
   @Get(':id/messages')
   @HttpCode(503)
-  getMessages(@Param('id', ParseIntPipe) id: string) {
+  getMessages(@Param('id', ParseIntPipe) id: number) {
     return this.roomsService.getMessages(+id);
   }
 
   @Post(':id/messages')
   @HttpCode(503)
-  createMessage(@Param('id', ParseIntPipe) id: string) {
+  createMessage(@Param('id', ParseIntPipe) id: number) {
     return this.roomsService.createMessage(+id);
   }
 
   @Delete(':id/messages/:messageId')
   @HttpCode(503)
   removeMessage(
-    @Param('id', ParseIntPipe) id: string,
-    @Param('messageId', ParseIntPipe) messageId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('messageId', ParseIntPipe) messageId: number,
   ) {
     return this.roomsService.removeMessage(+id, +messageId);
   }

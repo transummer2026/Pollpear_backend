@@ -33,15 +33,15 @@ export class PollsController {
 
   @Post(':id/report')
   @HttpCode(503)
-  report(@Param('id', ParseIntPipe) id: string) {
+  report(@Param('id', ParseIntPipe) id: number) {
     return this.pollsService.report(+id);
   }
 
   @Post(':id/options/:optionId/report')
   @HttpCode(503)
   reportOption(
-    @Param('id', ParseIntPipe) id: string,
-    @Param('optionId', ParseIntPipe) optionId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('optionId', ParseIntPipe) optionId: number,
   ) {
     return this.pollsService.reportOption(+id, +optionId);
   }
@@ -50,8 +50,8 @@ export class PollsController {
   @Delete(':id/options/:optionId')
   @HttpCode(503)
   removeOption(
-    @Param('id', ParseIntPipe) id: string,
-    @Param('optionId', ParseIntPipe) optionId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('optionId', ParseIntPipe) optionId: number,
   ) {
     return this.pollsService.removeOption(+id, +optionId);
   }
@@ -59,25 +59,25 @@ export class PollsController {
   //routes will dissapear because later we will use wbesockets
   @Post(':id/vote')
   @HttpCode(503)
-  createVote(@Param('id', ParseIntPipe) id: string) {
+  createVote(@Param('id', ParseIntPipe) id: number) {
     return this.pollsService.createVote(+id);
   }
 
   @Patch(':id/vote')
   @HttpCode(503)
-  updateVote(@Param('id', ParseIntPipe) id: string) {
+  updateVote(@Param('id', ParseIntPipe) id: number) {
     return this.pollsService.updateVote(+id);
   }
 
   @Delete(':id/vote')
   @HttpCode(503)
-  removeVote(@Param('id', ParseIntPipe) id: string) {
+  removeVote(@Param('id', ParseIntPipe) id: number) {
     return this.pollsService.removeVote(+id);
   }
 
   @Post(':id/vote/report')
   @HttpCode(503)
-  reportVote(@Param('id', ParseIntPipe) id: string) {
+  reportVote(@Param('id', ParseIntPipe) id: number) {
     return this.pollsService.reportVote(+id);
   }
 }

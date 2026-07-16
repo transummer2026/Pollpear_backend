@@ -10,7 +10,7 @@ FROM node:25-slim AS builder
 #current directory which will be created (app) inside the docker
 WORKDIR /app
 
-RUN chown node:node /app
+RUN chown node:node /app && apt-get update -y && apt-get install -y openssl
 
 USER node
 

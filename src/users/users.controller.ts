@@ -9,6 +9,11 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import {
+  type UserProfileUpdateDTO,
+  UserProfileUpdateSchema,
+} from 'Pollpear_shared/src/schemas/users.schema';
 
 @Controller('users')
 export class UsersController {
@@ -16,59 +21,62 @@ export class UsersController {
 
   @Post(':id/report')
   @HttpCode(503)
-  report(@Param('id', ParseIntPipe) id: string) {
+  report(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.report(+id);
   }
 
   @Post(':id/block')
   @HttpCode(503)
-  block(@Param('id', ParseIntPipe) id: string) {
+  block(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.block(+id);
   }
 
   @Post(':id/friendship')
   @HttpCode(503)
-  createFriendRequest(@Param('id', ParseIntPipe) id: string) {
+  createFriendRequest(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.createFriendRequest(+id);
   }
 
   // respond to friend request to update the result of the friendship
   @Patch(':id/friendship')
   @HttpCode(503)
-  updateFriendRequest(@Param('id', ParseIntPipe) id: string) {
+  updateFriendRequest(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.updateFriendRequest(+id);
   }
 
   @Delete(':id/friendship')
   @HttpCode(503)
-  removeFriendship(@Param('id', ParseIntPipe) id: string) {
+  removeFriendship(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.removeFriendship(+id);
   }
 
   // add Guard for moderator from here on (green arrows on sequence diagram)
   @Post(':id/ban')
   @HttpCode(503)
-  ban(@Param('id', ParseIntPipe) id: string) {
+  ban(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.ban(+id);
   }
 
   @Patch(':id/ban')
   @HttpCode(503)
-  updateBan(@Param('id', ParseIntPipe) id: string) {
+  updateBan(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.updateBan(+id);
   }
 
   // add Guard for admin from here on (red arrows on sequence diagram)
   @Patch(':id')
   @HttpCode(503)
-  update(@Param('id', ParseIntPipe) id: string, @Body() body: any) {
-    console.log(body);
-    return this.usersService.updateBan(+id);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(UserProfileUpdateSchema))
+    body: UserProfileUpdateDTO,
+  ) {
+    return this.usersService.update(id, body);
   }
 
   @Delete(':id')
   @HttpCode(503)
-  remove(@Param('id', ParseIntPipe) id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.remove(+id);
   }
 }
