@@ -38,7 +38,7 @@ RUN npm run build
 FROM node:25-slim AS prod
 
 # hadolint ignore=DL3008,DL3009
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl=4.0.1 \
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
