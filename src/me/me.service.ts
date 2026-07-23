@@ -6,6 +6,7 @@ import {
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class MeService {
     private prisma: PrismaService,
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
+    private readonly storageService: StorageService,
   ) {}
 
   // endpoints
@@ -36,10 +38,13 @@ export class MeService {
     const user = await this.userService.findByUserId(userId);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const uploadfile = this.fileUploadService.handleFileUpload(file);
-    console.log(uploadfile.message);
+    const image = await this.fileUploadService.processImage(file, 'avatar');
+    const key = `avatars/${userId}.webp`;
+    await this.storageService.save(key, image, 'image/webp');
+    const avatarUrl = `${this.storageService.publicUrl(key)}?v=${Date.now()}`;
 
-    return await this.updateAvatar(userId, uploadfile.filePath);
+    await this.updateAvatar(userId, avatarUrl);
+    return { avatarUrl };
   }
 
   settings() {
