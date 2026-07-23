@@ -25,6 +25,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1088.0",
     "@casl/ability": "^7.0.1",
     "@nestjs-modules/ioredis": "^2.2.1",
     "@nestjs/common": "^11.0.1",
@@ -44,12 +45,13 @@
     "dotenv": "^17.4.2",
     "ioredis": "^5.11.1",
     "multer": "^2.2.0",
-    "prisma": "^7.8.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "prisma": "^7.8.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
