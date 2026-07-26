@@ -11,8 +11,12 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   LoginSchema,
   RegisterSchema,
+  PasswordForgotSchema,
+  PasswordResetSchema,
   type RegisterDTO,
   type LoginDTO,
+  type PasswordForgotDTO,
+  type PasswordResetDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 import { type Response } from 'express';
@@ -44,17 +48,22 @@ export class AuthController {
     return this.authService.logout();
   }
 
+  @Public()
   @Post('password-forgot')
-  @HttpCode(503)
-  passwordForgot() {
-    return this.authService.passwordForgot();
+  @HttpCode(204)
+  passwordForgot(
+    @Body(new ZodValidationPipe(PasswordForgotSchema)) body: PasswordForgotDTO,
+  ) {
+    return this.authService.passwordForgot(body);
   }
 
+  @Public()
   @Post('password-reset')
-  @HttpCode(503)
-  passwordReset() {
-    // redirect to /auth/login
-    return this.authService.passwordReset();
+  @HttpCode(204)
+  passwordReset(
+    @Body(new ZodValidationPipe(PasswordResetSchema)) body: PasswordResetDTO,
+  ) {
+    return this.authService.passwordReset(body);
   }
 
   // extracts a value from the URL route parameter named provider
