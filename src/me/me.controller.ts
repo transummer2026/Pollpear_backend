@@ -17,15 +17,11 @@ import {
   type UserProfileUpdateDTO,
   UserProfileUpdateSchema,
 } from 'Pollpear_shared/src/schemas/users.schema';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('me')
 export class MeController {
-  constructor(
-    private readonly meService: MeService,
-    private readonly fileUploadService: FileUploadService,
-  ) {}
+  constructor(private readonly meService: MeService) {}
 
   @Get()
   myProfile(@UserId() userId: string) {
@@ -33,7 +29,6 @@ export class MeController {
   }
 
   @Post('avatar')
-  @HttpCode(503)
   @UseInterceptors(FileInterceptor('file'))
   uploadAvatar(
     @UserId() userId: string,

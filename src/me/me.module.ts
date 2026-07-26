@@ -3,9 +3,10 @@ import { MeService } from './me.service';
 import { MeController } from './me.controller';
 import { UsersModule } from 'src/users/users.module';
 import { FileUploadModule } from 'src/file-upload/file-upload.module';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
-  imports: [UsersModule, FileUploadModule],
+  imports: [UsersModule, FileUploadModule, StorageModule],
   controllers: [MeController],
   providers: [MeService],
 })
