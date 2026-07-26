@@ -80,6 +80,7 @@ export class MeService {
         country: body.country,
         company: body.company,
         bio: body.bio,
+        userTheme: body.userTheme,
       },
     });
   }
