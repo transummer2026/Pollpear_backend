@@ -47,8 +47,9 @@ RUN chown node:node /app
 USER node
 ENV NODE_ENV=production
 
-COPY --chown=node:node package*.json prisma.config.ts ./
+COPY --chown=node:node package*.json prisma.config.mts ./
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node src/vault/vault.bootstrap.ts src/vault/vault.client.ts ./src/vault/
 
 RUN npm ci --omit=dev --ignore-scripts && npm rebuild @prisma/engines
 

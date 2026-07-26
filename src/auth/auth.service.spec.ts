@@ -3,15 +3,24 @@ import { AuthService } from './auth.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
 import { redisServiceMock } from 'src/redis/redis.service.mock';
-
-process.env.NESTJS_PEPPER = 'test-pepper';
+import { vaultServiceMock } from 'src/vault/vault.service.mock';
+import { mailServiceMock } from 'src/mail/mail.service.mock';
+import { ConfigService } from '@nestjs/config';
 
 describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService, prismaMock, usersServiceMock, redisServiceMock],
+      providers: [
+        AuthService,
+        prismaMock,
+        usersServiceMock,
+        redisServiceMock,
+        vaultServiceMock,
+        mailServiceMock,
+        { provide: ConfigService, useValue: { get: () => undefined } },
+      ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
