@@ -43,7 +43,6 @@ export class MeController {
     @Body(new ZodValidationPipe(UserProfileUpdateSchema))
     body: UserProfileUpdateDTO,
   ) {
-    console.log('DEBUG HERE IN CONTROLLER');
     return this.meService.editProfile(+userId, body);
   }
 
