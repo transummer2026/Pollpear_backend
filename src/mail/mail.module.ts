@@ -1,25 +1,24 @@
 import { Module } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { MailerModule } from '@nestjs-modules/mailer';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
+import { VaultService } from 'src/vault/vault.service';
 
 @Module({
   imports: [
     MailerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      inject: [VaultService],
+      useFactory: (vault: VaultService) => ({
         transport: {
-          host: configService.get<string>('MAIL_HOST'),
-          port: +configService.get<string>('MAIL_PORT', '587'),
+          host: vault.mail.host,
+          port: Number(vault.mail.port),
           auth: {
-            user: configService.get<string>('MAIL_USER'),
-            pass: configService.get<string>('MAIL_PASS'),
+            user: vault.mail.user,
+            pass: vault.mail.pass,
           },
         },
         defaults: {
-          from: configService.get<string>('MAIL_FROM'),
+          from: vault.mail.from,
         },
         template: {
           dir: __dirname + '/templates',

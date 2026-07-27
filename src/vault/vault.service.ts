@@ -12,6 +12,13 @@ export interface PollpearSecrets {
   };
   redis: { host: string; port: string; password: string };
   session: { ttl: string; cookie_secret: string; pepper: string };
+  mail: {
+    host: string;
+    port: string;
+    user: string;
+    pass: string;
+    from: string;
+  };
 }
 
 @Injectable()
@@ -26,6 +33,7 @@ export class VaultService {
         db: await vault.readKv(token, 'pollpear/db'),
         redis: await vault.readKv(token, 'pollpear/redis'),
         session: await vault.readKv(token, 'pollpear/session'),
+        mail: await vault.readKv(token, 'pollpear/mail'),
       };
       this.logger.log(
         `Vault AppRole login ok (ttl=${ttl}s, policies=[${policies.join(', ')}])`,
@@ -46,5 +54,8 @@ export class VaultService {
   }
   get session() {
     return this.secrets.session;
+  }
+  get mail() {
+    return this.secrets.mail;
   }
 }
