@@ -133,8 +133,8 @@ model User {
   deletedAt    DateTime?   @map("deleted_at")
   lastSeenAt   DateTime?   @map("last_seen_at")
   // FIXME: Provisoire avatarUrl et bannerUrl
-  avatarUrl    String      @default("/avatars/default.svg") @map("avatar_url") @db.VarChar(255)
-  bannerUrl    String      @default("/banners/default.svg") @map("banner_url") @db.VarChar(255)
+  avatarUrl    String      @default("/uploads/avatars/default.svg") @map("avatar_url") @db.VarChar(255)
+  bannerUrl    String      @default("/uploads/banners/default.svg") @map("banner_url") @db.VarChar(255)
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
   userTheme    UserTheme   @map("user_theme")
