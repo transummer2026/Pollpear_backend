@@ -78,6 +78,13 @@ export class UsersService {
     return randomUUID();
   }
 
+  async updatePassword(userId: number, passwordHash: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+  }
+
   private async updateUserProfile(userId: number, body: UserProfileUpdateDTO) {
     return await this.prisma.user.update({
       where: {

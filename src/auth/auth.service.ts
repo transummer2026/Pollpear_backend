@@ -8,6 +8,8 @@ import {
 import {
   type RegisterDTO,
   type LoginDTO,
+  type PasswordForgotDTO,
+  type PasswordResetDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
@@ -18,7 +20,18 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
+import { MailService } from 'src/mail/mail.service';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import { type Response } from 'express';
+
+const ARGON2_OPTIONS = {
+  hashLength: 32,
+  timeCost: 3,
+  parallelism: 4,
+  memoryCost: 2 ** 16,
+  type: argon2id,
+};
 
 @Injectable()
 export class AuthService {
@@ -27,29 +40,27 @@ export class AuthService {
     private prisma: PrismaService,
     private readonly userService: UsersService,
     private readonly redisService: RedisService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {
     const pepper = process.env.NESTJS_PEPPER;
     if (!pepper) throw new Error('NESTJS_PEPPER is not defined');
     this.pepper = Buffer.from(pepper);
   }
 
+  private async hashPassword(password: string): Promise<string> {
+    try {
+      return await hash(password, { ...ARGON2_OPTIONS, secret: this.pepper });
+    } catch (e) {
+      throw new InternalServerErrorException(e);
+    }
+  }
+
   /**
    * using primsa ommit is more sercure than zod as zod
    */
   async register(body: RegisterDTO): Promise<UserDTO> {
-    let passwordHash: string;
-    try {
-      passwordHash = await hash(body.password, {
-        hashLength: 32,
-        timeCost: 3,
-        parallelism: 4,
-        memoryCost: 2 ** 16,
-        type: argon2id,
-        secret: this.pepper,
-      });
-    } catch (e) {
-      throw new InternalServerErrorException(e);
-    }
+    const passwordHash = await this.hashPassword(body.password);
     return await this.prisma.user.create({
       data: {
         username: body.username,
@@ -130,12 +141,34 @@ export class AuthService {
     return 'logout route works';
   }
 
-  passwordForgot() {
-    return 'password forgot route works';
+  async passwordForgot(body: PasswordForgotDTO): Promise<void> {
+    const user = await this.userService.findByEmail(body.email);
+
+    if (!user) {
+      return;
+    }
+
+    const token = randomUUID();
+    await this.redisService.setPasswordResetToken(token, user.id);
+
+    const resetUrl = `${this.configService.get<string>('FRONTEND_URL')}/auth/change-password?token=${token}`;
+    try {
+      await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
+    } catch {
+      throw new InternalServerErrorException('Failed to send reset email');
+    }
   }
 
-  passwordReset() {
-    return 'password reset route works';
+  async passwordReset(body: PasswordResetDTO): Promise<void> {
+    const userId = await this.redisService.getPasswordResetToken(body.token);
+    if (!userId) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    const passwordHash = await this.hashPassword(body.password);
+
+    await this.userService.updatePassword(userId, passwordHash);
+    await this.redisService.deletePasswordResetToken(body.token, userId);
   }
 
   oauth(provider: string) {
