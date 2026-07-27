@@ -1,24 +1,54 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { appRoleLoginFromEnv } from './vault.bootstrap';
 
+export interface DbSecrets {
+  host: string;
+  port: string;
+  database: string;
+  username: string;
+  password: string;
+  database_url: string;
+}
+
+export interface RedisSecrets {
+  host: string;
+  port: string;
+  password: string;
+}
+
+export interface SessionSecrets {
+  ttl: string;
+  cookie_secret: string;
+  pepper: string;
+}
+
+export interface MailSecrets {
+  host: string;
+  port: string;
+  user: string;
+  pass: string;
+  from: string;
+}
+
+export interface S3Secrets {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  access_key: string;
+  secret_key: string;
+}
+
+export interface AppConfig {
+  frontend_url: string;
+}
+
 export interface PollpearSecrets {
-  db: {
-    host: string;
-    port: string;
-    database: string;
-    username: string;
-    password: string;
-    database_url: string;
-  };
-  redis: { host: string; port: string; password: string };
-  session: { ttl: string; cookie_secret: string; pepper: string };
-  mail: {
-    host: string;
-    port: string;
-    user: string;
-    pass: string;
-    from: string;
-  };
+  db: DbSecrets;
+  redis: RedisSecrets;
+  session: SessionSecrets;
+  mail: MailSecrets;
+  s3: S3Secrets;
+  app: AppConfig;
 }
 
 @Injectable()
@@ -34,6 +64,8 @@ export class VaultService {
         redis: await vault.readKv(token, 'pollpear/redis'),
         session: await vault.readKv(token, 'pollpear/session'),
         mail: await vault.readKv(token, 'pollpear/mail'),
+        s3: await vault.readKv(token, 'pollpear/s3'),
+        app: await vault.readKv(token, 'pollpear/app'),
       };
       this.logger.log(
         `Vault AppRole login ok (ttl=${ttl}s, policies=[${policies.join(', ')}])`,
@@ -57,5 +89,11 @@ export class VaultService {
   }
   get mail() {
     return this.secrets.mail;
+  }
+  get s3() {
+    return this.secrets.s3;
+  }
+  get app() {
+    return this.secrets.app;
   }
 }

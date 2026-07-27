@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { VaultService } from 'src/vault/vault.service';
 
 @Injectable()
 export class StorageService {
   private readonly client: S3Client;
   private readonly bucket: string;
 
-  constructor(config: ConfigService) {
-    this.bucket = config.getOrThrow<string>('GARAGE_S3_BUCKET');
+  constructor(vault: VaultService) {
+    this.bucket = vault.s3.bucket;
     this.client = new S3Client({
-      endpoint: config.getOrThrow<string>('GARAGE_S3_ENDPOINT'),
-      region: config.getOrThrow<string>('GARAGE_S3_REGION'),
+      endpoint: vault.s3.endpoint,
+      region: vault.s3.region,
       credentials: {
-        accessKeyId: config.getOrThrow<string>('GARAGE_S3_ACCESS_KEY'),
-        secretAccessKey: config.getOrThrow<string>('GARAGE_S3_SECRET_KEY'),
+        accessKeyId: vault.s3.access_key,
+        secretAccessKey: vault.s3.secret_key,
       },
       forcePathStyle: true,
     });

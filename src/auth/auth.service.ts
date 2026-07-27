@@ -21,7 +21,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
 import { MailService } from 'src/mail/mail.service';
-import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { VaultService } from 'src/vault/vault.service';
 import { type Response } from 'express';
@@ -42,7 +41,6 @@ export class AuthService {
     private readonly userService: UsersService,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
-    private readonly configService: ConfigService,
     private readonly vault: VaultService,
   ) {
     const pepper = this.vault.session.pepper;
@@ -157,7 +155,7 @@ export class AuthService {
     const token = randomUUID();
     await this.redisService.setPasswordResetToken(token, user.id);
 
-    const resetUrl = `${this.configService.get<string>('FRONTEND_URL')}/auth/change-password?token=${token}`;
+    const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
     try {
       await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
     } catch {

@@ -6,7 +6,6 @@ import { usersServiceMock } from 'src/users/users.service.mock';
 import { redisServiceMock } from 'src/redis/redis.service.mock';
 import { vaultServiceMock } from 'src/vault/vault.service.mock';
 import { mailServiceMock } from 'src/mail/mail.service.mock';
-import { ConfigService } from '@nestjs/config';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -21,7 +20,6 @@ describe('AuthController', () => {
         redisServiceMock,
         vaultServiceMock,
         mailServiceMock,
-        { provide: ConfigService, useValue: { get: () => undefined } },
       ],
     }).compile();
 
