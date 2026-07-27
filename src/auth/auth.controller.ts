@@ -3,9 +3,10 @@ import {
   Controller,
   Post,
   Get,
-  Param,
   HttpCode,
   Res,
+  UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
@@ -21,6 +22,9 @@ import {
 import { AuthService } from './auth.service';
 import { type Response } from 'express';
 import { Public } from './public.decorator';
+import { OauthGuard } from './oauth.guard';
+import { OauthExceptionFilter } from 'src/common/filters/oauth-exception.filter';
+import { UserId } from 'src/users/user-id.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -69,15 +73,18 @@ export class AuthController {
   // extracts a value from the URL route parameter named provider
   // if it was oauth/google, provider = google
   //provider: string receives
+  @Public()
   @Get('oauth/:provider')
-  @HttpCode(503)
-  oauth(@Param('provider') provider: string) {
-    return this.authService.oauth(provider);
-  }
+  @UseGuards(OauthGuard)
+  @UseFilters(OauthExceptionFilter)
+  oauth() {}
 
+  @Public()
   @Get('oauth/:provider/callback')
-  @HttpCode(503)
-  callback() {
-    return this.authService.callback();
+  @UseGuards(OauthGuard)
+  @UseFilters(OauthExceptionFilter)
+  async callback(@UserId() userId: string, @Res() res: Response) {
+    await this.authService.oauthLogin(+userId, res);
+    res.redirect(process.env.FRONTEND_URL ?? 'http://localhost:5173');
   }
 }

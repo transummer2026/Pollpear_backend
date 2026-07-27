@@ -60,6 +60,7 @@ enum OauthProvider {
 
 enum GrantType {
   client_credentials
+  authorization_code
 }
 
 enum FriendshipStatus {

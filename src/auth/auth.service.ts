@@ -128,6 +128,10 @@ export class AuthService {
     return UserDTOSchema.parse(user);
   }
 
+  async oauthLogin(userId: number, response: Response): Promise<void> {
+    await this.createSession(userId, response);
+  }
+
   private async createSession(userId: number, response: Response) {
     const sessionId = this.userService.generateSessionId();
 
@@ -173,15 +177,6 @@ export class AuthService {
 
     await this.userService.updatePassword(userId, passwordHash);
     await this.redisService.deletePasswordResetToken(body.token, userId);
-  }
-
-  oauth(provider: string) {
-    // redirection to the provider happens here
-    return `Oauth with ${provider} works`;
-  }
-
-  callback() {
-    return 'callback route works';
   }
 
   //Prisma request functions

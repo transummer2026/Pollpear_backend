@@ -42,6 +42,17 @@ export interface AppConfig {
   frontend_url: string;
 }
 
+export interface OauthCreds {
+  client_id: string;
+  client_secret: string;
+  redirect_uri: string;
+}
+
+export interface OauthSecrets {
+  google: OauthCreds;
+  '42': OauthCreds;
+}
+
 export interface PollpearSecrets {
   db: DbSecrets;
   redis: RedisSecrets;
@@ -49,6 +60,7 @@ export interface PollpearSecrets {
   mail: MailSecrets;
   s3: S3Secrets;
   app: AppConfig;
+  oauth: OauthSecrets;
 }
 
 @Injectable()
@@ -66,6 +78,10 @@ export class VaultService {
         mail: await vault.readKv(token, 'pollpear/mail'),
         s3: await vault.readKv(token, 'pollpear/s3'),
         app: await vault.readKv(token, 'pollpear/app'),
+        oauth: {
+          google: await vault.readKv(token, 'pollpear/oauth/google'),
+          '42': await vault.readKv(token, 'pollpear/oauth/42'),
+        },
       };
       this.logger.log(
         `Vault AppRole login ok (ttl=${ttl}s, policies=[${policies.join(', ')}])`,
@@ -95,5 +111,8 @@ export class VaultService {
   }
   get app() {
     return this.secrets.app;
+  }
+  get oauth() {
+    return this.secrets.oauth;
   }
 }
