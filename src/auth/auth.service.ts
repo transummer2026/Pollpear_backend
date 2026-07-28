@@ -21,8 +21,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
 import { MailService } from 'src/mail/mail.service';
-import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import { VaultService } from 'src/vault/vault.service';
 import { type Response } from 'express';
 
 const ARGON2_OPTIONS = {
@@ -41,10 +41,10 @@ export class AuthService {
     private readonly userService: UsersService,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
-    private readonly configService: ConfigService,
+    private readonly vault: VaultService,
   ) {
-    const pepper = process.env.NESTJS_PEPPER;
-    if (!pepper) throw new Error('NESTJS_PEPPER is not defined');
+    const pepper = this.vault.session.pepper;
+    if (!pepper) throw new Error('Vault pepper secret is not defined');
     this.pepper = Buffer.from(pepper);
   }
 
@@ -123,9 +123,15 @@ export class AuthService {
       throw new ForbiddenException('User is deleted.');
     }
 
+    await this.createSession(user.id, response);
+
+    return UserDTOSchema.parse(user);
+  }
+
+  private async createSession(userId: number, response: Response) {
     const sessionId = this.userService.generateSessionId();
 
-    await this.redisService.setRedisCache(sessionId, user.id);
+    await this.redisService.setRedisCache(sessionId, userId);
 
     response.cookie('sid', sessionId, {
       // TODO: add secure: true for PROD
@@ -133,8 +139,6 @@ export class AuthService {
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 1000,
     });
-
-    return UserDTOSchema.parse(user);
   }
 
   logout() {
@@ -151,7 +155,7 @@ export class AuthService {
     const token = randomUUID();
     await this.redisService.setPasswordResetToken(token, user.id);
 
-    const resetUrl = `${this.configService.get<string>('FRONTEND_URL')}/auth/change-password?token=${token}`;
+    const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
     try {
       await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
     } catch {

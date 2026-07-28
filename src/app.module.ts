@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
@@ -24,6 +24,8 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { FileUploadModule } from './file-upload/file-upload.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { VaultModule } from './vault/vault.module';
+import { VaultService } from './vault/vault.service';
 
 /**
  * module is used by Nest to organise the application structure
@@ -58,14 +60,19 @@ import { MailModule } from './mail/mail.module';
     ApiUsersModule,
     RedisModule,
     RedisModuleIo.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      inject: [VaultService],
+      useFactory: (vault: VaultService) => ({
         type: 'single',
-        url: configService.get<string>('REDIS_URL'),
+        options: {
+          host: vault.redis.host,
+          port: Number(vault.redis.port),
+          password: vault.redis.password,
+        },
       }),
     }),
     FileUploadModule,
     MailModule,
+    VaultModule,
   ],
   providers: [
     {

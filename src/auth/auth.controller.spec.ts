@@ -4,8 +4,8 @@ import { AuthService } from './auth.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
 import { redisServiceMock } from 'src/redis/redis.service.mock';
-
-process.env.NESTJS_PEPPER = 'test-pepper';
+import { vaultServiceMock } from 'src/vault/vault.service.mock';
+import { mailServiceMock } from 'src/mail/mail.service.mock';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -13,7 +13,14 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [AuthService, prismaMock, usersServiceMock, redisServiceMock],
+      providers: [
+        AuthService,
+        prismaMock,
+        usersServiceMock,
+        redisServiceMock,
+        vaultServiceMock,
+        mailServiceMock,
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
