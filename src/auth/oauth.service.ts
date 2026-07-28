@@ -48,7 +48,14 @@ export class OauthService {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: profile.email },
     });
-    if (existingUser) return existingUser;
+    if (existingUser) {
+      if (!profile.emailVerified) {
+        throw new ForbiddenException(
+          'An account with this email already exists.',
+        );
+      }
+      return existingUser;
+    }
 
     return this.createUser(profile);
   }

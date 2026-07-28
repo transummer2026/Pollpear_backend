@@ -83,6 +83,7 @@ export class School42Strategy extends PassportStrategy(
       providerUserId: String(profile.id),
       providerUrl: `https://profile.intra.42.fr/users/${profile.login}`,
       email: profile.email,
+      emailVerified: true,
       username: profile.login,
       name: profile.first_name,
       surname: profile.last_name,

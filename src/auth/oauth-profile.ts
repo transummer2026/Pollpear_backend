@@ -5,6 +5,7 @@ export interface OauthProfile {
   providerUserId: string;
   providerUrl: string;
   email: string;
+  emailVerified: boolean;
   username: string;
   name: string | null;
   surname: string | null;

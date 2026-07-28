@@ -51,6 +51,7 @@ export interface OauthCreds {
 export interface OauthSecrets {
   google: OauthCreds;
   '42': OauthCreds;
+  github: OauthCreds;
 }
 
 export interface PollpearSecrets {
@@ -81,6 +82,7 @@ export class VaultService {
         oauth: {
           google: await vault.readKv(token, 'pollpear/oauth/google'),
           '42': await vault.readKv(token, 'pollpear/oauth/42'),
+          github: await vault.readKv(token, 'pollpear/oauth/github'),
         },
       };
       this.logger.log(

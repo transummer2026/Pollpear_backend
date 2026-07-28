@@ -15,6 +15,11 @@ export const vaultServiceMock = {
         client_secret: 'test-client-secret',
         redirect_uri: 'http://localhost:3000/auth/oauth/school42/callback',
       },
+      github: {
+        client_id: 'test-client-id',
+        client_secret: 'test-client-secret',
+        redirect_uri: 'http://localhost:3000/auth/oauth/github/callback',
+      },
     },
   },
 };

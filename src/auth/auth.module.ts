@@ -8,6 +8,8 @@ import { OauthService } from './oauth.service';
 import { OauthStateStore } from './oauth-state.store';
 import { OauthGuard } from './oauth.guard';
 import { School42Strategy } from './school42.strategy';
+import { GoogleStrategy } from './google.strategy';
+import { GithubStrategy } from './github.strategy';
 
 @Module({
   imports: [UsersModule, MailModule, PassportModule],
@@ -18,6 +20,8 @@ import { School42Strategy } from './school42.strategy';
     OauthStateStore,
     OauthGuard,
     School42Strategy,
+    GoogleStrategy,
+    GithubStrategy,
   ],
 })
 export class AuthModule {}

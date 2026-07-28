@@ -8,7 +8,11 @@ import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
 import { type Request } from 'express';
 import { OauthProvider, User } from 'src/generated/prisma/client';
 
-const WIRED_PROVIDERS: string[] = [OauthProvider.school42];
+const WIRED_PROVIDERS: string[] = [
+  OauthProvider.school42,
+  OauthProvider.google,
+  OauthProvider.github,
+];
 
 @Injectable()
 export class OauthGuard implements CanActivate {
