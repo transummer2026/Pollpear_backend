@@ -40,6 +40,7 @@ export interface S3Secrets {
 
 export interface AppConfig {
   frontend_url: string;
+  gateway_url: string;
 }
 
 export interface OauthCreds {
