@@ -30,8 +30,8 @@ export class MeService {
     userId: number,
     body: UserProfileUpdateDTO,
   ): Promise<UserDTO> {
-    const user = await this.updateMyProfile(userId, body);
-    return UserDTOSchema.parse(user);
+    const updatedUser = await this.updateMyProfile(userId, body);
+    return UserDTOSchema.parse(updatedUser);
   }
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {

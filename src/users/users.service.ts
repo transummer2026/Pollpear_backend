@@ -6,10 +6,14 @@ import {
   UserDTOSchema,
   type UserProfileUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory/casl-ability.factory';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private casabilityFactory: CaslAbilityFactory,
+  ) {}
 
   report(id: number) {
     return `report user #${id} works`;

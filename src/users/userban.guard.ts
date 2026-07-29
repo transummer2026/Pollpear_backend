@@ -7,7 +7,8 @@ import {
 import { UsersService } from 'src/users/users.service';
 import { Reflector } from '@nestjs/core';
 import { type Request } from 'express';
-import { IS_VISIBLE_BY_BAN_KEY } from './visibleByBan.decorator';
+import { VISIBLE_BY_BAN } from '../common/decorators/ban.decorator';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 
 /**
  * in the guard you spcify what capacity it has, which is why you retype the
@@ -21,8 +22,15 @@ export class BanGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
     const isVisibleByBan = this.reflector.getAllAndOverride<boolean>(
-      IS_VISIBLE_BY_BAN_KEY,
+      VISIBLE_BY_BAN,
       [context.getHandler(), context.getClass()],
     );
     if (isVisibleByBan) {
@@ -35,11 +43,7 @@ export class BanGuard implements CanActivate {
     const userId = request.userId;
     if (!userId) throw new ForbiddenException('No user id.');
 
-    const userIdNum = Number(userId);
-    if (Number.isNaN(userIdNum))
-      throw new ForbiddenException('Invalid user id.');
-
-    const userisBanned = await this.userService.findByBanStatus(userIdNum);
+    const userisBanned = await this.userService.findByBanStatus(+userId);
     if (userisBanned) {
       throw new ForbiddenException('User is banned.');
     }

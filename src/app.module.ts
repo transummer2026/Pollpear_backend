@@ -26,6 +26,9 @@ import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { VaultModule } from './vault/vault.module';
 import { VaultService } from './vault/vault.service';
+import { BanGuard } from './users/userban.guard';
+import { CaslModule } from './casl/casl.module';
+import { PoliciesGuard } from './casl/policies.guard';
 
 /**
  * module is used by Nest to organise the application structure
@@ -73,11 +76,20 @@ import { VaultService } from './vault/vault.service';
     FileUploadModule,
     MailModule,
     VaultModule,
+    CaslModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: BanGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PoliciesGuard,
     },
   ],
 })

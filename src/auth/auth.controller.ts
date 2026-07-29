@@ -21,10 +21,10 @@ import {
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 import { type Response } from 'express';
-import { Public } from './public.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { OauthGuard } from './oauth.guard';
 import { OauthExceptionFilter } from 'src/common/filters/oauth-exception.filter';
-import { UserId } from 'src/users/user-id.decorator';
+import { UserId } from 'src/common/decorators/user-id.decorator';
 
 @Controller('auth')
 export class AuthController {

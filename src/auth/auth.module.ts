@@ -10,18 +10,24 @@ import { OauthGuard } from './oauth.guard';
 import { School42Strategy } from './school42.strategy';
 import { GoogleStrategy } from './google.strategy';
 import { GithubStrategy } from './github.strategy';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './auth.guard';
 
 @Module({
   imports: [UsersModule, MailModule, PassportModule],
   controllers: [AuthController],
   providers: [
-    AuthService,
     OauthService,
     OauthStateStore,
     OauthGuard,
     School42Strategy,
     GoogleStrategy,
     GithubStrategy,
+    AuthService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
   ],
 })
 export class AuthModule {}
