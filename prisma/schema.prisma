@@ -92,17 +92,15 @@ enum PollType {
 }
 
 enum PollStatus {
+  pending
   active
-  draft
   locked
-  archived
+  deleted
 }
 
 enum RoomStatus {
   active
-  draft
-  locked
-  archived
+  closed
 }
 
 enum InvitationStatus {

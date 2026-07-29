@@ -11,7 +11,8 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { MeService } from './me.service';
-import { UserId } from 'src/users/user-id.decorator';
+import { UserId } from 'src/common/decorators/user-id.decorator';
+import { VisibleByBan } from 'src/common/decorators/ban.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   type UserProfileUpdateDTO,
@@ -23,6 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 export class MeController {
   constructor(private readonly meService: MeService) {}
 
+  @VisibleByBan()
   @Get()
   myProfile(@UserId() userId: string) {
     return this.meService.myProfile(+userId);

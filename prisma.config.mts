@@ -10,6 +10,10 @@ async function resolveDatabaseUrl(): Promise<string> {
     !process.env.ROLE_ID ||
     !process.env.SECRET_ID
   ) {
+    const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB } = process.env;
+    if (POSTGRES_USER && POSTGRES_PASSWORD && POSTGRES_DB) {
+      return `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=public`;
+    }
     return 'postgresql://placeholder';
   }
   const { vault, token } = await appRoleLoginFromEnv();

@@ -2,6 +2,9 @@
 CREATE TYPE "UserRole" AS ENUM ('user', 'moderator', 'admin');
 
 -- CreateEnum
+CREATE TYPE "Action" AS ENUM ('manage', 'create', 'read', 'update', 'delete');
+
+-- CreateEnum
 CREATE TYPE "Gender" AS ENUM ('male', 'female', 'other', 'prefer_not_to_say');
 
 -- CreateEnum
@@ -14,7 +17,7 @@ CREATE TYPE "UserTheme" AS ENUM ('light', 'dark', 'system', 'other');
 CREATE TYPE "OauthProvider" AS ENUM ('google', '42', 'github');
 
 -- CreateEnum
-CREATE TYPE "GrantType" AS ENUM ('client_credentials');
+CREATE TYPE "GrantType" AS ENUM ('client_credentials', 'authorization_code');
 
 -- CreateEnum
 CREATE TYPE "FriendshipStatus" AS ENUM ('pending', 'accepted', 'rejected');
@@ -29,10 +32,10 @@ CREATE TYPE "NotificationType" AS ENUM ('friend_request', 'poll_update', 'room_i
 CREATE TYPE "PollType" AS ENUM ('single_choice', 'multiple_choice', 'slider', 'free_field');
 
 -- CreateEnum
-CREATE TYPE "PollStatus" AS ENUM ('active', 'draft', 'locked', 'archived');
+CREATE TYPE "PollStatus" AS ENUM ('pending', 'active', 'locked', 'deleted');
 
 -- CreateEnum
-CREATE TYPE "RoomStatus" AS ENUM ('active', 'draft', 'locked', 'archived');
+CREATE TYPE "RoomStatus" AS ENUM ('active', 'closed');
 
 -- CreateEnum
 CREATE TYPE "InvitationStatus" AS ENUM ('pending', 'accepted', 'rejected');
@@ -60,8 +63,8 @@ CREATE TABLE "users" (
     "visibility" "Visibility",
     "deleted_at" TIMESTAMP(3),
     "last_seen_at" TIMESTAMP(3),
-    "avatar_url" VARCHAR(255) NOT NULL DEFAULT 'assets/avatars/default.png',
-    "banner_url" VARCHAR(255) NOT NULL DEFAULT 'assets/banners/default.png',
+    "avatar_url" VARCHAR(255) NOT NULL DEFAULT '/uploads/avatars/default.svg',
+    "banner_url" VARCHAR(255) NOT NULL DEFAULT '/uploads/banners/default.svg',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "user_theme" "UserTheme" NOT NULL,

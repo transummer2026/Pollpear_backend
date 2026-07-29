@@ -33,6 +33,7 @@ const ARGON2_OPTIONS = {
   type: argon2id,
 };
 
+//in login there is no userid inside the request
 @Injectable()
 export class AuthService {
   private readonly pepper: Buffer;

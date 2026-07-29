@@ -49,8 +49,6 @@ const POLL_TYPE_PLAN: PollType[] = [
 const POLL_STATUS_PLAN: PollStatus[] = [
   ...Array<PollStatus>(25).fill(PollStatus.active),
   ...Array<PollStatus>(6).fill(PollStatus.locked),
-  ...Array<PollStatus>(6).fill(PollStatus.archived),
-  ...Array<PollStatus>(3).fill(PollStatus.draft),
 ];
 const FRIENDSHIP_STATUS_PLAN: FriendshipStatus[] = [
   ...Array<FriendshipStatus>(70).fill(FriendshipStatus.accepted),
@@ -205,16 +203,11 @@ function buildModerator(
 function buildRoom(i: number, creatorId: number): Prisma.RoomCreateInput {
   const status = faker.helpers.arrayElement([
     RoomStatus.active,
-    RoomStatus.draft,
-    RoomStatus.locked,
-    RoomStatus.archived,
+    RoomStatus.closed,
   ]);
 
-  const publishedAt =
-    status === RoomStatus.draft ? null : faker.date.past({ years: 1 });
-  const createdAt = publishedAt
-    ? faker.date.recent({ days: 5, refDate: publishedAt })
-    : faker.date.recent({ days: 30 });
+  const publishedAt = faker.date.past({ years: 1 });
+  const createdAt = faker.date.recent({ days: 5, refDate: publishedAt });
 
   return {
     name: 'room' + i,
@@ -263,13 +256,6 @@ function buildPollTimes(
   status: PollStatus,
   room: { publishedAt: Date | null; createdAt: Date } | null,
 ): { createdAt: Date; publishedAt: Date | null; endsAt: Date } {
-  if (status === PollStatus.draft) {
-    return {
-      createdAt: faker.date.recent({ days: 20 }),
-      publishedAt: null,
-      endsAt: faker.date.future({ years: 1 }),
-    };
-  }
   const publishedAt = room
     ? faker.date.between({ from: room.publishedAt ?? room.createdAt, to: now })
     : faker.date.past({ years: 1 });
@@ -387,18 +373,16 @@ async function main() {
   for (const room of rooms) {
     const base = room.publishedAt ?? room.createdAt;
     const members = [{ userId: room.createdById, joinedAt: base }];
-    if (room.status !== RoomStatus.draft) {
-      const pool = userIds.filter((id) => id !== room.createdById);
-      const extraCount = Math.min(
-        faker.number.int({ min: MEMBERS_MIN, max: MEMBERS_MAX }),
-        pool.length,
-      );
-      for (const uid of faker.helpers.arrayElements(pool, extraCount)) {
-        members.push({
-          userId: uid,
-          joinedAt: faker.date.between({ from: base, to: now }),
-        });
-      }
+    const pool = userIds.filter((id) => id !== room.createdById);
+    const extraCount = Math.min(
+      faker.number.int({ min: MEMBERS_MIN, max: MEMBERS_MAX }),
+      pool.length,
+    );
+    for (const uid of faker.helpers.arrayElements(pool, extraCount)) {
+      members.push({
+        userId: uid,
+        joinedAt: faker.date.between({ from: base, to: now }),
+      });
     }
     roomMembers.set(room.id, members);
     for (const member of members) {
@@ -454,7 +438,7 @@ async function main() {
     const type = pollTypes[i];
     const status = pollStatuses[i];
     const room =
-      status !== PollStatus.draft && activeRooms.length > 0 && i % 2 === 0
+      activeRooms.length > 0 && i % 2 === 0
         ? activeRooms[roomCursor++ % activeRooms.length]
         : null;
     const visibility = room ? room.visibility : Visibility.public;
@@ -494,7 +478,7 @@ async function main() {
       },
       include: { options: true },
     });
-    if (status !== PollStatus.draft) bump(pollsCreated, createdById);
+    bump(pollsCreated, createdById);
     pollRecords.push({
       id: poll.id,
       type,
@@ -510,7 +494,6 @@ async function main() {
 
   const pollHashtagRows: { pollId: number; hashtagId: number }[] = [];
   for (const poll of pollRecords) {
-    if (poll.status === PollStatus.draft) continue;
     const isPublic = poll.visibility === Visibility.public;
     if (!isPublic && !faker.datatype.boolean()) continue;
     const names = faker.helpers.arrayElements(
@@ -526,7 +509,7 @@ async function main() {
   }
   await prisma.pollHashtag.createMany({ data: pollHashtagRows });
 
-  const votablePolls = pollRecords.filter((p) => p.status !== PollStatus.draft);
+  const votablePolls = pollRecords;
   const hotPollIds = new Set(
     faker.helpers.arrayElements(
       votablePolls.map((p) => p.id),

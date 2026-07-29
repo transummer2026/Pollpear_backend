@@ -3,10 +3,11 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { IS_PUBLIC_KEY } from './public.decorator';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { User } from 'src/generated/prisma/client';
 import { UsersService } from 'src/users/users.service';
 
@@ -33,12 +34,17 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
+    const userIdNum = Number(userId);
+    if (Number.isNaN(userIdNum))
+      throw new ForbiddenException('Invalid user id.');
+
     const user = await this.userService.findByUserId(+userId);
     if (!user) {
       throw new UnauthorizedException();
     }
 
     request.userId = userId;
+    request.user = user;
     return true;
   }
 }
