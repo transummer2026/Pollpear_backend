@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filters';
+import cookieParser from 'cookie-parser';
 
 /**
  * NestFactory exposes static methods that allow creating an application
@@ -18,6 +19,7 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filters
 async function bootstrap() {
   // Create the HTTP (Express) application so we can use middleware and CORS
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.use(cookieParser());
   app.useGlobalFilters(new PrismaExceptionFilter());
   await app.listen(process.env.NESTJS_PORT ?? 3000);
 }
