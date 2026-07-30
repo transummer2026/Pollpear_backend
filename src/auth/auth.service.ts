@@ -146,9 +146,7 @@ export class AuthService {
     });
   }
 
-  logout() {
-    return 'logout route works';
-  }
+  logout() {}
 
   async passwordForgot(body: PasswordForgotDTO): Promise<void> {
     const user = await this.userService.findByEmail(body.email);

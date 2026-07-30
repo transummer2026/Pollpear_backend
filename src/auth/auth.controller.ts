@@ -47,7 +47,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  @HttpCode(503)
+  @HttpCode(204)
   logout() {
     return this.authService.logout();
   }
