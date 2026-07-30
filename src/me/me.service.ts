@@ -34,7 +34,10 @@ export class MeService {
     return UserDTOSchema.parse(updatedUser);
   }
 
-  async uploadAvatar(userId: number, file: Express.Multer.File) {
+  async uploadAvatar(
+    userId: number,
+    file: Express.Multer.File,
+  ): Promise<UserDTO> {
     const user = await this.userService.findByUserId(userId);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
@@ -43,8 +46,8 @@ export class MeService {
     await this.storageService.save(key, image, 'image/webp');
     const avatarUrl = `${this.storageService.publicUrl(key)}?v=${Date.now()}`;
 
-    await this.updateAvatar(userId, avatarUrl);
-    return { avatarUrl };
+    const updatedUser = await this.updateAvatar(userId, avatarUrl);
+    return UserDTOSchema.parse(updatedUser);
   }
 
   settings() {
