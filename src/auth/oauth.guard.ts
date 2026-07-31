@@ -19,7 +19,7 @@ export class OauthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
       .switchToHttp()
-      .getRequest<Request & { user?: User; userId?: string }>();
+      .getRequest<Request & { user?: User; userId?: number }>();
     const rawProvider = request.params.provider;
     const provider = Array.isArray(rawProvider) ? rawProvider[0] : rawProvider;
     if (!provider || !WIRED_PROVIDERS.includes(provider)) {
@@ -28,7 +28,7 @@ export class OauthGuard implements CanActivate {
     const guard = new (PassportAuthGuard(provider))();
     const allowed = await (guard.canActivate(context) as Promise<boolean>);
     if (allowed && request.user) {
-      request.userId = String(request.user.id);
+      request.userId = request.user.id;
     }
     return allowed;
   }

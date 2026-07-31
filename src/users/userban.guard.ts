@@ -38,12 +38,12 @@ export class BanGuard implements CanActivate {
     }
     const request = context
       .switchToHttp()
-      .getRequest<Request & { userId?: string }>();
+      .getRequest<Request & { userId?: number }>();
 
     const userId = request.userId;
     if (!userId) throw new ForbiddenException('No user id.');
 
-    const userisBanned = await this.userService.findByBanStatus(+userId);
+    const userisBanned = await this.userService.findByBanStatus(userId);
     if (userisBanned) {
       throw new ForbiddenException('User is banned.');
     }

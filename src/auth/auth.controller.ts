@@ -83,8 +83,8 @@ export class AuthController {
   @Get('oauth/:provider/callback')
   @UseGuards(OauthGuard)
   @UseFilters(OauthExceptionFilter)
-  async callback(@UserId() userId: string, @Res() res: Response) {
-    await this.authService.oauthLogin(+userId, res);
+  async callback(@UserId() userId: number, @Res() res: Response) {
+    await this.authService.oauthLogin(userId, res);
     res.redirect(process.env.FRONTEND_URL ?? 'http://localhost:5173');
   }
 }
