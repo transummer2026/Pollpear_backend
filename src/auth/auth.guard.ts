@@ -27,7 +27,7 @@ export class AuthGuard implements CanActivate {
     }
     const request = context
       .switchToHttp()
-      .getRequest<Request & { userId: string; user: User }>();
+      .getRequest<Request & { userId: number; user: User }>();
     const rawUserId = request.headers['x-user-id'];
     const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
     if (!userId) {
@@ -38,12 +38,12 @@ export class AuthGuard implements CanActivate {
     if (Number.isNaN(userIdNum))
       throw new ForbiddenException('Invalid user id.');
 
-    const user = await this.userService.findByUserId(+userId);
+    const user = await this.userService.findByUserId(userIdNum);
     if (!user) {
       throw new UnauthorizedException();
     }
 
-    request.userId = userId;
+    request.userId = userIdNum;
     request.user = user;
     return true;
   }

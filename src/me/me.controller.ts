@@ -26,26 +26,26 @@ export class MeController {
 
   @VisibleByBan()
   @Get()
-  myProfile(@UserId() userId: string) {
-    return this.meService.myProfile(+userId);
+  myProfile(@UserId() userId: number) {
+    return this.meService.myProfile(userId);
   }
 
   @Post('avatar')
   @UseInterceptors(FileInterceptor('file'))
   uploadAvatar(
-    @UserId() userId: string,
+    @UserId() userId: number,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.meService.uploadAvatar(+userId, file);
+    return this.meService.uploadAvatar(userId, file);
   }
 
   @Patch()
   editProfile(
-    @UserId() userId: string,
+    @UserId() userId: number,
     @Body(new ZodValidationPipe(UserProfileUpdateSchema))
     body: UserProfileUpdateDTO,
   ) {
-    return this.meService.editProfile(+userId, body);
+    return this.meService.editProfile(userId, body);
   }
 
   @Patch('settings')
@@ -63,7 +63,7 @@ export class MeController {
 
   @Delete()
   @HttpCode(200)
-  remove(@UserId() userId: string) {
-    return this.meService.remove(+userId);
+  remove(@UserId() userId: number) {
+    return this.meService.remove(userId);
   }
 }
