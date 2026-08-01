@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { WebsocketEmitter } from './websocket.emitter';
 
-@Module({})
+@Global()
+@Module({
+  providers: [WebsocketEmitter],
+  exports: [WebsocketEmitter],
+})
 export class WebsocketModule {}

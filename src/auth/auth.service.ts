@@ -23,6 +23,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { MailService } from 'src/mail/mail.service';
 import { randomUUID } from 'crypto';
 import { VaultService } from 'src/vault/vault.service';
+import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { type Response } from 'express';
 
 const ARGON2_OPTIONS = {
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly vault: VaultService,
+    private readonly websocketEmitter: WebsocketEmitter,
   ) {
     const pepper = this.vault.session.pepper;
     if (!pepper) throw new Error('Vault pepper secret is not defined');
@@ -146,7 +148,14 @@ export class AuthService {
     });
   }
 
-  logout() {}
+  /**
+   * The session itself is already destroyed in Redis by the gateway at
+   * this point; what is left is closing the websocket tunnels opened
+   * with it, otherwise they would outlive the session.
+   */
+  logout(userId: number) {
+    this.websocketEmitter.revokeUser(userId);
+  }
 
   async passwordForgot(body: PasswordForgotDTO): Promise<void> {
     const user = await this.userService.findByEmail(body.email);

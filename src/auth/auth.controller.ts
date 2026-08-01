@@ -48,8 +48,8 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(204)
-  logout() {
-    return this.authService.logout();
+  logout(@UserId() userId: number) {
+    return this.authService.logout(userId);
   }
 
   @Public()

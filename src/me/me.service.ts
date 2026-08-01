@@ -6,8 +6,10 @@ import {
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { RedisService } from 'src/redis/redis.service';
 import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
+import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 
 @Injectable()
 export class MeService {
@@ -16,6 +18,8 @@ export class MeService {
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
     private readonly storageService: StorageService,
+    private readonly redisService: RedisService,
+    private readonly websocketEmitter: WebsocketEmitter,
   ) {}
 
   // endpoints
@@ -59,10 +63,13 @@ export class MeService {
   }
 
   async remove(userId: number) {
-    return await this.updateIsDeleted(userId);
+    const user = await this.updateIsDeleted(userId);
+    await this.redisService.deleteUserSessions(userId);
+    this.websocketEmitter.revokeUser(userId);
+    return user;
   }
 
-  // Pruisma helpers
+  // Prisma helpers
 
   private async updateMyProfile(userId: number, body: UserProfileUpdateDTO) {
     console.log(body.username);
