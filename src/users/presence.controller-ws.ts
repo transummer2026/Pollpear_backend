@@ -45,15 +45,25 @@ export class PresenceWsController
   async handleConnection(client: Socket) {
     const userId = handshakeUserId(client);
     if (userId === null) {
+      this.logger.warn(
+        `socket ${client.id} refused: no valid x-user-id on handshake`,
+      );
       client.disconnect(true);
       return;
     }
     bindSocketUser(client, userId);
     await client.join(`user:${userId}`);
 
+    client.on('disconnect', (reason: string) =>
+      this.logger.log(`socket ${client.id} closed (user ${userId}): ${reason}`),
+    );
+
     const sockets = this.socketsByUser.get(userId) ?? new Set<string>();
     sockets.add(client.id);
     this.socketsByUser.set(userId, sockets);
+    this.logger.log(
+      `socket ${client.id} connected (user ${userId}, ${sockets.size} open)`,
+    );
     if (sockets.size > 1) return;
 
     try {

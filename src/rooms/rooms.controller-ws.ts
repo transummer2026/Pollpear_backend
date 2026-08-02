@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,7 +14,20 @@ const MAX_MESSAGE_LENGTH = 4000;
 
 @WebSocketGateway()
 export class RoomsWsController {
+  private readonly logger = new Logger(RoomsWsController.name);
+
   constructor(private readonly roomsService: RoomsService) {}
+
+  /**
+   * Refusals are logged before being thrown: the client only receives a
+   * short reason on its exception event, the server keeps who asked what.
+   */
+  private refuse(client: Socket, reason: string, payload: unknown): never {
+    this.logger.warn(
+      `${reason} (socket ${client.id}, payload ${JSON.stringify(payload)})`,
+    );
+    throw new WsException(reason);
+  }
 
   @SubscribeMessage('room:message')
   async createMessage(
@@ -21,7 +35,7 @@ export class RoomsWsController {
     @MessageBody() payload: unknown,
   ) {
     const userId = socketUserId(client);
-    if (userId === null) throw new WsException('Unauthorized');
+    if (userId === null) this.refuse(client, 'Unauthorized', payload);
 
     const { roomId, content } = (payload ?? {}) as {
       roomId?: unknown;
@@ -34,11 +48,13 @@ export class RoomsWsController {
       text.length === 0 ||
       text.length > MAX_MESSAGE_LENGTH
     ) {
-      throw new WsException('Invalid payload');
+      this.refuse(client, 'Invalid payload', payload);
     }
 
     const members = await this.roomsService.memberIds(roomIdNum);
-    if (!members.includes(userId)) throw new WsException('Not a room member');
+    if (!members.includes(userId)) {
+      this.refuse(client, 'Not a room member', payload);
+    }
 
     const message = await this.roomsService.saveMessage(
       roomIdNum,
@@ -48,6 +64,9 @@ export class RoomsWsController {
     client
       .to(members.map((id) => `user:${id}`))
       .emit('room:new:message', { message });
+    this.logger.debug(
+      `message ${message.id} in room ${roomIdNum} by user ${userId}, broadcast to ${members.length - 1} member(s)`,
+    );
     return { message };
   }
 
@@ -57,23 +76,27 @@ export class RoomsWsController {
     @MessageBody() payload: unknown,
   ) {
     const userId = socketUserId(client);
-    if (userId === null) throw new WsException('Unauthorized');
+    if (userId === null) this.refuse(client, 'Unauthorized', payload);
 
     const { messageId } = (payload ?? {}) as { messageId?: unknown };
     const messageIdNum = Number(messageId);
-    if (!Number.isInteger(messageIdNum))
-      throw new WsException('Invalid payload');
+    if (!Number.isInteger(messageIdNum)) {
+      this.refuse(client, 'Invalid payload', payload);
+    }
 
     const message = await this.roomsService.softDeleteMessage(
       messageIdNum,
       userId,
     );
-    if (!message) throw new WsException('Message not found');
+    if (!message) this.refuse(client, 'Message not found', payload);
 
     const members = await this.roomsService.memberIds(message.roomId);
     client
       .to(members.map((id) => `user:${id}`))
       .emit('room:message:deleted', { messageId: messageIdNum });
+    this.logger.debug(
+      `message ${messageIdNum} deleted by user ${userId} in room ${message.roomId}`,
+    );
     return { messageId: messageIdNum };
   }
 }

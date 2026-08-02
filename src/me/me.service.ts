@@ -65,7 +65,7 @@ export class MeService {
   async remove(userId: number) {
     const user = await this.updateIsDeleted(userId);
     await this.redisService.deleteUserSessions(userId);
-    this.websocketEmitter.revokeUser(userId);
+    await this.websocketEmitter.revokeUser(userId);
     return user;
   }
 

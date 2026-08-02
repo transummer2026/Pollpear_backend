@@ -153,8 +153,8 @@ export class AuthService {
    * this point; what is left is closing the websocket tunnels opened
    * with it, otherwise they would outlive the session.
    */
-  logout(userId: number) {
-    this.websocketEmitter.revokeUser(userId);
+  async logout(userId: number) {
+    await this.websocketEmitter.revokeUser(userId);
   }
 
   async passwordForgot(body: PasswordForgotDTO): Promise<void> {
