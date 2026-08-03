@@ -47,8 +47,8 @@ const POLL_TYPE_PLAN: PollType[] = [
   ...Array<PollType>(6).fill(PollType.free_field),
 ];
 const POLL_STATUS_PLAN: PollStatus[] = [
-  ...Array<PollStatus>(25).fill(PollStatus.active),
-  ...Array<PollStatus>(6).fill(PollStatus.locked),
+  ...Array<PollStatus>(32).fill(PollStatus.active),
+  ...Array<PollStatus>(8).fill(PollStatus.locked),
 ];
 const FRIENDSHIP_STATUS_PLAN: FriendshipStatus[] = [
   ...Array<FriendshipStatus>(70).fill(FriendshipStatus.accepted),
