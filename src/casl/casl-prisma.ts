@@ -45,6 +45,18 @@ export type AppSubjects =
     }>;
 
 export type AppAbility = Ability<
-  ['manage' | 'create' | 'read' | 'update' | 'delete', 'all' | AppSubjects],
+  [
+    (
+      | 'manage'
+      | 'create'
+      | 'read'
+      | 'update'
+      | 'delete'
+      | 'ban'
+      | 'moderate'
+      | 'vote'
+    ),
+    'all' | AppSubjects,
+  ],
   PrismaQuery
 >;
