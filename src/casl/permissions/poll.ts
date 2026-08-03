@@ -3,13 +3,11 @@ import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type PollSubject = 'Poll';
-
 export type PollActions = CrudAction | 'moderate' | 'vote';
 
-export type OrderAbilities = [PollActions, PollSubject];
+export type PollAbilities = [PollActions, 'Poll'];
 
-export function defineUserPermissions(
+export function definePollPermissions(
   { can: allow }: AbilityBuilder<AppAbility>,
   user: AuthorizationUser,
 ) {

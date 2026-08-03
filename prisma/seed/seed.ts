@@ -67,7 +67,7 @@ const HOT_POLL_COUNT = 4;
 const DAY_MS = 86_400_000;
 
 const adapter = new PrismaPg({
-  connectionString: process.env.POSTGRES_URL as string,
+  connectionString: process.env.POSTGRES_LOCAL_URL as string,
 });
 const prisma = new PrismaClient({ adapter });
 
