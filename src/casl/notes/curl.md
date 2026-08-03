@@ -16,3 +16,4 @@ curl -i -X PATCH http://localhost:3000/users/10/ban -b 'sid=0c1861ea-4355-422d-a
 
 curl -i -X PATCH http://localhost:3000/users/10/ban -H 'x-user-id: 5'
 curl -i -X PATCH http://localhost:3000/users/10/ban -H 'x-user-id: 6'
+curl -i -X PATCH http://localhost:3000/polls/3 -H 'x-user-id: 6'

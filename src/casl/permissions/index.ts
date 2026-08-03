@@ -5,8 +5,9 @@ import { AuthorizationUser } from './role';
 import { defineUserPermissions } from './user';
 import { definePollPermissions } from './poll';
 import type { UserAbilities } from './user';
+import type { PollAbilities } from './poll';
 
-export type AppAbilityTuple = UserAbilities;
+export type AppAbilityTuple = UserAbilities | PollAbilities;
 
 export const definePermissionsArray: ((
   builder: AbilityBuilder<AppAbility>,

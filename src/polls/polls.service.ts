@@ -1,13 +1,31 @@
+import { ForbiddenError, subject } from '@casl/ability';
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory/casl-ability.factory';
 
 @Injectable()
 export class PollsService {
+  constructor(
+    private prisma: PrismaService,
+    private abilityFactory: CaslAbilityFactory,
+  ) {}
   create() {
     return 'add new poll route works';
   }
 
-  update(id: number) {
-    return `update poll #${id} works`;
+  async update(id: number, userId: number) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const poll = await this.prisma.poll.findUniqueOrThrow({ where: { id } });
+
+    const ability = this.abilityFactory.createForUser(user);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('Poll', poll),
+    );
+
+    return `update work #${id}`;
   }
 
   remove(id: number) {

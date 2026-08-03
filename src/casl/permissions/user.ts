@@ -4,7 +4,7 @@ import { AppAbility } from '../casl-prisma';
 import { CrudAction } from './crud';
 
 // this allows you to attach ban to just the user, if you use it for poll wont work
-export type UserActions = CrudAction | 'ban';
+export type UserActions = CrudAction | 'ban' | 'report';
 
 // tupple which will be used in the decorator CheckAbility
 // in the decorator useraction <=> user and not useraction <=> poll
