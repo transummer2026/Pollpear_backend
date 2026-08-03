@@ -3,9 +3,11 @@ import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type PollActions = CrudAction | 'moderate' | 'vote';
+export type PollActions = CrudAction | 'moderate' | 'vote' | 'report';
 
-export type PollAbilities = [PollActions, 'Poll'];
+export type PollSubject = 'Poll' | 'PollVote' | 'PollOption';
+
+export type PollAbilities = [PollActions, PollSubject];
 
 export function definePollPermissions(
   { can: allow }: AbilityBuilder<AppAbility>,
@@ -19,7 +21,7 @@ export function definePollPermissions(
     allow('moderate', 'Poll');
   }
 
-  allow(['read', 'create', 'vote'], 'Poll');
+  allow(['read', 'create'], 'Poll');
   allow(['update', 'delete'], 'Poll', {
     status: 'pending',
     createdById: user.id,
