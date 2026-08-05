@@ -4,9 +4,9 @@ import {
   Profile,
   Strategy as GoogleOauth2Strategy,
 } from 'passport-google-oauth20';
-import { OauthProvider, User } from 'src/generated/prisma/client';
+import { OauthProvider } from 'src/generated/prisma/client';
 import { VaultService } from 'src/vault/vault.service';
-import { OauthService } from './oauth.service';
+import { OauthService, type OauthLoginResult } from './oauth.service';
 import { OauthStateStore } from './oauth-state.store';
 import { OauthProfile } from './oauth-profile';
 
@@ -43,7 +43,7 @@ export class GoogleStrategy extends PassportStrategy(
     refreshToken: string,
     params: GoogleTokenParams,
     profile: Profile,
-  ): Promise<User> {
+  ): Promise<OauthLoginResult> {
     const email = profile.emails?.[0];
     if (!email?.value) {
       throw new ForbiddenException('No email available from google account');

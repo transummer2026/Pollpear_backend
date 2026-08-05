@@ -1,9 +1,9 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy as GithubOauth2Strategy } from 'passport-github2';
-import { OauthProvider, User } from 'src/generated/prisma/client';
+import { OauthProvider } from 'src/generated/prisma/client';
 import { VaultService } from 'src/vault/vault.service';
-import { OauthService } from './oauth.service';
+import { OauthService, type OauthLoginResult } from './oauth.service';
 import { OauthStateStore } from './oauth-state.store';
 import { OauthProfile } from './oauth-profile';
 
@@ -46,7 +46,7 @@ export class GithubStrategy extends PassportStrategy(
     refreshToken: string,
     params: GithubTokenParams,
     profile: Profile,
-  ): Promise<User> {
+  ): Promise<OauthLoginResult> {
     const emails = (profile.emails ?? []) as GithubEmail[];
     const primary = emails.find((e) => e.primary) ?? emails[0];
     if (!primary?.value) {

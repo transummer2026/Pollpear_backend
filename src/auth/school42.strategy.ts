@@ -4,9 +4,9 @@ import {
   InternalOAuthError,
   Strategy as OAuth2Strategy,
 } from 'passport-oauth2';
-import { OauthProvider, User } from 'src/generated/prisma/client';
+import { OauthProvider } from 'src/generated/prisma/client';
 import { VaultService } from 'src/vault/vault.service';
-import { OauthService } from './oauth.service';
+import { OauthService, type OauthLoginResult } from './oauth.service';
 import { OauthStateStore } from './oauth-state.store';
 import { OauthProfile } from './oauth-profile';
 
@@ -77,7 +77,7 @@ export class School42Strategy extends PassportStrategy(
     refreshToken: string,
     params: School42TokenParams,
     profile: School42RawProfile,
-  ): Promise<User> {
+  ): Promise<OauthLoginResult> {
     const normalized: OauthProfile = {
       provider: OauthProvider.school42,
       providerUserId: String(profile.id),

@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
 import { type Request } from 'express';
-import { OauthProvider, User } from 'src/generated/prisma/client';
+import { OauthProvider } from 'src/generated/prisma/client';
+import { type OauthLoginResult } from './oauth.service';
 
 const WIRED_PROVIDERS: string[] = [
   OauthProvider.school42,
@@ -19,7 +20,7 @@ export class OauthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
       .switchToHttp()
-      .getRequest<Request & { user?: User; userId?: number }>();
+      .getRequest<Request & { user?: OauthLoginResult; userId?: number }>();
     const rawProvider = request.params.provider;
     const provider = Array.isArray(rawProvider) ? rawProvider[0] : rawProvider;
     if (!provider || !WIRED_PROVIDERS.includes(provider)) {
@@ -27,8 +28,8 @@ export class OauthGuard implements CanActivate {
     }
     const guard = new (PassportAuthGuard(provider))();
     const allowed = await (guard.canActivate(context) as Promise<boolean>);
-    if (allowed && request.user) {
-      request.userId = request.user.id;
+    if (allowed && request.user?.status === 'user') {
+      request.userId = request.user.user.id;
     }
     return allowed;
   }
