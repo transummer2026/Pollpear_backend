@@ -6,7 +6,7 @@ import {
   UserDTOSchema,
   type UserProfileUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
-import { CaslAbilityFactory } from 'src/casl/casl-ability.factory/casl-ability.factory';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 
 @Injectable()
 export class UsersService {

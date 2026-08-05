@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { CaslAbilityFactory } from './casl-ability.factory/casl-ability.factory';
+import { CaslAbilityFactory } from './casl-ability.factory';
 import { User } from 'src/generated/prisma/client';
 import { CHECK_POLICIES_KEY } from 'src/common/decorators/check-policies.decorator';
 import { PolicyHandler } from './policy-handler.interface';

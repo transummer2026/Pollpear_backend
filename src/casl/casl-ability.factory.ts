@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AbilityBuilder } from '@casl/ability';
 import { createPrismaAbility } from '@casl/prisma';
-import { AppAbility } from '../casl-prisma';
-import { AuthorizationUser } from '../permissions/role';
-import { definePermissionsArray } from '../permissions';
+import { AppAbility } from './casl-prisma';
+import { AuthorizationUser } from './permissions/role';
+import { definePermissionsArray } from './permissions';
 import { User } from 'src/generated/prisma/client';
 
 /**
