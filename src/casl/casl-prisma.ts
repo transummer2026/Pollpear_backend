@@ -17,6 +17,8 @@ import type {
   User,
   Friendship,
   Ban,
+  Option,
+  Vote,
 } from '../generated/prisma/client';
 import { Ability } from '@casl/ability';
 
@@ -37,6 +39,8 @@ export type AppSubjects =
   | Subjects<{
       User: User;
       Poll: Poll;
+      PollOption: Option;
+      PollVote: Vote;
       Hashtag: Hashtag;
       Message: Message;
       Room: Room;
@@ -45,6 +49,19 @@ export type AppSubjects =
     }>;
 
 export type AppAbility = Ability<
-  ['manage' | 'create' | 'read' | 'update' | 'delete', 'all' | AppSubjects],
+  [
+    (
+      | 'manage'
+      | 'create'
+      | 'read'
+      | 'update'
+      | 'delete'
+      | 'ban'
+      | 'moderate'
+      | 'vote'
+      | 'report'
+    ),
+    'all' | AppSubjects,
+  ],
   PrismaQuery
 >;

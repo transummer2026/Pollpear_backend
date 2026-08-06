@@ -14,6 +14,7 @@ import {
   type UserProfileUpdateDTO,
   UserProfileUpdateSchema,
 } from 'Pollpear_shared/src/schemas/users.schema';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -59,6 +60,7 @@ export class UsersController {
 
   @Patch(':id/ban')
   @HttpCode(503)
+  @CheckAbilities(['ban', 'User'])
   updateBan(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.updateBan(+id);
   }

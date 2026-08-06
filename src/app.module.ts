@@ -28,7 +28,7 @@ import { VaultModule } from './vault/vault.module';
 import { VaultService } from './vault/vault.service';
 import { BanGuard } from './users/userban.guard';
 import { CaslModule } from './casl/casl.module';
-import { PoliciesGuard } from './casl/policies.guard';
+import { AuthorizationGuard } from './casl/authorization.guard';
 
 /**
  * module is used by Nest to organise the application structure
@@ -89,7 +89,7 @@ import { PoliciesGuard } from './casl/policies.guard';
     },
     {
       provide: APP_GUARD,
-      useClass: PoliciesGuard,
+      useClass: AuthorizationGuard,
     },
   ],
 })
