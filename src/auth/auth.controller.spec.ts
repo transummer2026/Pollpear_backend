@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { OauthService } from './oauth.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
 import { redisServiceMock } from 'src/redis/redis.service.mock';
@@ -15,6 +16,7 @@ describe('AuthController', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        OauthService,
         prismaMock,
         usersServiceMock,
         redisServiceMock,

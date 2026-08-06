@@ -42,4 +42,18 @@ export class RedisService {
       `password_reset_user:${userId}`,
     );
   }
+
+  async setOauthPendingProfile(token: UUID, profile: string) {
+    const TTL = 60 * 15;
+
+    await this.redis.set(`oauth_pending:${token}`, profile, 'EX', TTL);
+  }
+
+  async getOauthPendingProfile(token: string): Promise<string | null> {
+    return this.redis.get(`oauth_pending:${token}`);
+  }
+
+  async deleteOauthPendingProfile(token: string) {
+    await this.redis.del(`oauth_pending:${token}`);
+  }
 }
