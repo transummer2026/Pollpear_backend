@@ -14,13 +14,20 @@ import {
   Visibility,
 } from 'src/generated/prisma/client';
 import {
-  type OauthCompleteSchemaDTO,
-  type OauthPendingSchemaDTO,
+  type OauthCompleteDTO,
+  type OauthPendingDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
+import {
+  UserDTOSchema,
+  type UserDTO,
+} from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
+import { VaultService } from 'src/vault/vault.service';
+import { AuthService } from './auth.service';
 import { OauthProfile } from './oauth-profile';
+import { type Response } from 'express';
 
 export type OauthLoginResult =
   | { status: 'user'; user: User }
@@ -32,6 +39,8 @@ export class OauthService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
+    private readonly authService: AuthService,
+    private readonly vault: VaultService,
   ) {}
 
   async handleLogin(profile: OauthProfile): Promise<OauthLoginResult> {
@@ -55,7 +64,21 @@ export class OauthService {
     return { status: 'user', user };
   }
 
-  async getPendingProfile(token: string): Promise<OauthPendingSchemaDTO> {
+  async handleCallback(
+    result: OauthLoginResult | undefined,
+    res: Response,
+  ): Promise<string> {
+    const frontendUrl = this.vault.app.frontend_url;
+    if (result?.status === 'pending') {
+      return `${frontendUrl}/auth/complete-profile?signup=${result.token}`;
+    }
+    if (result?.status === 'user') {
+      await this.authService.oauthLogin(result.user.id, res);
+    }
+    return frontendUrl;
+  }
+
+  async getPendingProfile(token: string): Promise<OauthPendingDTO> {
     const profile = await this.loadPendingProfile(token);
     return {
       email: profile.email,
@@ -66,7 +89,16 @@ export class OauthService {
     };
   }
 
-  async completeSignup(body: OauthCompleteSchemaDTO): Promise<User> {
+  async completeSignupAndLogin(
+    body: OauthCompleteDTO,
+    res: Response,
+  ): Promise<UserDTO> {
+    const user = await this.completeSignup(body);
+    await this.authService.oauthLogin(user.id, res);
+    return UserDTOSchema.parse(user);
+  }
+
+  async completeSignup(body: OauthCompleteDTO): Promise<User> {
     const profile = await this.loadPendingProfile(body.token);
     const usernameTaken = await this.prisma.user.findUnique({
       where: { username: body.username },

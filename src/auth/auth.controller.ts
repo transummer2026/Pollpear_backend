@@ -21,16 +21,14 @@ import {
   type LoginDTO,
   type PasswordForgotDTO,
   type PasswordResetDTO,
-  type OauthCompleteSchemaDTO,
+  type OauthCompleteDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
 import { type Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { OauthGuard } from './oauth.guard';
 import { OauthExceptionFilter } from 'src/common/filters/oauth-exception.filter';
-import { UserDTOSchema } from 'Pollpear_shared/src/schemas/users.schema';
 import { OauthService, type OauthLoginResult } from './oauth.service';
-import { VaultService } from 'src/vault/vault.service';
 import { type Request } from 'express';
 
 @Controller('auth')
@@ -38,7 +36,6 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly oauthService: OauthService,
-    private readonly vault: VaultService,
   ) {} // ← closes here with {}
 
   @Public()
@@ -92,14 +89,11 @@ export class AuthController {
 
   @Public()
   @Post('oauth/complete')
-  async complete(
-    @Body(new ZodValidationPipe(OauthCompleteSchema))
-    body: OauthCompleteSchemaDTO,
+  complete(
+    @Body(new ZodValidationPipe(OauthCompleteSchema)) body: OauthCompleteDTO,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.oauthService.completeSignup(body);
-    await this.authService.oauthLogin(user.id, res);
-    return UserDTOSchema.parse(user);
+    return this.oauthService.completeSignupAndLogin(body, res);
   }
 
   @Public()
@@ -116,16 +110,6 @@ export class AuthController {
     @Req() req: Request & { user?: OauthLoginResult },
     @Res() res: Response,
   ) {
-    const frontendUrl = this.vault.app.frontend_url;
-    const result = req.user;
-    if (result?.status === 'pending') {
-      return res.redirect(
-        `${frontendUrl}/auth/complete-profile?signup=${result.token}`,
-      );
-    }
-    if (result?.status === 'user') {
-      await this.authService.oauthLogin(result.user.id, res);
-    }
-    return res.redirect(frontendUrl);
+    res.redirect(await this.oauthService.handleCallback(req.user, res));
   }
 }
