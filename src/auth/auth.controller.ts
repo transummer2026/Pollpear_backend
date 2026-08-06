@@ -30,6 +30,7 @@ import { OauthGuard } from './oauth.guard';
 import { OauthExceptionFilter } from 'src/common/filters/oauth-exception.filter';
 import { UserDTOSchema } from 'Pollpear_shared/src/schemas/users.schema';
 import { OauthService, type OauthLoginResult } from './oauth.service';
+import { VaultService } from 'src/vault/vault.service';
 import { type Request } from 'express';
 
 @Controller('auth')
@@ -37,6 +38,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly oauthService: OauthService,
+    private readonly vault: VaultService,
   ) {} // ← closes here with {}
 
   @Public()
@@ -114,7 +116,7 @@ export class AuthController {
     @Req() req: Request & { user?: OauthLoginResult },
     @Res() res: Response,
   ) {
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+    const frontendUrl = this.vault.app.frontend_url;
     const result = req.user;
     if (result?.status === 'pending') {
       return res.redirect(
