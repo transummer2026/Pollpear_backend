@@ -5,6 +5,7 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filters
 import cookieParser from 'cookie-parser';
 import { CaslExceptionFilter } from './common/filters/casl-exception.filters';
 import { WebsocketAdapter } from './websocket/websocket.adapter';
+import { VaultService } from './vault/vault.service';
 
 /**
  * NestFactory exposes static methods that allow creating an application
@@ -22,6 +23,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.useGlobalFilters(new PrismaExceptionFilter(), new CaslExceptionFilter());
   app.useWebSocketAdapter(new WebsocketAdapter(app));
-  await app.listen(process.env.NESTJS_PORT ?? 3000);
+  const vault = app.get(VaultService);
+  await app.listen(vault.app.backend_port);
 }
 void bootstrap();
