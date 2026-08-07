@@ -7,6 +7,7 @@ import { usersServiceMock } from 'src/users/users.service.mock';
 import { redisServiceMock } from 'src/redis/redis.service.mock';
 import { vaultServiceMock } from 'src/vault/vault.service.mock';
 import { mailServiceMock } from 'src/mail/mail.service.mock';
+import { websocketEmitterMock } from 'src/websocket/websocket.emitter.mock';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -22,6 +23,7 @@ describe('AuthController', () => {
         redisServiceMock,
         vaultServiceMock,
         mailServiceMock,
+        websocketEmitterMock,
       ],
     }).compile();
 

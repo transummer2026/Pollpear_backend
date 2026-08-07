@@ -4,6 +4,8 @@ import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
 import { fileUploadServiceMock } from 'src/file-upload/file-upload.service.mock';
 import { storageServiceMock } from 'src/storage/storage.service.mock';
+import { redisServiceMock } from 'src/redis/redis.service.mock';
+import { websocketEmitterMock } from 'src/websocket/websocket.emitter.mock';
 
 describe('MeService', () => {
   let service: MeService;
@@ -16,6 +18,8 @@ describe('MeService', () => {
         usersServiceMock,
         fileUploadServiceMock,
         storageServiceMock,
+        redisServiceMock,
+        websocketEmitterMock,
       ],
     }).compile();
 

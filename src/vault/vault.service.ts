@@ -43,6 +43,13 @@ export interface AppConfig {
   gateway_url: string;
 }
 
+export interface WsConfig {
+  path: string;
+  ping_interval: string;
+  ping_timeout: string;
+  max_payload: string;
+}
+
 export interface OauthCreds {
   client_id: string;
   client_secret: string;
@@ -62,6 +69,7 @@ export interface PollpearSecrets {
   mail: MailSecrets;
   s3: S3Secrets;
   app: AppConfig;
+  ws: WsConfig;
   oauth: OauthSecrets;
 }
 
@@ -80,6 +88,7 @@ export class VaultService {
         mail: await vault.readKv(token, 'pollpear/mail'),
         s3: await vault.readKv(token, 'pollpear/s3'),
         app: await vault.readKv(token, 'pollpear/app'),
+        ws: await vault.readKv(token, 'pollpear/ws'),
         oauth: {
           google: await vault.readKv(token, 'pollpear/oauth/google'),
           '42': await vault.readKv(token, 'pollpear/oauth/42'),
@@ -114,6 +123,9 @@ export class VaultService {
   }
   get app() {
     return this.secrets.app;
+  }
+  get ws() {
+    return this.secrets.ws;
   }
   get oauth() {
     return this.secrets.oauth;
