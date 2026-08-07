@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import {
   UserDTO,
-  UserDTOSchema,
+  UserSchema,
   type UserProfileUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
@@ -23,7 +23,7 @@ export class MeService {
   async myProfile(userId: number): Promise<UserDTO> {
     const user = await this.userService.findByUserId(userId);
     if (!user) throw new UnauthorizedException('Invalid credentials');
-    return UserDTOSchema.parse(user);
+    return UserSchema.parse(user);
   }
 
   async editProfile(
@@ -31,7 +31,7 @@ export class MeService {
     body: UserProfileUpdateDTO,
   ): Promise<UserDTO> {
     const updatedUser = await this.updateMyProfile(userId, body);
-    return UserDTOSchema.parse(updatedUser);
+    return UserSchema.parse(updatedUser);
   }
 
   async uploadAvatar(
@@ -47,7 +47,7 @@ export class MeService {
     const avatarUrl = `${this.storageService.publicUrl(key)}?v=${Date.now()}`;
 
     const updatedUser = await this.updateAvatar(userId, avatarUrl);
-    return UserDTOSchema.parse(updatedUser);
+    return UserSchema.parse(updatedUser);
   }
 
   settings() {
