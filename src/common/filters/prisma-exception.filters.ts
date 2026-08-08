@@ -3,6 +3,7 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -22,6 +23,8 @@ import {
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(PrismaExceptionFilter.name);
+
   catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -41,6 +44,10 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         httpException = new NotFoundException('Resource not found.');
         break;
       default:
+        this.logger.error(
+          `Unmapped Prisma error code ${exception.code}`,
+          exception,
+        );
         httpException = new InternalServerErrorException('Database error');
     }
     response

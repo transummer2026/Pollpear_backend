@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import {
   InternalOAuthError,
@@ -31,6 +31,8 @@ export class School42Strategy extends PassportStrategy(
   OauthProvider.school42,
   true,
 ) {
+  private readonly logger = new Logger(School42Strategy.name);
+
   constructor(
     vault: VaultService,
     stateStore: OauthStateStore,
@@ -65,7 +67,8 @@ export class School42Strategy extends PassportStrategy(
         }
         try {
           done(null, JSON.parse(String(body)) as School42RawProfile);
-        } catch {
+        } catch (error) {
+          this.logger.error('Failed to parse 42 profile', error);
           done(new Error('Failed to parse 42 profile'));
         }
       },

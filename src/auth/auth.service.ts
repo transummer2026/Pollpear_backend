@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   UnauthorizedException,
   Res,
 } from '@nestjs/common';
@@ -33,6 +34,7 @@ const ARGON2_OPTIONS = {
 //in login there is no userid inside the request
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly pepper: Buffer;
   constructor(
     private prisma: PrismaService,
@@ -50,6 +52,7 @@ export class AuthService {
     try {
       return await hash(password, { ...ARGON2_OPTIONS, secret: this.pepper });
     } catch (e) {
+      this.logger.error('Failed to hash password', e);
       throw new InternalServerErrorException(e);
     }
   }
@@ -107,6 +110,7 @@ export class AuthService {
         },
       );
     } catch (e) {
+      this.logger.error('Failed to verify password', e);
       throw new InternalServerErrorException(e);
     }
     if (!user || !passwordValid)
@@ -158,7 +162,8 @@ export class AuthService {
     const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
     try {
       await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to send password reset email', error);
       throw new InternalServerErrorException('Failed to send reset email');
     }
   }

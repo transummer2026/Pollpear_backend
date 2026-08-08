@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+
 export interface AppRoleLogin {
   token: string;
   ttl: number;
@@ -29,6 +31,8 @@ class VaultRequestError extends Error {
 }
 
 export class VaultClient {
+  private readonly logger = new Logger(VaultClient.name);
+
   constructor(private readonly addr: string) {}
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {
@@ -49,6 +53,11 @@ export class VaultClient {
       } catch (error) {
         if (error instanceof VaultRequestError && !error.retryable) throw error;
         lastError = error;
+        this.logger.warn(
+          `Vault request ${path} failed (attempt ${attempt}/${MAX_ATTEMPTS}): ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
         if (attempt < MAX_ATTEMPTS) {
           await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
         }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
 
 export type ImageKind = 'avatar' | 'banner';
@@ -22,6 +22,8 @@ const AVATAR_HEIGHT = 512;
 
 @Injectable()
 export class FileUploadService {
+  private readonly logger = new Logger(FileUploadService.name);
+
   validate(file: Express.Multer.File): void {
     if (!file) {
       throw new BadRequestException('no file uploaded');
@@ -46,7 +48,8 @@ export class FileUploadService {
         .resize(resize)
         .webp({ quality: 82 })
         .toBuffer();
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to process image', error);
       throw new BadRequestException('invalid or unsupported image');
     }
   }
