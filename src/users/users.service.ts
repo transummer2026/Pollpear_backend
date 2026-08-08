@@ -89,6 +89,13 @@ export class UsersService {
     });
   }
 
+  async verifyEmail(userId: number) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isEmailVerified: true },
+    });
+  }
+
   private async updateUserProfile(userId: number, body: UserProfileUpdateDTO) {
     return await this.prisma.user.update({
       where: {

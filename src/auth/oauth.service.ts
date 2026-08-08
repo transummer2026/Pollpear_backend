@@ -133,6 +133,7 @@ export class OauthService {
         score: 0,
         isOnline: false,
         isDeleted: false,
+        isEmailVerified: true,
         visibility: Visibility.private,
         userTheme: UserTheme.light,
         ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),

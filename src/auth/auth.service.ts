@@ -11,6 +11,8 @@ import {
   type LoginDTO,
   type PasswordForgotDTO,
   type PasswordResetDTO,
+  type VerifyEmailDTO,
+  type ResendVerificationDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
@@ -64,7 +66,7 @@ export class AuthService {
    */
   async register(body: RegisterDTO): Promise<UserDTO> {
     const passwordHash = await this.hashPassword(body.password);
-    return await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         username: body.username,
         name: body.name,
@@ -82,6 +84,7 @@ export class AuthService {
         score: 0,
         isOnline: false,
         isDeleted: false,
+        isEmailVerified: false,
         visibility: Visibility.private,
         userTheme: UserTheme.light,
       },
@@ -90,6 +93,10 @@ export class AuthService {
         updatedAt: true,
       },
     });
+
+    await this.sendVerificationEmail(user.email, user.id);
+
+    return user;
   }
 
   async login(
@@ -125,6 +132,10 @@ export class AuthService {
 
     if (userIsDeleted) {
       throw new ForbiddenException('User is deleted.');
+    }
+
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Email not verified.');
     }
 
     await this.createSession(user.id, response);
@@ -187,6 +198,43 @@ export class AuthService {
 
     await this.userService.updatePassword(userId, passwordHash);
     await this.redisService.deletePasswordResetToken(body.token, userId);
+  }
+
+  async verifyEmail(body: VerifyEmailDTO): Promise<void> {
+    const userId = await this.redisService.getEmailVerifyToken(body.token);
+    if (!userId) {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+
+    await this.userService.verifyEmail(userId);
+    await this.redisService.deleteEmailVerifyToken(body.token, userId);
+  }
+
+  async resendVerification(body: ResendVerificationDTO): Promise<void> {
+    const user = await this.userService.findByEmail(body.email);
+    if (!user || user.isEmailVerified) {
+      return;
+    }
+
+    await this.sendVerificationEmail(user.email, user.id);
+  }
+
+  private async sendVerificationEmail(
+    email: string,
+    userId: number,
+  ): Promise<void> {
+    const token = randomUUID();
+    await this.redisService.setEmailVerifyToken(token, userId);
+
+    const verifyUrl = `${this.vault.app.frontend_url}/auth/verify-email?token=${token}`;
+    try {
+      await this.mailService.sendVerificationEmail(email, verifyUrl);
+    } catch (error) {
+      this.logger.error('Failed to send verification email', error);
+      throw new InternalServerErrorException(
+        'Failed to send verification email',
+      );
+    }
   }
 
   //Prisma request functions

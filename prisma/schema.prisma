@@ -128,6 +128,7 @@ model User {
   score        Int         @default(0)
   isOnline     Boolean     @default(false) @map("is_online")
   isDeleted    Boolean     @default(false) @map("is_deleted")
+  isEmailVerified Boolean  @default(false) @map("is_email_verified")
   visibility   Visibility?
   deletedAt    DateTime?   @map("deleted_at")
   lastSeenAt   DateTime?   @map("last_seen_at")
