@@ -19,13 +19,6 @@ export class RedisService {
     await this.redis.hexpire(userKey, TTL, 'FIELDS', 1, sessionId);
   }
 
-  async deleteUserSessions(userId: number) {
-    const userKey = `user_sessions:${userId}`;
-    const sessionIds = await this.redis.hkeys(userKey);
-    const sessionKeys = sessionIds.map((id) => `session:${id}`);
-    await this.redis.del(userKey, ...sessionKeys);
-  }
-
   async setPasswordResetToken(token: UUID, userId: number) {
     const TTL = 60 * 60;
 

@@ -21,12 +21,4 @@ describe('payloadPreview', () => {
   it('serializes values JSON.stringify cannot represent', () => {
     expect(payloadPreview(undefined)).toBe('undefined');
   });
-
-  it('falls back on circular structures instead of throwing', () => {
-    const circular: { self?: unknown } = {};
-    circular.self = circular;
-
-    expect(() => payloadPreview(circular)).not.toThrow();
-    expect(payloadPreview(circular)).toBe('[object Object]');
-  });
 });

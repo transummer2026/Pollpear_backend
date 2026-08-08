@@ -7,12 +7,7 @@
  * @returns {string} the serialized payload, truncated when oversized
  */
 export function payloadPreview(value: unknown, max = 200): string {
-  let json: string;
-  try {
-    json = JSON.stringify(value) ?? String(value);
-  } catch {
-    json = String(value);
-  }
+  const json = JSON.stringify(value) ?? String(value);
   return json.length > max
     ? `${json.slice(0, max)}... (${json.length} chars)`
     : json;

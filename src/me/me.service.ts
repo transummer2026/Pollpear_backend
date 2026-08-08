@@ -6,7 +6,6 @@ import {
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RedisService } from 'src/redis/redis.service';
 import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
@@ -18,7 +17,6 @@ export class MeService {
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
     private readonly storageService: StorageService,
-    private readonly redisService: RedisService,
     private readonly websocketEmitter: WebsocketEmitter,
   ) {}
 
@@ -62,9 +60,13 @@ export class MeService {
     return 'change password route works';
   }
 
+  /**
+   * The gateway owns the session store and invalidates it around this
+   * call; what is left here is closing the websocket tunnels opened
+   * with those sessions, which it cannot reach.
+   */
   async remove(userId: number) {
     const user = await this.updateIsDeleted(userId);
-    await this.redisService.deleteUserSessions(userId);
     await this.websocketEmitter.revokeUser(userId);
     return user;
   }

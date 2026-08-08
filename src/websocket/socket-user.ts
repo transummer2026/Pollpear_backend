@@ -32,10 +32,11 @@ export function socketUserId(client: Socket): number | null {
 
 /**
  * Name of the socket.io room owned by a user, the addressing primitive
- * of every broadcast. Single source of truth: a typo in this string
- * would silently break delivery.
- * @returns {string} the room name for this user
+ * of every broadcast. Called a channel to keep the word "room" for the
+ * product entity. Single source of truth: a typo in this string would
+ * silently break delivery.
+ * @returns {string} the channel name for this user
  */
-export function userRoom(userId: number): string {
+export function userChannel(userId: number): string {
   return `user:${userId}`;
 }

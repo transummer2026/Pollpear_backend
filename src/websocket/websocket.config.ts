@@ -1,5 +1,6 @@
 import { ServerOptions } from 'socket.io';
 import { z } from 'zod';
+import { formatZodIssues } from 'src/common/format-zod-issues';
 import { WsConfig } from 'src/vault/vault.service';
 
 /**
@@ -25,10 +26,9 @@ export function websocketOptions(
 ): Partial<ServerOptions> {
   const parsed = WsConfigSchema.safeParse(ws);
   if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-      .join(', ');
-    throw new Error(`Invalid secret/pollpear/ws config: ${issues}`);
+    throw new Error(
+      `Invalid secret/pollpear/ws config: ${formatZodIssues(parsed.error)}`,
+    );
   }
   return {
     ...base,

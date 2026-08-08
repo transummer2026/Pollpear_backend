@@ -6,11 +6,10 @@ describe('WebsocketEmitter', () => {
   const emit = jest.fn();
   const disconnectSockets = jest.fn();
   const fetchSockets = jest.fn();
-  const to = jest.fn().mockReturnValue({ emit });
-  const server = {
-    to,
-    in: jest.fn().mockReturnValue({ fetchSockets, disconnectSockets }),
-  } as unknown as Server;
+  const to = jest
+    .fn()
+    .mockReturnValue({ emit, fetchSockets, disconnectSockets });
+  const server = { to } as unknown as Server;
 
   beforeAll(() => {
     Logger.overrideLogger(false);
