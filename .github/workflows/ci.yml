@@ -26,6 +26,7 @@ jobs:
       coverage_cmd: npm test -- --watchAll=false --coverage
       coverage_format: lcov
       coverage_threshold: 0
+      skip_build: true
     secrets:
       OTEL_ENDPOINT: ${{ secrets.OTEL_ENDPOINT }}
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
