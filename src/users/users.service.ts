@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import {
   UserDTO,
-  UserDTOSchema,
+  UserSchema,
   type UserProfileUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
@@ -45,7 +45,7 @@ export class UsersService {
 
   async update(id: number, body: UserProfileUpdateDTO): Promise<UserDTO> {
     const user = await this.updateUserProfile(id, body);
-    return UserDTOSchema.parse(user);
+    return UserSchema.parse(user);
   }
 
   remove(id: number) {

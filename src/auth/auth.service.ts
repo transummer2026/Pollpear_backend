@@ -13,10 +13,7 @@ import {
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
-import {
-  UserDTO,
-  UserDTOSchema,
-} from 'Pollpear_shared/src/schemas/users.schema';
+import { UserDTO, UserSchema } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
@@ -126,7 +123,7 @@ export class AuthService {
 
     await this.createSession(user.id, response);
 
-    return UserDTOSchema.parse(user);
+    return UserSchema.parse(user);
   }
 
   async oauthLogin(userId: number, response: Response): Promise<void> {

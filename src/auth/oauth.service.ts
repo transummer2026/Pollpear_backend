@@ -18,7 +18,7 @@ import {
   type OauthPendingDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import {
-  UserDTOSchema,
+  UserSchema,
   type UserDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -95,7 +95,7 @@ export class OauthService {
   ): Promise<UserDTO> {
     const user = await this.completeSignup(body);
     await this.authService.oauthLogin(user.id, res);
-    return UserDTOSchema.parse(user);
+    return UserSchema.parse(user);
   }
 
   async completeSignup(body: OauthCompleteDTO): Promise<User> {
