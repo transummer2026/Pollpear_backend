@@ -6,10 +6,18 @@ import {
   Delete,
   HttpCode,
   ParseIntPipe,
+  Body,
 } from '@nestjs/common';
 import { PollsService } from './polls.service';
-import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { UserId } from 'src/common/decorators/user-id.decorator';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import {
+  type PollCreationDTO,
+  PollCreationSchema,
+  type PollUpdateDTO,
+  PollUpdateSchema,
+} from 'Pollpear_shared/src/schemas/polls.schema';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 
 @Controller('polls')
 export class PollsController {
@@ -17,23 +25,27 @@ export class PollsController {
 
   @Post('new')
   @CheckAbilities(['create', 'Poll'])
-  @HttpCode(503)
-  create() {
-    return this.pollsService.create();
+  create(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(PollCreationSchema)) body: PollCreationDTO,
+  ) {
+    return this.pollsService.create(userId, body);
   }
 
   @Patch(':id')
-  @HttpCode(503)
   @CheckAbilities(['update', 'Poll'])
-  update(@UserId() userId: number, @Param('id') id: string) {
-    return this.pollsService.update(userId, +id);
+  update(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(PollUpdateSchema)) body: PollUpdateDTO,
+  ) {
+    return this.pollsService.update(id, userId, body);
   }
 
   @Delete(':id')
   @CheckAbilities(['delete', 'Poll'])
-  @HttpCode(503)
-  remove(@Param('id') id: string) {
-    return this.pollsService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
+    return this.pollsService.remove(id, userId);
   }
 
   @Post(':id/report')
