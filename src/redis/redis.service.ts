@@ -43,6 +43,30 @@ export class RedisService {
     );
   }
 
+  async setEmailVerifyToken(token: UUID, userId: number) {
+    const TTL = 60 * 60 * 24;
+
+    const previousToken = await this.redis.get(`email_verify_user:${userId}`);
+    if (previousToken) {
+      await this.redis.del(`email_verify:${previousToken}`);
+    }
+
+    await this.redis.set(`email_verify:${token}`, userId, 'EX', TTL);
+    await this.redis.set(`email_verify_user:${userId}`, token, 'EX', TTL);
+  }
+
+  async getEmailVerifyToken(token: string): Promise<number | null> {
+    const userId = await this.redis.get(`email_verify:${token}`);
+    return userId ? Number(userId) : null;
+  }
+
+  async deleteEmailVerifyToken(token: string, userId: number) {
+    await this.redis.del(
+      `email_verify:${token}`,
+      `email_verify_user:${userId}`,
+    );
+  }
+
   async setOauthPendingProfile(token: UUID, profile: string) {
     const TTL = 60 * 15;
 

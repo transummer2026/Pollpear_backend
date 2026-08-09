@@ -17,11 +17,15 @@ import {
   RegisterSchema,
   PasswordForgotSchema,
   PasswordResetSchema,
+  VerifyEmailSchema,
+  ResendVerificationSchema,
   OauthCompleteSchema,
   type RegisterDTO,
   type LoginDTO,
   type PasswordForgotDTO,
   type PasswordResetDTO,
+  type VerifyEmailDTO,
+  type ResendVerificationDTO,
   type OauthCompleteDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
 import { AuthService } from './auth.service';
@@ -77,6 +81,25 @@ export class AuthController {
     @Body(new ZodValidationPipe(PasswordResetSchema)) body: PasswordResetDTO,
   ) {
     return this.authService.passwordReset(body);
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(204)
+  verifyEmail(
+    @Body(new ZodValidationPipe(VerifyEmailSchema)) body: VerifyEmailDTO,
+  ) {
+    return this.authService.verifyEmail(body);
+  }
+
+  @Public()
+  @Post('verify-email/resend')
+  @HttpCode(204)
+  resendVerification(
+    @Body(new ZodValidationPipe(ResendVerificationSchema))
+    body: ResendVerificationDTO,
+  ) {
+    return this.authService.resendVerification(body);
   }
 
   // extracts a value from the URL route parameter named provider

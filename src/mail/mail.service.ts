@@ -29,4 +29,28 @@ export class MailService {
       ],
     });
   }
+
+  async sendVerificationEmail(
+    to: string,
+    verifyUrl: string,
+    expiresIn = '24 hours',
+  ): Promise<void> {
+    await this.mailerService.sendMail({
+      to,
+      subject: 'Confirm your PollPear email address',
+      template: './verify-email',
+      context: {
+        verifyUrl,
+        expiresIn,
+        year: new Date().getFullYear(),
+      },
+      attachments: [
+        {
+          filename: 'logo.png',
+          path: join(__dirname, 'assets', 'logo.png'),
+          cid: 'logo',
+        },
+      ],
+    });
+  }
 }
