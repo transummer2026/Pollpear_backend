@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { UserId } from 'src/common/decorators/user-id.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   type UserProfileUpdateDTO,
@@ -67,13 +68,14 @@ export class UsersController {
 
   // add Guard for admin from here on (red arrows on sequence diagram)
   @Patch(':id')
-  @HttpCode(503)
+  @CheckAbilities(['update', 'User'])
   update(
+    @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body(new ZodValidationPipe(UserProfileUpdateSchema))
     body: UserProfileUpdateDTO,
   ) {
-    return this.usersService.update(id, body);
+    return this.usersService.update(id, userId, body);
   }
 
   @Delete(':id')
