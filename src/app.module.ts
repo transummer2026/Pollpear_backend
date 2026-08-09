@@ -29,6 +29,7 @@ import { VaultService } from './vault/vault.service';
 import { BanGuard } from './users/userban.guard';
 import { CaslModule } from './casl/casl.module';
 import { AuthorizationGuard } from './casl/authorization.guard';
+import { WebsocketModule } from './websocket/websocket.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -77,6 +78,7 @@ import { AuthorizationGuard } from './casl/authorization.guard';
     MailModule,
     VaultModule,
     CaslModule,
+    WebsocketModule,
   ],
   providers: [
     {

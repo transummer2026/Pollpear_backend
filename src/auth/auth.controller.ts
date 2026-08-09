@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import { UserId } from 'src/common/decorators/user-id.decorator';
 import {
   LoginSchema,
   RegisterSchema,
@@ -56,8 +57,8 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(204)
-  logout() {
-    return this.authService.logout();
+  logout(@UserId() userId: number) {
+    return this.authService.logout(userId);
   }
 
   @Public()
