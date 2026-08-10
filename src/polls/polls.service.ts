@@ -129,8 +129,11 @@ export class PollsService {
   }
 
   async deletePoll(id: number) {
-    return await this.prisma.poll.delete({
+    return await this.prisma.poll.update({
       where: { id },
+      data: {
+        status: 'deleted',
+      },
     });
   }
 }
