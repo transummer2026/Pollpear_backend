@@ -91,13 +91,22 @@ export class MeService {
     await this.redis.deleteApiKey(apiKey.keyHash);
   }
 
+  async apiKeyBan(userId: number) {
+    const apiKeys = await this.selectActiveKeys(userId);
+    if (apiKeys.length === 0) {
+      return;
+    }
+    await this.updateAllRevoked(userId);
+    await this.redis.deleteApiKeys(apiKeys.map((apiKey) => apiKey.keyHash));
+  }
+
   /**
    * The gateway owns the session store and invalidates it around this
    * call; what is left here is closing the websocket tunnels opened
    */
   async remove(userId: number) {
     const user = await this.updateIsDeleted(userId);
-    await this.revokeApiKey(userId);
+    await this.apiKeyBan(userId);
     await this.websocketEmitter.revokeUser(userId);
     return user;
   }
@@ -154,6 +163,30 @@ export class MeService {
     });
   }
 
+  private async selectActiveKeys(userId: number) {
+    return await this.prisma.apiKey.findMany({
+      where: {
+        ownerId: userId,
+        revoked: false,
+      },
+      select: {
+        keyHash: true,
+      },
+    });
+  }
+
+  private async updateAllRevoked(userId: number) {
+    return await this.prisma.apiKey.updateMany({
+      where: {
+        ownerId: userId,
+        revoked: false,
+      },
+      data: {
+        revoked: true,
+      },
+    });
+  }
+
   private async updateRevoked(keyId: number) {
     return await this.prisma.apiKey.update({
       where: {
@@ -195,6 +228,7 @@ export class MeService {
       },
       data: {
         isDeleted: true,
+        deletedAt: new Date(),
       },
     });
   }

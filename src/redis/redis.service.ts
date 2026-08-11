@@ -97,6 +97,16 @@ export class RedisService {
    * @param keyHash  hashed string
    */
   async deleteApiKey(keyHash: string) {
+    if (keyHash.length === 0) {
+      return;
+    }
     await this.redis.del(`apikey:${keyHash}`);
+  }
+
+  async deleteApiKeys(keyHashes: string[]) {
+    if (keyHashes.length === 0) {
+      return;
+    }
+    await this.redis.del(...keyHashes.map((keyHash) => `apikey:${keyHash}`));
   }
 }
