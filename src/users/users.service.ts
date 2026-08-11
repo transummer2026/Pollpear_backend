@@ -7,12 +7,13 @@ import {
   type UserProfileUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { ForbiddenError, subject } from '@casl/ability';
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
-    private casabilityFactory: CaslAbilityFactory,
+    private abilityFactory: CaslAbilityFactory,
   ) {}
 
   report(id: number) {
@@ -43,9 +44,24 @@ export class UsersService {
     return `updated ban for user #${id} works`;
   }
 
-  async update(id: number, body: UserProfileUpdateDTO): Promise<UserDTO> {
-    const user = await this.updateUserProfile(id, body);
-    return UserSchema.parse(user);
+  async update(
+    id: number,
+    userId: number,
+    body: UserProfileUpdateDTO,
+  ): Promise<UserDTO> {
+    const requester = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const target = await this.prisma.user.findUniqueOrThrow({ where: { id } });
+
+    const ability = this.abilityFactory.createForUser(requester);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('User', target),
+    );
+
+    const updatedUser = await this.updateUserProfile(id, body);
+    return UserSchema.parse(updatedUser);
   }
 
   remove(id: number) {
@@ -96,25 +112,12 @@ export class UsersService {
     });
   }
 
-  private async updateUserProfile(userId: number, body: UserProfileUpdateDTO) {
+  private async updateUserProfile(userId: number, data: UserProfileUpdateDTO) {
     return await this.prisma.user.update({
       where: {
         id: userId,
       },
-      data: {
-        username: body.username,
-        email: body.email,
-        birthdate: body.birthdate,
-        gender: body.gender,
-        nationality: body.nationality,
-        name: body.name,
-        surname: body.surname,
-        city: body.city,
-        state: body.state,
-        country: body.country,
-        company: body.company,
-        bio: body.bio,
-      },
+      data: data,
     });
   }
 }
