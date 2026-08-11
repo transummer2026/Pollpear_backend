@@ -1,8 +1,9 @@
 // prisma/seed/seed.ts
 import { faker } from '@faker-js/faker';
 import { hash, argon2id } from 'argon2';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { VaultService } from '../../src/vault/vault.service';
 import {
   PrismaClient,
   Prisma,
@@ -66,10 +67,8 @@ const MEMBERS_MAX = 12;
 const HOT_POLL_COUNT = 4;
 const DAY_MS = 86_400_000;
 
-const adapter = new PrismaPg({
-  connectionString: process.env.POSTGRES_LOCAL_URL as string,
-});
-const prisma = new PrismaClient({ adapter });
+const vault = new VaultService();
+let prisma: PrismaClient;
 
 faker.seed(12345);
 
@@ -80,14 +79,14 @@ const accountCreatedAt = () =>
 
 //Fake users seeding
 
-function hashPassword(plain: string): Promise<string> {
+function hashPassword(plain: string, pepper: string): Promise<string> {
   return hash(plain, {
     hashLength: 32,
     timeCost: 3,
     parallelism: 4,
     memoryCost: 2 ** 16,
     type: argon2id,
-    secret: Buffer.from(process.env.NESTJS_PEPPER ?? 'fakerpepper'),
+    secret: Buffer.from(pepper),
   });
 }
 
@@ -319,7 +318,14 @@ function pickVoteOptions(
 }
 
 async function main() {
-  const passwordHash = await hashPassword(DEFAULT_PASSWORD);
+  await vault.init();
+  const adapter = new PrismaPg({ connectionString: vault.db.database_url });
+  prisma = new PrismaClient({ adapter });
+
+  const passwordHash = await hashPassword(
+    DEFAULT_PASSWORD,
+    vault.session.pepper,
+  );
 
   await prisma.user.create({ data: buildJojo(0, passwordHash) });
   await prisma.user.create({ data: buildHygie(1, passwordHash) });
@@ -578,4 +584,4 @@ main()
     console.error(e);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => prisma?.$disconnect());
