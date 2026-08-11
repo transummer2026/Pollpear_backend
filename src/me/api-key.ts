@@ -1,0 +1,45 @@
+import { Logger } from '@nestjs/common';
+import { createHash, randomBytes } from 'node:crypto';
+
+const KEY_PREFIX = 'pp_live_';
+const KEY_BYTES = 32;
+const FINGERPRINT_LENGTH = 12;
+const HASH_TYPE = 'sha256';
+const BUFFER_ENCODING = 'base64url';
+const INPUT_ENCODING = 'utf8';
+const BINARY_ENCODING = 'hex';
+
+const logger = new Logger('ApiKey');
+
+/**
+ * return the shortest fingerprint of a key hash, which is enough to correlate log lines
+ * @param keyHash full hash of an API key
+ * @returns {string} the leading characters, enough to correlate log lines
+ */
+function fingerprint(keyHash: string): string {
+  return keyHash.slice(0, FINGERPRINT_LENGTH);
+}
+
+/**
+ * Hashes an API key using HASH_TYPE. The hash is stored in Postgres and Redis, while the plaintext key is never persisted.
+ * @returns {string} hash of the API key
+ */
+export function hashApiKey(key: string): string {
+  const keyHash = createHash(HASH_TYPE)
+    .update(key, INPUT_ENCODING)
+    .digest(BINARY_ENCODING);
+  logger.debug(`hashed api key ${fingerprint(keyHash)}`);
+  return keyHash;
+}
+
+/**
+ * Generates a new API key and its hash. The plaintext key is never persisted,
+ * only the hash is stored in Postgres and Redis.
+ * @returns {{ key: string; keyHash: string }} plaintext key and its hash
+ */
+export function generateApiKey(): { key: string; keyHash: string } {
+  const key = `${KEY_PREFIX}${randomBytes(KEY_BYTES).toString(BUFFER_ENCODING)}`;
+  const keyHash = hashApiKey(key);
+  logger.log(`generated api key ${fingerprint(keyHash)}`);
+  return { key, keyHash };
+}

@@ -80,4 +80,23 @@ export class RedisService {
   async deleteOauthPendingProfile(token: string) {
     await this.redis.del(`oauth_pending:${token}`);
   }
+
+  /**
+   * Stores an API key in Redis with a TTL.
+   * The key is stored as `apikey:{keyHash}` and the value is the userId of the owner.
+   * @param keyHash hash of the plaintext key
+   * @param userId owner the key acts on behalf of
+   * @param ttl seconds left before the key expires
+   */
+  async setApiKey(keyHash: string, userId: number, ttl: number) {
+    await this.redis.set(`apikey:${keyHash}`, userId, 'EX', ttl);
+  }
+
+  /**
+   * revokes an API key from Redis, effectively invalidating it.
+   * @param keyHash  hashed string
+   */
+  async deleteApiKey(keyHash: string) {
+    await this.redis.del(`apikey:${keyHash}`);
+  }
 }

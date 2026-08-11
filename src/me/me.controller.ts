@@ -18,6 +18,10 @@ import {
   type UserProfileUpdateDTO,
   UserProfileUpdateSchema,
 } from 'Pollpear_shared/src/schemas/users.schema';
+import {
+  ApiKeyCreateSchema,
+  type ApiKeyCreateDTO,
+} from 'Pollpear_shared/src/schemas/api-key.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('me')
@@ -46,6 +50,25 @@ export class MeController {
     body: UserProfileUpdateDTO,
   ) {
     return this.meService.editProfile(userId, body);
+  }
+
+  @Get('apikey')
+  getApiKey(@UserId() userId: number) {
+    return this.meService.getApiKey(userId);
+  }
+
+  @Post('apikey')
+  createApiKey(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(ApiKeyCreateSchema)) body: ApiKeyCreateDTO,
+  ) {
+    return this.meService.createApiKey(userId, body.appName);
+  }
+
+  @Delete('apikey')
+  @HttpCode(204)
+  revokeApiKey(@UserId() userId: number) {
+    return this.meService.revokeApiKey(userId);
   }
 
   @Patch('settings')
