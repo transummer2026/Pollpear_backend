@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   UserDTO,
   UserSchema,
@@ -82,6 +86,14 @@ export class MeService {
     return await this.selectApiKey(userId);
   }
 
+  async updateApiKey(userId: number, appName: string) {
+    const apiKey = await this.selectActiveKey(userId);
+    if (!apiKey) {
+      throw new NotFoundException('No active api key');
+    }
+    return await this.updateAppName(apiKey.id, appName);
+  }
+
   async revokeApiKey(userId: number) {
     const apiKey = await this.selectActiveKey(userId);
     if (!apiKey) {
@@ -159,6 +171,23 @@ export class MeService {
       select: {
         id: true,
         keyHash: true,
+      },
+    });
+  }
+
+  private async updateAppName(keyId: number, appName: string) {
+    return await this.prisma.apiKey.update({
+      where: {
+        id: keyId,
+      },
+      data: {
+        appName,
+      },
+      select: {
+        id: true,
+        appName: true,
+        expiresAt: true,
+        createdAt: true,
       },
     });
   }
