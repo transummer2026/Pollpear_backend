@@ -85,7 +85,7 @@ export class AuthService {
         isOnline: false,
         isDeleted: false,
         isEmailVerified: false,
-        visibility: Visibility.private,
+        visibility: Visibility.public,
         userTheme: UserTheme.light,
       },
       omit: {

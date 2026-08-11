@@ -10,6 +10,8 @@ import {
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { Poll } from 'src/generated/prisma/client';
 
+const SEARCH_RESULTS_LIMIT = 5;
+
 @Injectable()
 export class PollsService {
   constructor(
@@ -21,6 +23,18 @@ export class PollsService {
 
   async create(userId: number, body: PollCreationDTO) {
     return await this.createPoll(userId, body);
+  }
+
+  search(q: string) {
+    return this.prisma.poll.findMany({
+      where: {
+        status: { not: 'deleted' },
+        visibility: 'public',
+        title: { contains: q, mode: 'insensitive' },
+      },
+      select: { id: true, title: true },
+      take: SEARCH_RESULTS_LIMIT,
+    });
   }
 
   async update(id: number, userId: number, body: PollUpdateDTO) {

@@ -1,6 +1,25 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+
+const SEARCH_RESULTS_LIMIT = 5;
+
+@Injectable()
 export class RoomsService {
+  constructor(private prisma: PrismaService) {}
+
   create() {
     return 'add a new room works';
+  }
+
+  search(q: string) {
+    return this.prisma.room.findMany({
+      where: {
+        visibility: 'public',
+        name: { contains: q, mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+      take: SEARCH_RESULTS_LIMIT,
+    });
   }
 
   update(id: number) {
