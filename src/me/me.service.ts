@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -14,13 +15,15 @@ import { RedisService } from 'src/redis/redis.service';
 import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
-import { generateApiKey } from './api-key';
+import { fingerprint, generateApiKey } from './api-key';
 
 const DEFAULT_APP_NAME = 'default';
 const API_KEY_LIFETIME_SECONDS = 365 * 24 * 60 * 60; // 1 year, in seconds
 
 @Injectable()
 export class MeService {
+  private readonly logger = new Logger(MeService.name);
+
   constructor(
     private prisma: PrismaService,
     private readonly userService: UsersService,
@@ -29,8 +32,6 @@ export class MeService {
     private readonly websocketEmitter: WebsocketEmitter,
     private readonly redis: RedisService,
   ) {}
-
-  // endpoints
 
   async myProfile(userId: number): Promise<UserDTO> {
     const user = await this.userService.findByUserId(userId);
@@ -79,6 +80,10 @@ export class MeService {
     const apiKey = await this.insertApiKey(userId, keyHash, expiresAt, appName);
     await this.redis.setApiKey(keyHash, userId, ttl);
 
+    this.logger.log(
+      `api key ${apiKey.id} issued to user ${userId} as "${apiKey.appName}" ` +
+        `(${fingerprint(keyHash)}), expires ${expiresAt.toISOString()}`,
+    );
     return { ...apiKey, key };
   }
 
@@ -89,8 +94,13 @@ export class MeService {
   async updateApiKey(userId: number, appName: string) {
     const apiKey = await this.selectActiveKey(userId);
     if (!apiKey) {
+      this.logger.warn(`user ${userId} tried to rename a key it has not`);
       throw new NotFoundException('No active api key');
     }
+
+    this.logger.log(
+      `api key ${apiKey.id} of user ${userId} renamed "${appName}"`,
+    );
     return await this.updateAppName(apiKey.id, appName);
   }
 
@@ -101,6 +111,10 @@ export class MeService {
     }
     await this.updateRevoked(apiKey.id);
     await this.redis.deleteApiKey(apiKey.keyHash);
+    this.logger.log(
+      `api key ${apiKey.id} of user ${userId} revoked ` +
+        `(${fingerprint(apiKey.keyHash)}), dropped from postgres and redis`,
+    );
   }
 
   async apiKeyBan(userId: number) {
@@ -110,6 +124,10 @@ export class MeService {
     }
     await this.updateAllRevoked(userId);
     await this.redis.deleteApiKeys(apiKeys.map((apiKey) => apiKey.keyHash));
+    this.logger.warn(
+      `api key ban on user ${userId}: ${apiKeys.length} key(s) revoked ` +
+        `(${apiKeys.map((apiKey) => fingerprint(apiKey.keyHash)).join(', ')})`,
+    );
   }
 
   /**
