@@ -8,6 +8,7 @@ const HASH_TYPE = 'sha256';
 const BUFFER_ENCODING = 'base64url';
 const INPUT_ENCODING = 'utf8';
 const BINARY_ENCODING = 'hex';
+const MASK_CHAR = '*';
 
 const logger = new Logger('ApiKey');
 
@@ -16,8 +17,9 @@ const logger = new Logger('ApiKey');
  * @param keyHash full hash of an API key
  * @returns {string} the leading characters, enough to correlate log lines
  */
-function fingerprint(keyHash: string): string {
-  return keyHash.slice(0, FINGERPRINT_LENGTH);
+export function fingerprint(keyHash: string): string {
+  const masked = Math.max(0, keyHash.length - FINGERPRINT_LENGTH);
+  return keyHash.slice(0, FINGERPRINT_LENGTH) + MASK_CHAR.repeat(masked);
 }
 
 /**
