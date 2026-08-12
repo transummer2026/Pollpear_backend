@@ -9,6 +9,7 @@ const BUFFER_ENCODING = 'base64url';
 const INPUT_ENCODING = 'utf8';
 const BINARY_ENCODING = 'hex';
 const MASK_CHAR = '*';
+const MILLISECONDS_PER_SECOND = 1000;
 
 const logger = new Logger('ApiKey');
 
@@ -44,4 +45,26 @@ export function generateApiKey(): { key: string; keyHash: string } {
   const keyHash = hashApiKey(key);
   logger.log(`generated api key ${fingerprint(keyHash)}`);
   return { key, keyHash };
+}
+
+/**
+ * Turns a lifetime into the date Postgres stores. Reciprocal of
+ * remainingSeconds: both live here so the two directions cannot drift.
+ * @param ttl lifetime in seconds
+ * @returns {Date} when the key stops being valid
+ */
+export function expiryFromTtl(ttl: number): Date {
+  return new Date(Date.now() + ttl * MILLISECONDS_PER_SECOND);
+}
+
+/**
+ * Seconds left before a key expires, used as the redis ttl. Restoring a key
+ * has to reuse this and never a full lifetime, which would push the expiry
+ * further away on every restart until keys never expire at all.
+ * @param expiresAt when the key stops being valid
+ * @returns {number} seconds left, negative once expired
+ */
+export function remainingSeconds(expiresAt: Date): number {
+  const remaining = expiresAt.getTime() - Date.now();
+  return Math.floor(remaining / MILLISECONDS_PER_SECOND);
 }

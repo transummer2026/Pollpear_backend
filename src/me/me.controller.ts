@@ -25,10 +25,14 @@ import {
   type ApiKeyDTO,
 } from 'Pollpear_shared/src/schemas/api-key.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiKeyService } from 'src/api-key/api-key.service';
 
 @Controller('me')
 export class MeController {
-  constructor(private readonly meService: MeService) {}
+  constructor(
+    private readonly meService: MeService,
+    private readonly apiKeyService: ApiKeyService,
+  ) {}
 
   @VisibleByBan()
   @Get()
@@ -56,7 +60,7 @@ export class MeController {
 
   @Get('apikey')
   getApiKey(@UserId() userId: number) {
-    return this.meService.getApiKey(userId);
+    return this.apiKeyService.findActive(userId);
   }
 
   @Post('apikey')
@@ -64,7 +68,7 @@ export class MeController {
     @UserId() userId: number,
     @Body(new ZodValidationPipe(ApiKeyCreateSchema)) body: ApiKeyCreateDTO,
   ) {
-    return this.meService.createApiKey(userId, body.appName);
+    return this.apiKeyService.create(userId, body.appName);
   }
 
   @Patch('apikey')
@@ -72,13 +76,13 @@ export class MeController {
     @UserId() userId: number,
     @Body(new ZodValidationPipe(ApiKeySchema)) body: ApiKeyDTO,
   ) {
-    return this.meService.updateApiKey(userId, body.appName);
+    return this.apiKeyService.rename(userId, body.appName);
   }
 
   @Delete('apikey')
   @HttpCode(204)
   revokeApiKey(@UserId() userId: number) {
-    return this.meService.revokeApiKey(userId);
+    return this.apiKeyService.revoke(userId);
   }
 
   @Patch('settings')
