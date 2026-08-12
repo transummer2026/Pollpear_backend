@@ -110,34 +110,33 @@ enum InvitationStatus {
 }
 
 model User {
-  id           Int         @id @default(autoincrement())
-  username     String      @unique @db.VarChar(32)
-  name         String?     @db.VarChar(255)
-  surname      String?     @db.VarChar(255)
-  email        String      @unique @db.VarChar(255)
-  birthdate    DateTime    @db.Date
-  passwordHash String      @map("password_hash") @db.VarChar(255)
-  role         UserRole
-  gender       Gender
-  nationality  String      @db.VarChar(255)
-  city         String?     @db.VarChar(255)
-  state        String?     @db.VarChar(255)
-  country      String?     @db.VarChar(255)
-  company      String?     @db.VarChar(255)
-  bio          String?     @db.VarChar(255)
-  score        Int         @default(0)
-  isOnline     Boolean     @default(false) @map("is_online")
-  isDeleted    Boolean     @default(false) @map("is_deleted")
-  isEmailVerified Boolean  @default(false) @map("is_email_verified")
-  visibility   Visibility?
-  deletedAt    DateTime?   @map("deleted_at")
-  lastSeenAt   DateTime?   @map("last_seen_at")
-  // FIXME: Provisoire avatarUrl et bannerUrl
-  avatarUrl    String      @default("/uploads/avatars/default.svg") @map("avatar_url") @db.VarChar(255)
-  bannerUrl    String      @default("/uploads/banners/default.svg") @map("banner_url") @db.VarChar(255)
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  userTheme    UserTheme   @map("user_theme")
+  id              Int        @id @default(autoincrement())
+  username        String     @unique @db.VarChar(32)
+  name            String?    @db.VarChar(255)
+  surname         String?    @db.VarChar(255)
+  email           String     @unique @db.VarChar(255)
+  birthdate       DateTime   @db.Date
+  passwordHash    String     @map("password_hash") @db.VarChar(255)
+  role            UserRole   @default(user)
+  gender          Gender
+  nationality     String     @db.VarChar(255)
+  city            String?    @db.VarChar(255)
+  state           String?    @db.VarChar(255)
+  country         String?    @db.VarChar(255)
+  company         String?    @db.VarChar(255)
+  bio             String?    @db.VarChar(255)
+  score           Int        @default(0)
+  isOnline        Boolean    @default(false) @map("is_online")
+  isDeleted       Boolean    @default(false) @map("is_deleted")
+  isEmailVerified Boolean    @default(false) @map("is_email_verified")
+  visibility      Visibility @default(public)
+  deletedAt       DateTime?  @map("deleted_at")
+  lastSeenAt      DateTime?  @map("last_seen_at")
+  avatarUrl       String     @default("/uploads/avatars/default.svg") @map("avatar_url") @db.VarChar(255)
+  bannerUrl       String     @default("/uploads/banners/default.svg") @map("banner_url") @db.VarChar(255)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  userTheme       UserTheme  @map("user_theme")
 
   oauths               Oauth[]
   bansReceived         Ban[]          @relation("BannedUser")

@@ -9,12 +9,60 @@ import {
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { ForbiddenError, subject } from '@casl/ability';
 
+const SEARCH_RESULTS_LIMIT = 5;
+const SEARCH_SELECT = {
+  id: true,
+  username: true,
+  name: true,
+  surname: true,
+  avatarUrl: true,
+} as const;
+
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
   ) {}
+
+  /**
+   * Prefix matches on username rank first (the "find that exact friend"
+   * case), then contains matches on username/name/surname fill the rest:
+   * Prisma has no relevance-ordered ORDER BY without raw SQL.
+   */
+  async search(q: string) {
+    const startsWith = await this.prisma.user.findMany({
+      where: {
+        isDeleted: false,
+        visibility: { not: 'private' },
+        username: { startsWith: q, mode: 'insensitive' },
+      },
+      select: SEARCH_SELECT,
+      orderBy: { username: 'asc' },
+      take: SEARCH_RESULTS_LIMIT,
+    });
+
+    const remaining = SEARCH_RESULTS_LIMIT - startsWith.length;
+    if (remaining <= 0) return startsWith;
+
+    const contains = await this.prisma.user.findMany({
+      where: {
+        isDeleted: false,
+        visibility: { not: 'private' },
+        id: { notIn: startsWith.map((user) => user.id) },
+        OR: [
+          { username: { contains: q, mode: 'insensitive' } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { surname: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: SEARCH_SELECT,
+      orderBy: { username: 'asc' },
+      take: remaining,
+    });
+
+    return [...startsWith, ...contains];
+  }
 
   report(id: number) {
     return `report user #${id} works`;

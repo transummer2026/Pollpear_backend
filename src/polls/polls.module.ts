@@ -9,5 +9,6 @@ import { HashtagsModule } from 'src/hashtags/hashtags.module';
   imports: [UsersModule, OptionsModule, HashtagsModule],
   controllers: [PollsController],
   providers: [PollsService],
+  exports: [PollsService],
 })
 export class PollsModule {}
