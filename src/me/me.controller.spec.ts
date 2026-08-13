@@ -6,6 +6,7 @@ import { usersServiceMock } from 'src/users/users.service.mock';
 import { fileUploadServiceMock } from 'src/file-upload/file-upload.service.mock';
 import { storageServiceMock } from 'src/storage/storage.service.mock';
 import { websocketEmitterMock } from 'src/websocket/websocket.emitter.mock';
+import { apiKeyServiceMock } from 'src/api-key/api-key.service.mock';
 
 describe('MeController', () => {
   let controller: MeController;
@@ -20,6 +21,7 @@ describe('MeController', () => {
         fileUploadServiceMock,
         storageServiceMock,
         websocketEmitterMock,
+        apiKeyServiceMock,
       ],
     }).compile();
 
