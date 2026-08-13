@@ -32,7 +32,7 @@ CREATE TYPE "NotificationType" AS ENUM ('friend_request', 'poll_update', 'room_i
 CREATE TYPE "PollType" AS ENUM ('single_choice', 'multiple_choice', 'slider', 'free_field');
 
 -- CreateEnum
-CREATE TYPE "PollStatus" AS ENUM ('pending', 'active', 'locked', 'deleted');
+CREATE TYPE "PollStatus" AS ENUM ('pending', 'active', 'closed');
 
 -- CreateEnum
 CREATE TYPE "RoomStatus" AS ENUM ('active', 'closed');
@@ -49,7 +49,7 @@ CREATE TABLE "users" (
     "email" VARCHAR(255) NOT NULL,
     "birthdate" DATE NOT NULL,
     "password_hash" VARCHAR(255) NOT NULL,
-    "role" "UserRole" NOT NULL,
+    "role" "UserRole" NOT NULL DEFAULT 'user',
     "gender" "Gender" NOT NULL,
     "nationality" VARCHAR(255) NOT NULL,
     "city" VARCHAR(255),
@@ -59,15 +59,15 @@ CREATE TABLE "users" (
     "bio" VARCHAR(255),
     "score" INTEGER NOT NULL DEFAULT 0,
     "is_online" BOOLEAN NOT NULL DEFAULT false,
-    "is_deleted" BOOLEAN NOT NULL DEFAULT false,
-    "visibility" "Visibility",
-    "deleted_at" TIMESTAMP(3),
+    "is_email_verified" BOOLEAN NOT NULL DEFAULT false,
+    "visibility" "Visibility" NOT NULL DEFAULT 'public',
     "last_seen_at" TIMESTAMP(3),
     "avatar_url" VARCHAR(255) NOT NULL DEFAULT '/uploads/avatars/default.svg',
     "banner_url" VARCHAR(255) NOT NULL DEFAULT '/uploads/banners/default.svg',
+    "user_theme" "UserTheme" NOT NULL DEFAULT 'light',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "user_theme" "UserTheme" NOT NULL,
+    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -78,8 +78,8 @@ CREATE TABLE "oauths" (
     "provider" "OauthProvider" NOT NULL,
     "provider_user_id" VARCHAR(255) NOT NULL,
     "provider_url" VARCHAR(255) NOT NULL,
-    "access_token" VARCHAR(255) NOT NULL,
-    "refresh_token" VARCHAR(255) NOT NULL,
+    "access_token" TEXT NOT NULL,
+    "refresh_token" TEXT NOT NULL,
     "token_type" VARCHAR(255) NOT NULL,
     "expires_at" TIMESTAMP(3) NOT NULL,
     "scope" VARCHAR(255) NOT NULL,
@@ -95,9 +95,9 @@ CREATE TABLE "oauths" (
 CREATE TABLE "bans" (
     "id" SERIAL NOT NULL,
     "ban_reason" TEXT NOT NULL,
-    "banned_at" TIMESTAMP(3) NOT NULL,
-    "unbanned_at" TIMESTAMP(3) NOT NULL,
     "unban_reason" TEXT,
+    "started_at" TIMESTAMP(3) NOT NULL,
+    "ended_at" TIMESTAMP(3) NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "user_id" INTEGER NOT NULL,
@@ -122,6 +122,7 @@ CREATE TABLE "friendships" (
     "status" "FriendshipStatus" NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
     "requester_id" INTEGER NOT NULL,
     "addressee_id" INTEGER NOT NULL,
 
@@ -176,14 +177,15 @@ CREATE TABLE "polls" (
     "title" VARCHAR(255) NOT NULL,
     "description" TEXT,
     "type" "PollType" NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "published_at" TIMESTAMP(3),
-    "updated_at" TIMESTAMP(3) NOT NULL,
-    "ends_at" TIMESTAMP(3) NOT NULL,
-    "visibility" "Visibility" NOT NULL,
+    "visibility" "Visibility" NOT NULL DEFAULT 'private',
     "allow_change_vote" BOOLEAN NOT NULL,
     "is_anonymous" BOOLEAN NOT NULL,
     "status" "PollStatus" NOT NULL,
+    "published_at" TIMESTAMP(3),
+    "ends_at" TIMESTAMP(3) NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
     "created_by" INTEGER NOT NULL,
     "room_id" INTEGER,
 
@@ -193,11 +195,11 @@ CREATE TABLE "polls" (
 -- CreateTable
 CREATE TABLE "options" (
     "id" SERIAL NOT NULL,
-    "label" VARCHAR(255) NOT NULL,
+    "text" VARCHAR(255) NOT NULL,
     "slider_left_label" VARCHAR(255),
     "slider_right_label" VARCHAR(255),
     "order" INTEGER NOT NULL,
-    "is_deleted" BOOLEAN NOT NULL DEFAULT false,
+    "deleted_at" TIMESTAMP(3),
     "poll_id" INTEGER NOT NULL,
 
     CONSTRAINT "options_pkey" PRIMARY KEY ("id")
@@ -205,20 +207,21 @@ CREATE TABLE "options" (
 
 -- CreateTable
 CREATE TABLE "poll_dependencies" (
-    "id" SERIAL NOT NULL,
     "child_poll_id" INTEGER NOT NULL,
     "option_id" INTEGER NOT NULL,
 
-    CONSTRAINT "poll_dependencies_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "poll_dependencies_pkey" PRIMARY KEY ("child_poll_id","option_id")
 );
 
 -- CreateTable
 CREATE TABLE "votes" (
     "id" SERIAL NOT NULL,
+    "freeField" VARCHAR(255),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "label" VARCHAR(255),
+    "deleted_at" TIMESTAMP(3),
     "created_by" INTEGER NOT NULL,
+    "pollId" INTEGER NOT NULL,
 
     CONSTRAINT "votes_pkey" PRIMARY KEY ("id")
 );
@@ -235,7 +238,9 @@ CREATE TABLE "vote_options" (
 CREATE TABLE "hashtags" (
     "id" SERIAL NOT NULL,
     "name" VARCHAR(255) NOT NULL,
-    "is_visible" BOOLEAN NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "hashtags_pkey" PRIMARY KEY ("id")
 );
@@ -261,10 +266,11 @@ CREATE TABLE "rooms" (
     "id" SERIAL NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
+    "banner_url" VARCHAR(255) NOT NULL,
+    "published_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "published_at" TIMESTAMP(3),
-    "banner_url" VARCHAR(255) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
     "visibility" "Visibility" NOT NULL,
     "status" "RoomStatus" NOT NULL,
     "created_by" INTEGER NOT NULL,
@@ -289,9 +295,10 @@ CREATE TABLE "messages" (
 CREATE TABLE "invitations" (
     "id" SERIAL NOT NULL,
     "status" "InvitationStatus" NOT NULL,
+    "message" VARCHAR(255),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "label" VARCHAR(255),
+    "deleted_at" TIMESTAMP(3),
     "room_id" INTEGER NOT NULL,
     "inviter_id" INTEGER NOT NULL,
     "invitee_id" INTEGER NOT NULL,
@@ -302,9 +309,10 @@ CREATE TABLE "invitations" (
 -- CreateTable
 CREATE TABLE "room_members" (
     "id" SERIAL NOT NULL,
+    "joined_at" TIMESTAMP(3) NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "joined_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
     "room_id" INTEGER NOT NULL,
     "user_id" INTEGER NOT NULL,
 
@@ -315,8 +323,9 @@ CREATE TABLE "room_members" (
 CREATE TABLE "api_keys" (
     "id" SERIAL NOT NULL,
     "keyHash" VARCHAR(255) NOT NULL,
-    "appName" VARCHAR(255) NOT NULL,
+    "appName" VARCHAR(255) NOT NULL DEFAULT 'default',
     "revoked" BOOLEAN NOT NULL DEFAULT false,
+    "expired_at" TIMESTAMP(3) NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "owner_id" INTEGER NOT NULL,
@@ -382,7 +391,19 @@ CREATE INDEX "reports_option_id_idx" ON "reports"("option_id");
 CREATE INDEX "reports_hashtag_id_idx" ON "reports"("hashtag_id");
 
 -- CreateIndex
-CREATE INDEX "notifications_user_id_idx" ON "notifications"("user_id");
+CREATE INDEX "notifications_user_id_is_read_idx" ON "notifications"("user_id", "is_read");
+
+-- CreateIndex
+CREATE INDEX "notifications_is_read_idx" ON "notifications"("is_read");
+
+-- CreateIndex
+CREATE INDEX "polls_status_visibility_idx" ON "polls"("status", "visibility");
+
+-- CreateIndex
+CREATE INDEX "polls_status_idx" ON "polls"("status");
+
+-- CreateIndex
+CREATE INDEX "polls_visibility_idx" ON "polls"("visibility");
 
 -- CreateIndex
 CREATE INDEX "polls_created_by_idx" ON "polls"("created_by");
@@ -394,13 +415,16 @@ CREATE INDEX "polls_room_id_idx" ON "polls"("room_id");
 CREATE INDEX "options_poll_id_idx" ON "options"("poll_id");
 
 -- CreateIndex
-CREATE INDEX "poll_dependencies_child_poll_id_idx" ON "poll_dependencies"("child_poll_id");
-
--- CreateIndex
 CREATE INDEX "poll_dependencies_option_id_idx" ON "poll_dependencies"("option_id");
 
 -- CreateIndex
 CREATE INDEX "votes_created_by_idx" ON "votes"("created_by");
+
+-- CreateIndex
+CREATE INDEX "votes_pollId_idx" ON "votes"("pollId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "votes_created_by_pollId_key" ON "votes"("created_by", "pollId");
 
 -- CreateIndex
 CREATE INDEX "vote_options_option_id_idx" ON "vote_options"("option_id");
@@ -433,10 +457,19 @@ CREATE INDEX "invitations_inviter_id_idx" ON "invitations"("inviter_id");
 CREATE INDEX "invitations_invitee_id_idx" ON "invitations"("invitee_id");
 
 -- CreateIndex
+CREATE INDEX "room_members_room_id_idx" ON "room_members"("room_id");
+
+-- CreateIndex
 CREATE INDEX "room_members_user_id_idx" ON "room_members"("user_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "room_members_room_id_user_id_key" ON "room_members"("room_id", "user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "api_keys_keyHash_key" ON "api_keys"("keyHash");
+
+-- CreateIndex
+CREATE INDEX "api_keys_keyHash_idx" ON "api_keys"("keyHash");
 
 -- CreateIndex
 CREATE INDEX "api_keys_owner_id_idx" ON "api_keys"("owner_id");
@@ -454,7 +487,7 @@ ALTER TABLE "bans" ADD CONSTRAINT "bans_banned_by_fkey" FOREIGN KEY ("banned_by"
 ALTER TABLE "bans" ADD CONSTRAINT "bans_unbanned_by_fkey" FOREIGN KEY ("unbanned_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ban_attachments" ADD CONSTRAINT "ban_attachments_ban_id_fkey" FOREIGN KEY ("ban_id") REFERENCES "bans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ban_attachments" ADD CONSTRAINT "ban_attachments_ban_id_fkey" FOREIGN KEY ("ban_id") REFERENCES "bans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "friendships" ADD CONSTRAINT "friendships_requester_id_fkey" FOREIGN KEY ("requester_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -499,34 +532,37 @@ ALTER TABLE "polls" ADD CONSTRAINT "polls_created_by_fkey" FOREIGN KEY ("created
 ALTER TABLE "polls" ADD CONSTRAINT "polls_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "options" ADD CONSTRAINT "options_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "polls"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "options" ADD CONSTRAINT "options_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "polls"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "poll_dependencies" ADD CONSTRAINT "poll_dependencies_child_poll_id_fkey" FOREIGN KEY ("child_poll_id") REFERENCES "polls"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "poll_dependencies" ADD CONSTRAINT "poll_dependencies_child_poll_id_fkey" FOREIGN KEY ("child_poll_id") REFERENCES "polls"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "poll_dependencies" ADD CONSTRAINT "poll_dependencies_option_id_fkey" FOREIGN KEY ("option_id") REFERENCES "options"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "poll_dependencies" ADD CONSTRAINT "poll_dependencies_option_id_fkey" FOREIGN KEY ("option_id") REFERENCES "options"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "votes" ADD CONSTRAINT "votes_pollId_fkey" FOREIGN KEY ("pollId") REFERENCES "polls"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "votes" ADD CONSTRAINT "votes_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "vote_options" ADD CONSTRAINT "vote_options_vote_id_fkey" FOREIGN KEY ("vote_id") REFERENCES "votes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "vote_options" ADD CONSTRAINT "vote_options_vote_id_fkey" FOREIGN KEY ("vote_id") REFERENCES "votes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "vote_options" ADD CONSTRAINT "vote_options_option_id_fkey" FOREIGN KEY ("option_id") REFERENCES "options"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "vote_options" ADD CONSTRAINT "vote_options_option_id_fkey" FOREIGN KEY ("option_id") REFERENCES "options"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "poll_hashtags" ADD CONSTRAINT "poll_hashtags_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "polls"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "poll_hashtags" ADD CONSTRAINT "poll_hashtags_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "polls"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "poll_hashtags" ADD CONSTRAINT "poll_hashtags_hashtag_id_fkey" FOREIGN KEY ("hashtag_id") REFERENCES "hashtags"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "poll_hashtags" ADD CONSTRAINT "poll_hashtags_hashtag_id_fkey" FOREIGN KEY ("hashtag_id") REFERENCES "hashtags"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "poll_templates" ADD CONSTRAINT "poll_templates_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "poll_templates" ADD CONSTRAINT "poll_templates_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "polls"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "poll_templates" ADD CONSTRAINT "poll_templates_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "polls"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -535,10 +571,10 @@ ALTER TABLE "rooms" ADD CONSTRAINT "rooms_created_by_fkey" FOREIGN KEY ("created
 ALTER TABLE "messages" ADD CONSTRAINT "messages_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "messages" ADD CONSTRAINT "messages_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "messages" ADD CONSTRAINT "messages_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "invitations" ADD CONSTRAINT "invitations_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "invitations" ADD CONSTRAINT "invitations_inviter_id_fkey" FOREIGN KEY ("inviter_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -547,7 +583,7 @@ ALTER TABLE "invitations" ADD CONSTRAINT "invitations_inviter_id_fkey" FOREIGN K
 ALTER TABLE "invitations" ADD CONSTRAINT "invitations_invitee_id_fkey" FOREIGN KEY ("invitee_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "room_members" ADD CONSTRAINT "room_members_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "room_members" ADD CONSTRAINT "room_members_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "room_members" ADD CONSTRAINT "room_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
