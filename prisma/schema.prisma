@@ -509,7 +509,7 @@ model RoomMember {
 
 model ApiKey {
   id        Int      @id @default(autoincrement())
-  keyHash   String   @db.VarChar(255)
+  keyHash   String   @unique @db.VarChar(255)
   appName   String   @default("default") @db.VarChar(255)
   revoked   Boolean  @default(false)
   expiresAt DateTime @map("expires_at")
