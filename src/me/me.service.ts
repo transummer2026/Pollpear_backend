@@ -9,6 +9,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
+import { ApiKeyService } from 'src/api-key/api-key.service';
 
 @Injectable()
 export class MeService {
@@ -18,9 +19,8 @@ export class MeService {
     private readonly fileUploadService: FileUploadService,
     private readonly storageService: StorageService,
     private readonly websocketEmitter: WebsocketEmitter,
+    private readonly apiKeyService: ApiKeyService,
   ) {}
-
-  // endpoints
 
   async myProfile(userId: number): Promise<UserDTO> {
     const user = await this.userService.findByUserId(userId);
@@ -63,10 +63,11 @@ export class MeService {
   /**
    * The gateway owns the session store and invalidates it around this
    * call; what is left here is closing the websocket tunnels opened
-   * with those sessions, which it cannot reach.
+   * with those sessions, and revoking the api keys it never knew about.
    */
   async remove(userId: number) {
     const user = await this.updateIsDeleted(userId);
+    await this.apiKeyService.revokeAll(userId);
     await this.websocketEmitter.revokeUser(userId);
     return user;
   }
@@ -103,6 +104,7 @@ export class MeService {
       },
       data: {
         isDeleted: true,
+        deletedAt: new Date(),
       },
     });
   }
