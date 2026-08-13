@@ -16,7 +16,7 @@ import {
 import {
   type OauthCompleteDTO,
   type OauthPendingDTO,
-} from 'Pollpear_shared/src/schemas/auth.schema';
+} from 'Pollpear_shared/src/schemas/oauth.schema';
 import {
   UserSchema,
   type UserDTO,
@@ -53,7 +53,7 @@ export class OauthService {
       );
       return { status: 'pending', token };
     }
-    if (user.isDeleted) {
+    if (user.deletedAt) {
       throw new ForbiddenException('User is deleted.');
     }
     const userIsBanned = await this.usersService.findByBanStatus(user.id);
@@ -132,7 +132,6 @@ export class OauthService {
         company: body.company,
         score: 0,
         isOnline: false,
-        isDeleted: false,
         isEmailVerified: true,
         visibility: Visibility.private,
         userTheme: UserTheme.light,

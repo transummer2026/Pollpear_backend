@@ -12,8 +12,8 @@ import { PollsService } from './polls.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
-  type PollCreationDTO,
-  PollCreationSchema,
+  type PollCreateDTO,
+  PollCreateSchema,
   type PollUpdateDTO,
   PollUpdateSchema,
 } from 'Pollpear_shared/src/schemas/polls.schema';
@@ -35,7 +35,7 @@ export class PollsController {
   @CheckAbilities(['create', 'Poll'])
   create(
     @UserId() userId: number,
-    @Body(new ZodValidationPipe(PollCreationSchema)) body: PollCreationDTO,
+    @Body(new ZodValidationPipe(PollCreateSchema)) body: PollCreateDTO,
   ) {
     return this.pollsService.create(userId, body);
   }

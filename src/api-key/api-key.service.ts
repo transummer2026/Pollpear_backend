@@ -14,7 +14,7 @@ const API_KEY_LIFETIME_SECONDS = 365 * 24 * 60 * 60; // 1 year, in seconds
 const PUBLIC_FIELDS = {
   id: true,
   appName: true,
-  expiresAt: true,
+  expiredAt: true,
   createdAt: true,
 } as const;
 
@@ -116,19 +116,19 @@ export class ApiKeyService {
   async restoreAll(): Promise<number> {
     const apiKeys = await this.prisma.apiKey.findMany({
       where: this.activeWhere(),
-      select: { keyHash: true, ownerId: true, expiresAt: true },
+      select: { keyHash: true, ownerId: true, expiredAt: true },
     });
     let restored = 0;
 
     for (const apiKey of apiKeys) {
-      const ttl = remainingSeconds(apiKey.expiresAt);
+      const ttl = remainingSeconds(apiKey.expiredAt);
       if (ttl <= 0) {
         continue;
       }
       await this.redis.setApiKey(apiKey.keyHash, apiKey.ownerId, ttl);
       this.logger.debug(
         `restored ${fingerprint(apiKey.keyHash)} for user ${apiKey.ownerId}, ` +
-          `ttl ${ttl}s (expires ${apiKey.expiresAt.toISOString()})`,
+          `ttl ${ttl}s (expires ${apiKey.expiredAt.toISOString()})`,
       );
       restored += 1;
     }
@@ -140,7 +140,7 @@ export class ApiKeyService {
     return {
       ...(userId === undefined ? {} : { ownerId: userId }),
       revoked: false,
-      expiresAt: {
+      expiredAt: {
         gt: new Date(),
       },
     };
@@ -163,7 +163,7 @@ export class ApiKeyService {
       data: {
         keyHash,
         ownerId: userId,
-        expiresAt,
+        expiredAt: expiresAt,
         appName: appName ?? DEFAULT_APP_NAME,
       },
       select: PUBLIC_FIELDS,

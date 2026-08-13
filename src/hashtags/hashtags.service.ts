@@ -6,15 +6,13 @@ import { PollUpdateDTO } from 'Pollpear_shared/src/schemas/polls.schema';
 export class HashtagsService {
   constructor(private prisma: PrismaService) {}
 
-  connectOrCreateHashtag(name: string) {
-    return {
-      hashtag: {
-        connectOrCreate: {
-          where: { name },
-          create: { name, isVisible: true },
-        },
-      },
-    };
+  async connectOrCreateHashtag(name: string) {
+    const hashtag = await this.prisma.hashtag.upsert({
+      where: { name },
+      create: { name },
+      update: { deletedAt: null },
+    });
+    return { hashtagId: hashtag.id };
   }
 
   /**
@@ -44,7 +42,9 @@ export class HashtagsService {
       .map(({ pollId, hashtagId }) => ({ pollId, hashtagId }));
 
     return {
-      create: hashtagsToCreate.map((name) => this.connectOrCreateHashtag(name)),
+      create: await Promise.all(
+        hashtagsToCreate.map((name) => this.connectOrCreateHashtag(name)),
+      ),
       deleteMany: hashtagsToDisconnect,
     };
   }

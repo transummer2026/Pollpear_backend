@@ -15,8 +15,8 @@ import { UserId } from 'src/common/decorators/user-id.decorator';
 import { VisibleByBan } from 'src/common/decorators/ban.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
-  type UserProfileUpdateDTO,
-  UserProfileUpdateSchema,
+  type UserUpdateDTO,
+  UserUpdateSchema,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import {
   ApiKeyCreateSchema,
@@ -52,8 +52,8 @@ export class MeController {
   @Patch()
   editProfile(
     @UserId() userId: number,
-    @Body(new ZodValidationPipe(UserProfileUpdateSchema))
-    body: UserProfileUpdateDTO,
+    @Body(new ZodValidationPipe(UserUpdateSchema))
+    body: UserUpdateDTO,
   ) {
     return this.meService.editProfile(userId, body);
   }

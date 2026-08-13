@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import {
   UserDTO,
   UserSchema,
-  type UserProfileUpdateDTO,
+  type UserUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -28,10 +28,7 @@ export class MeService {
     return UserSchema.parse(user);
   }
 
-  async editProfile(
-    userId: number,
-    body: UserProfileUpdateDTO,
-  ): Promise<UserDTO> {
+  async editProfile(userId: number, body: UserUpdateDTO): Promise<UserDTO> {
     const updatedUser = await this.updateMyProfile(userId, body);
     return UserSchema.parse(updatedUser);
   }
@@ -66,7 +63,7 @@ export class MeService {
    * with those sessions, and revoking the api keys it never knew about.
    */
   async remove(userId: number) {
-    const user = await this.updateIsDeleted(userId);
+    const user = await this.updateDeletedAt(userId);
     await this.apiKeyService.revokeAll(userId);
     await this.websocketEmitter.revokeUser(userId);
     return user;
@@ -74,7 +71,7 @@ export class MeService {
 
   // Prisma helpers
 
-  private async updateMyProfile(userId: number, body: UserProfileUpdateDTO) {
+  private async updateMyProfile(userId: number, body: UserUpdateDTO) {
     return await this.prisma.user.update({
       where: {
         id: userId,
@@ -97,13 +94,12 @@ export class MeService {
     });
   }
 
-  private async updateIsDeleted(userId: number) {
+  private async updateDeletedAt(userId: number) {
     return await this.prisma.user.update({
       where: {
         id: userId,
       },
       data: {
-        isDeleted: true,
         deletedAt: new Date(),
       },
     });
