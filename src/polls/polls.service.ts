@@ -78,22 +78,6 @@ export class PollsService {
     return `remove option #${optionId} for Poll #${id} works`;
   }
 
-  createVote(id: number) {
-    return `create vote in Poll #${id} works`;
-  }
-
-  updateVote(id: number) {
-    return `update vote in Poll ${id}`;
-  }
-
-  removeVote(id: number) {
-    return `remove vote in Poll #${id} works`;
-  }
-
-  reportVote(id: number) {
-    return `report vote in Poll #${id} works`;
-  }
-
   // Prisma Helpers
 
   async createPoll(

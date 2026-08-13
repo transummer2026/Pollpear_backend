@@ -26,4 +26,5 @@ export function definePollPermissions(
     status: 'pending',
     createdById: user.id,
   });
+  allow(['create', 'update', 'delete'], 'PollVote');
 }
