@@ -31,8 +31,18 @@ export class ApiKeyService {
     const { key, keyHash } = generateApiKey();
     const expiresAt = expiryFromTtl(API_KEY_LIFETIME_SECONDS);
 
-    await this.revoke(userId);
-    const apiKey = await this.insert(userId, keyHash, expiresAt, appName);
+    const previous = await this.findActiveWithHash(userId);
+    const [, apiKey] = await this.prisma.$transaction([
+      this.prisma.apiKey.updateMany({
+        where: this.activeWhere(userId),
+        data: { revoked: true },
+      }),
+      this.insert(userId, keyHash, expiresAt, appName),
+    ]);
+
+    if (previous) {
+      await this.redis.deleteApiKey(previous.keyHash);
+    }
     await this.redis.setApiKey(keyHash, userId, API_KEY_LIFETIME_SECONDS);
 
     this.logger.log(
@@ -143,13 +153,13 @@ export class ApiKeyService {
     });
   }
 
-  private async insert(
+  private insert(
     userId: number,
     keyHash: string,
     expiresAt: Date,
     appName?: string,
   ) {
-    return await this.prisma.apiKey.create({
+    return this.prisma.apiKey.create({
       data: {
         keyHash,
         ownerId: userId,
