@@ -320,6 +320,7 @@ model Poll {
 
   createdBy         User             @relation("PollCreator", fields: [createdById], references: [id])
   room              Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  votes             Vote[]
   options           Option[]
   pollHashtags      PollHashtag[]
   pollTemplates     PollTemplate[]
@@ -372,10 +373,14 @@ model Vote {
 
   createdById Int @map("created_by")
 
-  createdBy   User         @relation(fields: [createdById], references: [id])
+  pollId      Int
+  poll        Poll         @relation(fields: [pollId], references: [id])
   voteOptions VoteOption[]
+  createdBy   User         @relation(fields: [createdById], references: [id])
 
+  @@unique([pollId, createdById]) // une personne ne peut avoir du'un seul et unique vote par poll
   @@index([createdById])
+  @@index([pollId])
   @@map("votes")
 }
 

@@ -18,10 +18,18 @@ import {
   PollUpdateSchema,
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import {
+  type VoteCreationDTO,
+  VoteCreationSchema,
+} from 'Pollpear_shared/src/schemas/vote.schema';
+import { VotesService } from 'src/votes/votes.service';
 
 @Controller('polls')
 export class PollsController {
-  constructor(private readonly pollsService: PollsService) {}
+  constructor(
+    private readonly pollsService: PollsService,
+    private readonly votesService: VotesService,
+  ) {}
 
   @Post('new')
   @CheckAbilities(['create', 'Poll'])
@@ -79,29 +87,37 @@ export class PollsController {
   //routes will dissapear because later we will use wbesockets
   @Post(':id/vote')
   @CheckAbilities(['create', 'PollVote'])
-  @HttpCode(503)
-  createVote(@Param('id', ParseIntPipe) id: number) {
-    return this.pollsService.createVote(+id);
+  createVote(
+    @Param('id', ParseIntPipe) pollId: number,
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(VoteCreationSchema)) body: VoteCreationDTO,
+  ) {
+    return this.votesService.createVote(pollId, userId, body);
   }
 
   @Patch(':id/vote')
   @CheckAbilities(['update', 'PollVote'])
-  @HttpCode(503)
-  updateVote(@Param('id', ParseIntPipe) id: number) {
-    return this.pollsService.updateVote(+id);
+  updateVote(
+    @Param('id', ParseIntPipe) pollId: number,
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(VoteCreationSchema)) body: VoteCreationDTO,
+  ) {
+    return this.votesService.updateVote(pollId, userId, body);
   }
 
   @Delete(':id/vote')
   @CheckAbilities(['delete', 'PollVote'])
-  @HttpCode(503)
-  removeVote(@Param('id', ParseIntPipe) id: number) {
-    return this.pollsService.removeVote(+id);
+  removeVote(
+    @Param('id', ParseIntPipe) pollId: number,
+    @UserId() userId: number,
+  ) {
+    return this.votesService.deleteVote(pollId, userId);
   }
 
   @Post(':id/vote/report')
   @CheckAbilities(['report', 'PollVote'])
   @HttpCode(503)
   reportVote(@Param('id', ParseIntPipe) id: number) {
-    return this.pollsService.reportVote(+id);
+    return this.votesService.reportVote(id);
   }
 }

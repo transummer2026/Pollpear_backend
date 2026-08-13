@@ -558,6 +558,7 @@ async function main() {
       const createdAt = faker.date.between({ from, to });
       await prisma.vote.create({
         data: {
+          poll: { connect: { id: poll.id } },
           createdBy: { connect: { id: voter.userId } },
           label,
           createdAt,

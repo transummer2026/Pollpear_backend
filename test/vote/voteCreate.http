@@ -1,0 +1,165 @@
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [
+		{
+			"optionId": 129
+		}
+	]
+}
+
+### duplicate vote (run the request above first) -> 409 Conflict
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 } ]
+}
+
+### option belongs to a different poll (125 is on poll 40, not 41) -> 400 Bad Request
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 125 } ]
+}
+
+### poll does not exist -> 400 Bad Request
+POST http://localhost:3000/polls/999999/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 } ]
+}
+
+### single_choice with 2 selected options -> 400 Bad Request (zod schema rejects before it reaches the service)
+POST http://localhost:3000/polls/8/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"type": "single_choice",
+	"optionsVoted": [ { "optionId": 26 }, { "optionId": 27 } ]
+}
+
+### duplicate option id inside the same payload -> 400 Bad Request
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 }, { "optionId": 129 } ]
+}
+
+### empty optionsVoted -> 400 Bad Request (zod min(1))
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": []
+}
+
+### missing x-user-id header -> 401 Unauthorized
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 } ]
+}
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 999999
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 } ]
+}
+
+### non-integer poll id -> 400 Bad Request (ParseIntPipe)
+POST http://localhost:3000/polls/abc/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 } ]
+}
+
+### extra/unknown fields are stripped, not persisted -> 201 first run (409 on rerun, that's the unique-vote constraint, not this check)
+POST http://localhost:3000/polls/42/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 131 } ],
+	"createdById": 999,
+	"id": 1
+}
+
+### vote on a poll that is not "active" (poll 41 is currently "pending") -> 403 Forbidden
+POST http://localhost:3000/polls/41/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 4
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 129 } ]
+}
+
+### vote on a poll whose ends_at is already in the past (poll 38 is "locked") -> 403 Forbidden
+POST http://localhost:3000/polls/38/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 4
+
+{
+	"type": "slider",
+	"optionsVoted": [ { "optionId": 120 } ],
+	"label": "5"
+}
+
+### vote for a soft-deleted option on an active poll (option 7 on poll 2 has is_deleted = true) -> 400 Bad Request
+POST http://localhost:3000/polls/2/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 26
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 7 } ]
+}
+
+### vote type doesn't match the poll's actual type (poll 8 is single_choice, body claims multiple_choice) -> 400 Bad Request
+POST http://localhost:3000/polls/8/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 5
+
+{
+	"type": "multiple_choice",
+	"optionsVoted": [ { "optionId": 26 }, { "optionId": 27 } ]
+}
+
+### slider vote persists its label -> 201, label comes back as "7" instead of null (409 on rerun)
+POST http://localhost:3000/polls/16/vote HTTP/1.1
+Content-Type: application/json
+x-user-id: 4
+
+{
+	"type": "slider",
+	"optionsVoted": [ { "optionId": 54 } ],
+	"label": "7"
+}
