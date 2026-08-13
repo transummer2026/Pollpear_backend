@@ -1,0 +1,8 @@
+POST http://localhost:3000/polls/41/vote/report HTTP/1.1
+x-user-id: 1
+
+### actual result: 403 Forbidden, for every user including moderators (id 5 below), not the 503 stub in VotesService.reportVote.
+### definePollPermissions() (src/casl/permissions/poll.ts) never grants 'report' on 'PollVote' to anyone, so the
+### AuthorizationGuard rejects the request before it reaches the controller. Route is currently dead code.
+POST http://localhost:3000/polls/41/vote/report HTTP/1.1
+x-user-id: 5

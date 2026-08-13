@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   VoteCreationDTO,
@@ -20,6 +24,7 @@ export class VotesService {
       data: {
         createdById: userId,
         pollId,
+        label: body.type === 'slider' ? body.label : undefined,
         voteOptions: {
           create: body.optionsVoted,
         },
@@ -53,6 +58,7 @@ export class VotesService {
     return this.prisma.vote.update({
       where: { id: vote.id },
       data: {
+        label: body.type === 'slider' ? body.label : undefined,
         voteOptions: {
           deleteMany: {
             optionId: { in: optionsToDelete },
@@ -73,10 +79,27 @@ export class VotesService {
     return `report vote in Poll #${id} works`;
   }
 
-  async validateVote(pollId: number, { optionsVoted }: VoteCreationDTO) {
-    const optionIds = optionsVoted.map((optionVoted) => optionVoted.optionId);
+  async validateVote(pollId: number, body: VoteCreationDTO) {
+    const poll = await this.prisma.poll.findUniqueOrThrow({
+      where: { id: pollId },
+    });
+    if (poll.status !== 'active')
+      throw new ForbiddenException('Poll is not active.');
+    if (poll.endsAt < new Date())
+      throw new ForbiddenException('Poll is closed.');
+    if (poll.type !== body.type)
+      throw new BadRequestException('Poll type does not match.');
+    const optionIds = body.optionsVoted.map(
+      (optionVoted) => optionVoted.optionId,
+    );
     const optionsWithSamePollId = await this.prisma.option.findMany({
-      where: { pollId: pollId, id: { in: optionIds } },
+      where: {
+        pollId: pollId,
+        isDeleted: false,
+        id: {
+          in: optionIds,
+        },
+      },
     });
     if (optionIds.length != optionsWithSamePollId.length) {
       throw new BadRequestException();
