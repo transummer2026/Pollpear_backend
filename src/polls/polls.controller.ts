@@ -19,8 +19,10 @@ import {
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import {
-  type VoteCreationDTO,
-  VoteCreationSchema,
+  type VoteCreateDTO,
+  VoteCreateSchema,
+  type VoteUpdateDTO,
+  VoteUpdateSchema,
 } from 'Pollpear_shared/src/schemas/vote.schema';
 import { VotesService } from 'src/votes/votes.service';
 
@@ -90,7 +92,7 @@ export class PollsController {
   createVote(
     @Param('id', ParseIntPipe) pollId: number,
     @UserId() userId: number,
-    @Body(new ZodValidationPipe(VoteCreationSchema)) body: VoteCreationDTO,
+    @Body(new ZodValidationPipe(VoteCreateSchema)) body: VoteCreateDTO,
   ) {
     return this.votesService.createVote(pollId, userId, body);
   }
@@ -100,7 +102,7 @@ export class PollsController {
   updateVote(
     @Param('id', ParseIntPipe) pollId: number,
     @UserId() userId: number,
-    @Body(new ZodValidationPipe(VoteCreationSchema)) body: VoteCreationDTO,
+    @Body(new ZodValidationPipe(VoteUpdateSchema)) body: VoteUpdateDTO,
   ) {
     return this.votesService.updateVote(pollId, userId, body);
   }

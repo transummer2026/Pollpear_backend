@@ -561,13 +561,12 @@ async function main() {
       const createdAt = faker.date.between({ from, to });
       await prisma.vote.create({
         data: {
-          poll: { connect: { id: poll.id } },
-          createdBy: { connect: { id: voter.userId } },
-          poll: { connect: { id: poll.id } },
+          pollId: poll.id,
+          createdById: voter.userId,
           freeField,
           createdAt,
           voteOptions: {
-            create: optionIds.map((id) => ({ option: { connect: { id } } })),
+            create: optionIds.map((id) => ({ optionId: id })),
           },
         },
       });
