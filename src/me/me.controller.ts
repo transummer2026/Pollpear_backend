@@ -58,33 +58,6 @@ export class MeController {
     return this.meService.editProfile(userId, body);
   }
 
-  @Get('apikey')
-  getApiKey(@UserId() userId: number) {
-    return this.apiKeyService.findActive(userId);
-  }
-
-  @Post('apikey')
-  createApiKey(
-    @UserId() userId: number,
-    @Body(new ZodValidationPipe(ApiKeyCreateSchema)) body: ApiKeyCreateDTO,
-  ) {
-    return this.apiKeyService.create(userId, body.appName);
-  }
-
-  @Patch('apikey')
-  updateApiKey(
-    @UserId() userId: number,
-    @Body(new ZodValidationPipe(ApiKeySchema)) body: ApiKeyDTO,
-  ) {
-    return this.apiKeyService.rename(userId, body.appName);
-  }
-
-  @Delete('apikey')
-  @HttpCode(204)
-  revokeApiKey(@UserId() userId: number) {
-    return this.apiKeyService.revoke(userId);
-  }
-
   @Patch('settings')
   @HttpCode(503)
   settings() {
@@ -96,6 +69,33 @@ export class MeController {
   @HttpCode(503)
   changePassword() {
     return this.meService.changePassword();
+  }
+
+  @Get('settings/security/apikey')
+  getApiKey(@UserId() userId: number) {
+    return this.apiKeyService.findActive(userId);
+  }
+
+  @Post('settings/security/apikey')
+  createApiKey(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(ApiKeyCreateSchema)) body: ApiKeyCreateDTO,
+  ) {
+    return this.apiKeyService.create(userId, body.appName);
+  }
+
+  @Patch('settings/security/apikey')
+  updateApiKey(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(ApiKeySchema)) body: ApiKeyDTO,
+  ) {
+    return this.apiKeyService.rename(userId, body.appName);
+  }
+
+  @Delete('settings/security/apikey')
+  @HttpCode(204)
+  revokeApiKey(@UserId() userId: number) {
+    return this.apiKeyService.revoke(userId);
   }
 
   @Delete()
