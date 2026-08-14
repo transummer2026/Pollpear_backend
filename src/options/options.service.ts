@@ -23,17 +23,23 @@ export class OptionsService {
       where: {
         id: { notIn: optionsToUpdate.map((option) => option.id) },
         pollId,
+        deletedAt: null,
       },
       select: { id: true },
     });
 
     return {
-      updateMany: optionsToUpdate.map((option) => ({
-        where: { id: option.id },
-        data: option,
-      })),
+      updateMany: [
+        ...optionsToUpdate.map((option) => ({
+          where: { id: option.id },
+          data: option,
+        })),
+        ...optionsToDelete.map(({ id }) => ({
+          where: { id },
+          data: { deletedAt: new Date() },
+        })),
+      ],
       create: optionsToCreate,
-      delete: optionsToDelete,
     };
   }
 }

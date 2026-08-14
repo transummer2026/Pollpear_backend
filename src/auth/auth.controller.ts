@@ -19,15 +19,17 @@ import {
   PasswordResetSchema,
   VerifyEmailSchema,
   ResendVerificationSchema,
-  OauthCompleteSchema,
   type RegisterDTO,
   type LoginDTO,
   type PasswordForgotDTO,
   type PasswordResetDTO,
   type VerifyEmailDTO,
   type ResendVerificationDTO,
-  type OauthCompleteDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
+import {
+  OauthCompleteSchema,
+  type OauthCompleteDTO,
+} from 'Pollpear_shared/src/schemas/oauth.schema';
 import { AuthService } from './auth.service';
 import { type Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';

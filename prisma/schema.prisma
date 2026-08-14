@@ -94,8 +94,7 @@ enum PollType {
 enum PollStatus {
   pending
   active
-  locked
-  deleted
+  closed
 }
 
 enum RoomStatus {
@@ -127,20 +126,19 @@ model User {
   bio             String?    @db.VarChar(255)
   score           Int        @default(0)
   isOnline        Boolean    @default(false) @map("is_online")
-  isDeleted       Boolean    @default(false) @map("is_deleted")
   isEmailVerified Boolean    @default(false) @map("is_email_verified")
   visibility      Visibility @default(public)
-  deletedAt       DateTime?  @map("deleted_at")
   lastSeenAt      DateTime?  @map("last_seen_at")
   avatarUrl       String     @default("/uploads/avatars/default.svg") @map("avatar_url") @db.VarChar(255)
   bannerUrl       String     @default("/uploads/banners/default.svg") @map("banner_url") @db.VarChar(255)
+  userTheme       UserTheme  @default(light) @map("user_theme")
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
-  userTheme       UserTheme  @map("user_theme")
+  deletedAt       DateTime?  @map("deleted_at")
 
   oauths               Oauth[]
   bansReceived         Ban[]          @relation("BannedUser")
-  bansDone             Ban[]          @relation("BannedBy")
+  bansGiven            Ban[]          @relation("BannedBy")
   bansLifted           Ban[]          @relation("UnbannedBy")
   pollsCreated         Poll[]         @relation("PollCreator")
   roomsCreated         Room[]         @relation("RoomCreator")
@@ -148,15 +146,15 @@ model User {
   messages             Message[]
   notifications        Notification[]
   pollTemplates        PollTemplate[]
-  roomMembers          RoomMember[]
+  roomMemberships      RoomMember[]
   invitationsSent      Invitation[]   @relation("Inviter")
   invitationsReceived  Invitation[]   @relation("Invitee")
   friendshipsRequested Friendship[]   @relation("Requester")
   friendshipsReceived  Friendship[]   @relation("Addressee")
-  blocksGiven          Block[]        @relation("Blocker")
   blocksReceived       Block[]        @relation("Blocked")
-  reportsGiven         Report[]       @relation("Reporter")
+  blocksGiven          Block[]        @relation("Blocker")
   reportsReceived      Report[]       @relation("Reported")
+  reportsGiven         Report[]       @relation("Reporter")
   apiKeys              ApiKey[]
 
   @@map("users")
@@ -167,8 +165,8 @@ model Oauth {
   provider       OauthProvider
   providerUserId String        @map("provider_user_id") @db.VarChar(255)
   providerUrl    String        @map("provider_url") @db.VarChar(255)
-  accessToken    String        @map("access_token") @db.VarChar(255)
-  refreshToken   String        @map("refresh_token") @db.VarChar(255)
+  accessToken    String        @map("access_token") @db.Text
+  refreshToken   String        @map("refresh_token") @db.Text
   tokenType      String        @map("token_type") @db.VarChar(255)
   expiresAt      DateTime      @map("expires_at")
   scope          String        @db.VarChar(255)
@@ -187,9 +185,9 @@ model Oauth {
 model Ban {
   id          Int      @id @default(autoincrement())
   banReason   String   @map("ban_reason") @db.Text
-  bannedAt    DateTime @map("banned_at")
-  unbannedAt  DateTime @map("unbanned_at")
   unbanReason String?  @map("unban_reason") @db.Text
+  startedAt   DateTime @map("started_at")
+  endedAt     DateTime @map("ended_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -214,7 +212,7 @@ model BanAttachment {
   attachmentUrl String @map("attachment_url") @db.VarChar(255)
 
   banId Int @map("ban_id")
-  ban   Ban @relation(fields: [banId], references: [id], onDelete: Cascade)
+  ban   Ban @relation(fields: [banId], references: [id])
 
   @@index([banId])
   @@map("ban_attachments")
@@ -225,6 +223,7 @@ model Friendship {
   status    FriendshipStatus
   createdAt DateTime         @default(now()) @map("created_at")
   updatedAt DateTime         @updatedAt @map("updated_at")
+  deletedAt DateTime?        @map("deleted_at")
 
   requesterId Int @map("requester_id")
   addresseeId Int @map("addressee_id")
@@ -270,11 +269,11 @@ model Report {
 
   reporter User     @relation("Reporter", fields: [reporterId], references: [id])
   reported User     @relation("Reported", fields: [reportedId], references: [id])
-  room     Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  message  Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  poll     Poll?    @relation(fields: [pollId], references: [id], onDelete: SetNull)
-  option   Option?  @relation(fields: [optionId], references: [id], onDelete: SetNull)
-  hashtag  Hashtag? @relation(fields: [hashtagId], references: [id], onDelete: SetNull)
+  room     Room?    @relation(fields: [roomId], references: [id])
+  message  Message? @relation(fields: [messageId], references: [id])
+  poll     Poll?    @relation(fields: [pollId], references: [id])
+  option   Option?  @relation(fields: [optionId], references: [id])
+  hashtag  Hashtag? @relation(fields: [hashtagId], references: [id])
 
   @@index([reporterId])
   @@index([reportedId])
@@ -297,7 +296,8 @@ model Notification {
   userId Int  @map("user_id")
   user   User @relation(fields: [userId], references: [id])
 
-  @@index([userId])
+  @@index([userId, isRead])
+  @@index([isRead])
   @@map("notifications")
 }
 
@@ -306,14 +306,15 @@ model Poll {
   title           String     @db.VarChar(255)
   description     String?    @db.Text
   type            PollType
-  createdAt       DateTime   @default(now()) @map("created_at")
-  publishedAt     DateTime?  @map("published_at")
-  updatedAt       DateTime   @updatedAt @map("updated_at")
-  endsAt          DateTime   @map("ends_at")
-  visibility      Visibility
+  visibility      Visibility @default(private)
   allowChangeVote Boolean    @map("allow_change_vote")
   isAnonymous     Boolean    @map("is_anonymous")
   status          PollStatus
+  publishedAt     DateTime?  @map("published_at")
+  endsAt          DateTime   @map("ends_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
 
   createdById Int  @map("created_by")
   roomId      Int? @map("room_id")
@@ -327,21 +328,24 @@ model Poll {
   reports           Report[]
   childDependencies PollDependency[] @relation("ChildPoll")
 
+  @@index([status, visibility])
+  @@index([status])
+  @@index([visibility])
   @@index([createdById])
   @@index([roomId])
   @@map("polls")
 }
 
 model Option {
-  id               Int     @id @default(autoincrement())
-  label            String  @db.VarChar(255)
-  sliderLeftLabel  String? @map("slider_left_label") @db.VarChar(255)
-  sliderRightLabel String? @map("slider_right_label") @db.VarChar(255)
+  id               Int       @id @default(autoincrement())
+  text             String    @db.VarChar(255)
+  sliderLeftLabel  String?   @map("slider_left_label") @db.VarChar(255)
+  sliderRightLabel String?   @map("slider_right_label") @db.VarChar(255)
   order            Int
-  isDeleted        Boolean @default(false) @map("is_deleted")
+  deletedAt        DateTime? @map("deleted_at")
 
   pollId Int  @map("poll_id")
-  poll   Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  poll   Poll @relation(fields: [pollId], references: [id])
 
   voteOptions      VoteOption[]
   pollDependencies PollDependency[]
@@ -352,33 +356,33 @@ model Option {
 }
 
 model PollDependency {
-  id Int @id @default(autoincrement())
-
   childPollId Int @map("child_poll_id")
   optionId    Int @map("option_id")
 
-  childPoll Poll   @relation("ChildPoll", fields: [childPollId], references: [id], onDelete: Cascade)
-  option    Option @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  childPoll Poll   @relation("ChildPoll", fields: [childPollId], references: [id])
+  option    Option @relation(fields: [optionId], references: [id])
 
-  @@index([childPollId])
+  @@id([childPollId, optionId])
   @@index([optionId])
   @@map("poll_dependencies")
 }
 
 model Vote {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  label     String?  @db.VarChar(255)
+  id        Int       @id @default(autoincrement())
+  freeField String?   @db.VarChar(255)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   createdById Int @map("created_by")
-
   pollId      Int
-  poll        Poll         @relation(fields: [pollId], references: [id])
-  voteOptions VoteOption[]
-  createdBy   User         @relation(fields: [createdById], references: [id])
 
-  @@unique([pollId, createdById]) // une personne ne peut avoir du'un seul et unique vote par poll
+  poll      Poll @relation(fields: [pollId], references: [id])
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  voteOptions VoteOption[]
+
+  @@unique([createdById, pollId])
   @@index([createdById])
   @@index([pollId])
   @@map("votes")
@@ -388,8 +392,8 @@ model VoteOption {
   voteId   Int @map("vote_id")
   optionId Int @map("option_id")
 
-  vote   Vote   @relation(fields: [voteId], references: [id], onDelete: Cascade)
-  option Option @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  vote   Vote   @relation(fields: [voteId], references: [id])
+  option Option @relation(fields: [optionId], references: [id])
 
   @@id([voteId, optionId])
   @@index([optionId])
@@ -397,9 +401,11 @@ model VoteOption {
 }
 
 model Hashtag {
-  id        Int     @id @default(autoincrement())
-  name      String  @unique @db.VarChar(255)
-  isVisible Boolean @map("is_visible")
+  id        Int       @id @default(autoincrement())
+  name      String    @unique @db.VarChar(255)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   pollHashtags PollHashtag[]
   reports      Report[]
@@ -411,8 +417,8 @@ model PollHashtag {
   pollId    Int @map("poll_id")
   hashtagId Int @map("hashtag_id")
 
-  poll    Poll    @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  poll    Poll    @relation(fields: [pollId], references: [id])
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id])
 
   @@id([pollId, hashtagId])
   @@index([hashtagId])
@@ -424,7 +430,7 @@ model PollTemplate {
   pollId Int @map("poll_id")
 
   user User @relation(fields: [userId], references: [id])
-  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  poll Poll @relation(fields: [pollId], references: [id])
 
   @@id([userId, pollId])
   @@index([pollId])
@@ -432,19 +438,22 @@ model PollTemplate {
 }
 
 model Room {
-  id          Int        @id @default(autoincrement())
-  name        String     @db.VarChar(255)
-  description String?    @db.Text
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-  publishedAt DateTime?  @map("published_at")
-  bannerUrl   String     @map("banner_url") @db.VarChar(255)
-  visibility  Visibility
-  status      RoomStatus
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  bannerUrl   String    @map("banner_url") @db.VarChar(255)
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  visibility Visibility
+  status     RoomStatus
 
   createdById Int @map("created_by")
 
-  createdBy   User         @relation("RoomCreator", fields: [createdById], references: [id])
+  createdBy User @relation("RoomCreator", fields: [createdById], references: [id])
+
   polls       Poll[]
   messages    Message[]
   invitations Invitation[]
@@ -465,8 +474,9 @@ model Message {
   authorId Int @map("author_id")
   roomId   Int @map("room_id")
 
-  author  User     @relation(fields: [authorId], references: [id])
-  room    Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+  room   Room @relation(fields: [roomId], references: [id])
+
   reports Report[]
 
   @@index([authorId])
@@ -477,15 +487,16 @@ model Message {
 model Invitation {
   id        Int              @id @default(autoincrement())
   status    InvitationStatus
+  message   String?          @db.VarChar(255)
   createdAt DateTime         @default(now()) @map("created_at")
   updatedAt DateTime         @updatedAt @map("updated_at")
-  label     String?          @db.VarChar(255)
+  deletedAt DateTime?        @map("deleted_at")
 
   roomId    Int @map("room_id")
   inviterId Int @map("inviter_id")
   inviteeId Int @map("invitee_id")
 
-  room    Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room    Room @relation(fields: [roomId], references: [id])
   inviter User @relation("Inviter", fields: [inviterId], references: [id])
   invitee User @relation("Invitee", fields: [inviteeId], references: [id])
 
@@ -496,18 +507,20 @@ model Invitation {
 }
 
 model RoomMember {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  joinedAt  DateTime @map("joined_at")
+  id        Int       @id @default(autoincrement())
+  joinedAt  DateTime  @map("joined_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   roomId Int @map("room_id")
   userId Int @map("user_id")
 
-  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id])
   user User @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
+  @@index([roomId])
   @@index([userId])
   @@map("room_members")
 }
@@ -517,7 +530,7 @@ model ApiKey {
   keyHash   String   @unique @db.VarChar(255)
   appName   String   @default("default") @db.VarChar(255)
   revoked   Boolean  @default(false)
-  expiresAt DateTime @map("expires_at")
+  expiredAt DateTime @map("expired_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -525,6 +538,7 @@ model ApiKey {
 
   user User @relation(fields: [ownerId], references: [id])
 
+  @@index([keyHash])
   @@index([ownerId])
   @@map("api_keys")
 }

@@ -5,7 +5,7 @@ import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { OptionsService } from 'src/options/options.service';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import {
-  PollCreationDTO,
+  PollCreateDTO,
   PollUpdateDTO,
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { Poll } from 'src/generated/prisma/client';
@@ -21,14 +21,14 @@ export class PollsService {
     private hashtagsService: HashtagsService,
   ) {}
 
-  async create(userId: number, body: PollCreationDTO) {
+  async create(userId: number, body: PollCreateDTO) {
     return await this.createPoll(userId, body);
   }
 
   search(q: string) {
     return this.prisma.poll.findMany({
       where: {
-        status: { not: 'deleted' },
+        deletedAt: null,
         visibility: 'public',
         title: { contains: q, mode: 'insensitive' },
       },
@@ -41,7 +41,9 @@ export class PollsService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
-    const poll = await this.prisma.poll.findUniqueOrThrow({ where: { id } });
+    const poll = await this.prisma.poll.findFirstOrThrow({
+      where: { id, deletedAt: null },
+    });
 
     const ability = this.abilityFactory.createForUser(user);
     ForbiddenError.from(ability).throwUnlessCan(
@@ -56,7 +58,9 @@ export class PollsService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
-    const poll = await this.prisma.poll.findUniqueOrThrow({ where: { id } });
+    const poll = await this.prisma.poll.findFirstOrThrow({
+      where: { id, deletedAt: null },
+    });
 
     const ability = this.abilityFactory.createForUser(user);
     ForbiddenError.from(ability).throwUnlessCan(
@@ -82,8 +86,16 @@ export class PollsService {
 
   async createPoll(
     userId: number,
-    { options, hashtags, ...body }: PollCreationDTO,
+    { options, hashtags, ...body }: PollCreateDTO,
   ): Promise<Poll> {
+    const pollHashtags = hashtags
+      ? await Promise.all(
+          hashtags.map((hashtag) =>
+            this.hashtagsService.connectOrCreateHashtag(hashtag.name),
+          ),
+        )
+      : undefined;
+
     return this.prisma.poll.create({
       data: {
         ...body,
@@ -94,9 +106,7 @@ export class PollsService {
           create: options,
         },
         pollHashtags: {
-          create: hashtags?.map((hashtag) =>
-            this.hashtagsService.connectOrCreateHashtag(hashtag.name),
-          ),
+          create: pollHashtags,
         },
       },
     });
@@ -130,7 +140,7 @@ export class PollsService {
     return await this.prisma.poll.update({
       where: { id },
       data: {
-        status: 'deleted',
+        deletedAt: new Date(),
       },
     });
   }

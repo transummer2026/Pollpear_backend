@@ -3,6 +3,9 @@ import { PollsController } from './polls.controller';
 import { PollsService } from './polls.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { caslAbilityFactoryMock } from 'src/casl/casl-ability.factory.mock';
+import { optionsServiceMock } from 'src/options/options.service.mock';
+import { hashtagsServiceMock } from 'src/hashtags/hashtags.service.mock';
+import { votesServiceMock } from 'src/votes/votes.service.mock';
 
 describe('PollsController', () => {
   let controller: PollsController;
@@ -10,7 +13,14 @@ describe('PollsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PollsController],
-      providers: [PollsService, prismaMock, caslAbilityFactoryMock],
+      providers: [
+        PollsService,
+        prismaMock,
+        caslAbilityFactoryMock,
+        optionsServiceMock,
+        hashtagsServiceMock,
+        votesServiceMock,
+      ],
     }).compile();
 
     controller = module.get<PollsController>(PollsController);

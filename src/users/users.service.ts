@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import {
   UserDTO,
   UserSchema,
-  type UserProfileUpdateDTO,
+  type UserUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { ForbiddenError, subject } from '@casl/ability';
@@ -33,7 +33,7 @@ export class UsersService {
   async search(q: string) {
     const startsWith = await this.prisma.user.findMany({
       where: {
-        isDeleted: false,
+        deletedAt: null,
         visibility: { not: 'private' },
         username: { startsWith: q, mode: 'insensitive' },
       },
@@ -47,7 +47,7 @@ export class UsersService {
 
     const contains = await this.prisma.user.findMany({
       where: {
-        isDeleted: false,
+        deletedAt: null,
         visibility: { not: 'private' },
         id: { notIn: startsWith.map((user) => user.id) },
         OR: [
@@ -95,7 +95,7 @@ export class UsersService {
   async update(
     id: number,
     userId: number,
-    body: UserProfileUpdateDTO,
+    body: UserUpdateDTO,
   ): Promise<UserDTO> {
     const requester = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -120,8 +120,8 @@ export class UsersService {
 
   async findByUserId(userId: number) {
     if (isNaN(userId)) throw new ForbiddenException('Invalid user id.');
-    return await this.prisma.user.findUnique({
-      where: { id: userId },
+    return await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
     });
   }
 
@@ -135,7 +135,7 @@ export class UsersService {
     return await this.prisma.ban.findFirst({
       where: {
         userId,
-        unbannedAt: {
+        endedAt: {
           gt: new Date(),
         },
       },
@@ -160,7 +160,7 @@ export class UsersService {
     });
   }
 
-  private async updateUserProfile(userId: number, data: UserProfileUpdateDTO) {
+  private async updateUserProfile(userId: number, data: UserUpdateDTO) {
     return await this.prisma.user.update({
       where: {
         id: userId,

@@ -12,8 +12,8 @@ import { UsersService } from './users.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
-  type UserProfileUpdateDTO,
-  UserProfileUpdateSchema,
+  type UserUpdateDTO,
+  UserUpdateSchema,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 
@@ -72,8 +72,8 @@ export class UsersController {
   update(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ZodValidationPipe(UserProfileUpdateSchema))
-    body: UserProfileUpdateDTO,
+    @Body(new ZodValidationPipe(UserUpdateSchema))
+    body: UserUpdateDTO,
   ) {
     return this.usersService.update(id, userId, body);
   }

@@ -83,7 +83,6 @@ export class AuthService {
         company: body.company,
         score: 0,
         isOnline: false,
-        isDeleted: false,
         isEmailVerified: false,
         visibility: Visibility.public,
         userTheme: UserTheme.light,
@@ -105,7 +104,7 @@ export class AuthService {
   ): Promise<UserDTO> {
     const user = await this.userService.findByEmail(body.email);
 
-    const userIsDeleted = user?.isDeleted;
+    const userIsDeleted = !!user?.deletedAt;
 
     let passwordValid: boolean;
     try {

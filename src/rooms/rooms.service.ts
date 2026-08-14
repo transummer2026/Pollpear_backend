@@ -14,6 +14,7 @@ export class RoomsService {
   search(q: string) {
     return this.prisma.room.findMany({
       where: {
+        deletedAt: null,
         visibility: 'public',
         name: { contains: q, mode: 'insensitive' },
       },

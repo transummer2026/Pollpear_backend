@@ -49,7 +49,7 @@ const POLL_TYPE_PLAN: PollType[] = [
 ];
 const POLL_STATUS_PLAN: PollStatus[] = [
   ...Array<PollStatus>(32).fill(PollStatus.active),
-  ...Array<PollStatus>(8).fill(PollStatus.locked),
+  ...Array<PollStatus>(8).fill(PollStatus.closed),
 ];
 const FRIENDSHIP_STATUS_PLAN: FriendshipStatus[] = [
   ...Array<FriendshipStatus>(70).fill(FriendshipStatus.accepted),
@@ -231,7 +231,7 @@ function buildOptionRows(
   if (type === PollType.slider) {
     return [
       {
-        label: 'scale',
+        text: 'scale',
         order: 0,
         sliderLeftLabel: String(SLIDER_MIN),
         sliderRightLabel: String(SLIDER_MAX),
@@ -239,14 +239,14 @@ function buildOptionRows(
     ];
   }
   if (type === PollType.free_field) {
-    return [{ label: 'free_text_answer', order: 0 }];
+    return [{ text: 'free_text_answer', order: 0 }];
   }
   const count =
     type === PollType.single_choice
       ? faker.number.int({ min: 2, max: 5 })
       : faker.number.int({ min: 3, max: 6 });
   return Array.from({ length: count }, (_, order) => ({
-    label: faker.lorem.words({ min: 1, max: 3 }),
+    text: faker.lorem.words({ min: 1, max: 3 }),
     order,
   }));
 }
@@ -281,19 +281,19 @@ function pickVoteOptions(
   liveOptions: { id: number }[],
   voterIndex: number,
   leaderId: number,
-): { optionIds: number[]; label: string | null } {
+): { optionIds: number[]; freeField: string | null } {
   if (type === PollType.slider) {
     const value = Math.round(
       (faker.number.int({ min: SLIDER_MIN, max: SLIDER_MAX }) +
         faker.number.int({ min: SLIDER_MIN, max: SLIDER_MAX })) /
         2,
     );
-    return { optionIds: [liveOptions[0].id], label: String(value) };
+    return { optionIds: [liveOptions[0].id], freeField: String(value) };
   }
   if (type === PollType.free_field) {
     return {
       optionIds: [liveOptions[0].id],
-      label: faker.lorem.paragraph().slice(0, 255),
+      freeField: faker.lorem.paragraph().slice(0, 255),
     };
   }
   if (type === PollType.single_choice) {
@@ -302,7 +302,7 @@ function pickVoteOptions(
       voterIndex < liveOptions.length
         ? liveOptions[voterIndex]
         : faker.helpers.arrayElement([leader, ...liveOptions]);
-    return { optionIds: [chosen.id], label: null };
+    return { optionIds: [chosen.id], freeField: null };
   }
   const subset = faker.helpers.arrayElements(
     liveOptions,
@@ -314,7 +314,7 @@ function pickVoteOptions(
   ) {
     subset[0] = liveOptions[voterIndex];
   }
-  return { optionIds: subset.map((o) => o.id), label: null };
+  return { optionIds: subset.map((o) => o.id), freeField: null };
 }
 
 async function main() {
@@ -368,7 +368,10 @@ async function main() {
   const hashtagIds = new Map<string, number>();
   for (const name of HASHTAG_NAMES) {
     const hashtag = await prisma.hashtag.create({
-      data: { name, isVisible: !HIDDEN_HASHTAGS.has(name) },
+      data: {
+        name,
+        deletedAt: HIDDEN_HASHTAGS.has(name) ? new Date() : null,
+      },
     });
     hashtagIds.set(name, hashtag.id);
   }
@@ -435,7 +438,7 @@ async function main() {
     roomId: number | null;
     visibility: Visibility;
     createdById: number;
-    options: { id: number; isDeleted: boolean }[];
+    options: { id: number; deletedAt: Date | null }[];
   }[] = [];
   let roomCursor = 0;
   let deletedDemoLeft = 2;
@@ -459,9 +462,9 @@ async function main() {
       (type === PollType.single_choice || type === PollType.multiple_choice)
     ) {
       optionRows.push({
-        label: '[deleted option]',
+        text: '[deleted option]',
         order: optionRows.length,
-        isDeleted: true,
+        deletedAt: new Date(),
       });
       deletedDemoLeft--;
     }
@@ -494,7 +497,7 @@ async function main() {
       roomId: room?.id ?? null,
       visibility,
       createdById,
-      options: poll.options.map((o) => ({ id: o.id, isDeleted: o.isDeleted })),
+      options: poll.options.map((o) => ({ id: o.id, deletedAt: o.deletedAt })),
     });
   }
 
@@ -523,7 +526,7 @@ async function main() {
     ),
   );
   for (const poll of votablePolls) {
-    const liveOptions = poll.options.filter((o) => !o.isDeleted);
+    const liveOptions = poll.options.filter((o) => !o.deletedAt);
     const leaderId = faker.helpers.arrayElement(liveOptions).id;
     const eligible: { userId: number; joinedAt: Date | null }[] =
       poll.roomId !== null
@@ -545,7 +548,7 @@ async function main() {
 
     for (let vi = 0; vi < voters.length; vi++) {
       const voter = voters[vi];
-      const { optionIds, label } = pickVoteOptions(
+      const { optionIds, freeField } = pickVoteOptions(
         poll.type,
         liveOptions,
         vi,
@@ -558,12 +561,12 @@ async function main() {
       const createdAt = faker.date.between({ from, to });
       await prisma.vote.create({
         data: {
-          poll: { connect: { id: poll.id } },
-          createdBy: { connect: { id: voter.userId } },
-          label,
+          pollId: poll.id,
+          createdById: voter.userId,
+          freeField,
           createdAt,
           voteOptions: {
-            create: optionIds.map((id) => ({ option: { connect: { id } } })),
+            create: optionIds.map((id) => ({ optionId: id })),
           },
         },
       });
