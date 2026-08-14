@@ -121,8 +121,9 @@ export class PollsService {
    */
   async updatePoll(
     id: number,
-    { options, hashtags, ...body }: PollUpdateDTO,
+    { options, hashtags, type, ...body }: PollUpdateDTO,
   ): Promise<Poll> {
+    void type;
     return this.prisma.poll.update({
       where: { id },
       data: {

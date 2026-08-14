@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PollUpdateDTO } from 'Pollpear_shared/src/schemas/polls.schema';
+import { PollOptionUpdateDTO } from 'Pollpear_shared/src/schemas/option.schema';
 
 function hasId<T extends { id?: number }>(
   option: T,
@@ -13,7 +13,7 @@ export class OptionsService {
   constructor(private prisma: PrismaService) {}
   async buildOptionsNestedWrite(
     pollId: number,
-    options: PollUpdateDTO['options'],
+    options: PollOptionUpdateDTO[] | undefined,
   ) {
     if (options === undefined) return undefined;
 
