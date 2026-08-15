@@ -21,8 +21,8 @@ import {
 import {
   ApiKeyCreateSchema,
   type ApiKeyCreateDTO,
-  ApiKeySchema,
-  type ApiKeyDTO,
+  ApiKeyRenameSchema,
+  type ApiKeyRenameDTO,
 } from 'Pollpear_shared/src/schemas/api-key.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiKeyService } from 'src/api-key/api-key.service';
@@ -87,7 +87,7 @@ export class MeController {
   @Patch('settings/security/apikey')
   updateApiKey(
     @UserId() userId: number,
-    @Body(new ZodValidationPipe(ApiKeySchema)) body: ApiKeyDTO,
+    @Body(new ZodValidationPipe(ApiKeyRenameSchema)) body: ApiKeyRenameDTO,
   ) {
     return this.apiKeyService.rename(userId, body.appName);
   }
