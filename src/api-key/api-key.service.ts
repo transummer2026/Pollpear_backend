@@ -7,16 +7,18 @@ import {
   generateApiKey,
   remainingSeconds,
 } from './api-key.util';
+import {
+  ApiKeySchema,
+  type ApiKeyCreatedDTO,
+  type ApiKeyDTO,
+} from 'Pollpear_shared/src/schemas/api-key.schema';
 
 const DEFAULT_APP_NAME = 'default';
 const API_KEY_LIFETIME_SECONDS = 365 * 24 * 60 * 60; // 1 year, in seconds
 
-const PUBLIC_FIELDS = {
-  id: true,
-  appName: true,
-  expiredAt: true,
-  createdAt: true,
-} as const;
+const PUBLIC_FIELDS = Object.fromEntries(
+  Object.keys(ApiKeySchema.shape).map((field) => [field, true]),
+) as Record<keyof ApiKeyDTO, true>;
 
 @Injectable()
 export class ApiKeyService {
@@ -27,7 +29,7 @@ export class ApiKeyService {
     private readonly redis: RedisService,
   ) {}
 
-  async create(userId: number, appName?: string) {
+  async create(userId: number, appName?: string): Promise<ApiKeyCreatedDTO> {
     const { key, keyHash } = generateApiKey();
     const expiresAt = expiryFromTtl(API_KEY_LIFETIME_SECONDS);
 
@@ -52,14 +54,14 @@ export class ApiKeyService {
     return { ...apiKey, key };
   }
 
-  async findActive(userId: number) {
+  async findActive(userId: number): Promise<ApiKeyDTO | null> {
     return await this.prisma.apiKey.findFirst({
       where: this.activeWhere(userId),
       select: PUBLIC_FIELDS,
     });
   }
 
-  async rename(userId: number, appName: string) {
+  async update(userId: number, appName: string): Promise<ApiKeyDTO> {
     const apiKey = await this.findActiveWithHash(userId);
     if (!apiKey) {
       this.logger.warn(`user ${userId} tried to rename a key it has not`);
