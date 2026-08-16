@@ -61,7 +61,7 @@ export class ApiKeyService {
     });
   }
 
-  async rename(userId: number, appName: string): Promise<ApiKeyDTO> {
+  async update(userId: number, appName: string): Promise<ApiKeyDTO> {
     const apiKey = await this.findActiveWithHash(userId);
     if (!apiKey) {
       this.logger.warn(`user ${userId} tried to rename a key it has not`);
