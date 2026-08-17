@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiKeysService } from './keys.service';
 
-@Controller('api/v1/keys')
+@Controller('v1/keys')
 export class ApiKeysController {
   constructor(private readonly keysService: ApiKeysService) {}
 

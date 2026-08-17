@@ -1,7 +1,7 @@
 import { Controller, Get, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { ApiHashtagsService } from './hashtags.service';
 
-@Controller('api/v1/hashtags')
+@Controller('v1/hashtags')
 export class ApiHashtagsController {
   constructor(private readonly hashtagsService: ApiHashtagsService) {}
 
