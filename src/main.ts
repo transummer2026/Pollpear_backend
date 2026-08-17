@@ -1,5 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: '../.env' });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -28,6 +26,8 @@ function setupApiDocs(app: NestExpressApplication) {
   );
   app.use(OPENAPI_DOCS_PATH, apiReference({ content: document }));
 }
+import { VaultService } from './vault/vault.service';
+
 
 /**
  * NestFactory exposes static methods that allow creating an application
@@ -47,5 +47,7 @@ async function bootstrap() {
   app.useWebSocketAdapter(new WebsocketAdapter(app));
   setupApiDocs(app);
   await app.listen(process.env.NESTJS_PORT ?? 3000);
+  const vault = app.get(VaultService);
+  await app.listen(vault.app.backend_port);
 }
 void bootstrap();
