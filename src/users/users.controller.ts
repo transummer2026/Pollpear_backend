@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   Patch,
@@ -7,7 +8,9 @@ import {
   Delete,
   HttpCode,
   ParseIntPipe,
+  Res,
 } from '@nestjs/common';
+import { type Response } from 'express';
 import { UsersService } from './users.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
@@ -15,11 +18,20 @@ import {
   type UserUpdateDTO,
   UserUpdateSchema,
 } from 'Pollpear_shared/src/schemas/users.schema';
+import {
+  type FriendshipStatusUpdateDTO,
+  FriendshipStatusUpdateSchema,
+} from 'Pollpear_shared/src/schemas/friendship.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findOne(id);
+  }
 
   @Post(':id/report')
   @HttpCode(503)
@@ -27,29 +39,89 @@ export class UsersController {
     return this.usersService.report(+id);
   }
 
+  @Get(':id/block')
+  getBlockStatus(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.getBlockStatus(userId, id);
+  }
+
+  @Get(':id/blocks')
+  getBlockedUsers(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.getBlockedUsers(userId, id);
+  }
+
   @Post(':id/block')
-  @HttpCode(503)
-  block(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.block(+id);
+  @HttpCode(201)
+  blockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.usersService.blockUser(userId, id);
+  }
+
+  @Delete(':id/block')
+  @HttpCode(204)
+  unblockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.usersService.unblockUser(userId, id);
+  }
+
+  @Get(':id/friendship')
+  async getFriendship(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const friendship = await this.usersService.getFriendshipWith(userId, id);
+    if (!friendship) {
+      res.status(204);
+      return;
+    }
+    return friendship;
+  }
+
+  @Get(':id/friends')
+  getFriends(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getFriends(id);
+  }
+
+  @Get(':id/friend-requests')
+  getFriendRequests(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.getFriendRequests(userId, id);
   }
 
   @Post(':id/friendship')
-  @HttpCode(503)
-  createFriendRequest(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.createFriendRequest(+id);
+  @HttpCode(201)
+  createFriendRequest(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.createFriendRequest(userId, id);
   }
 
   // respond to friend request to update the result of the friendship
   @Patch(':id/friendship')
-  @HttpCode(503)
-  updateFriendRequest(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.updateFriendRequest(+id);
+  @HttpCode(202)
+  updateFriendRequest(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(FriendshipStatusUpdateSchema))
+    body: FriendshipStatusUpdateDTO,
+  ) {
+    return this.usersService.updateFriendRequest(userId, id, body.status);
   }
 
   @Delete(':id/friendship')
-  @HttpCode(503)
-  removeFriendship(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.removeFriendship(+id);
+  @HttpCode(204)
+  removeFriendship(
+    @UserId() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.usersService.removeFriendship(userId, id);
   }
 
   // add Guard for moderator from here on (green arrows on sequence diagram)
