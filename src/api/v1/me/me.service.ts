@@ -2,6 +2,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MeService } from 'src/me/me.service';
+import type { User } from 'src/generated/prisma/client';
 import {
   ApiMeSchema,
   type ApiMeDTO,
@@ -11,6 +12,16 @@ import {
 const ME_SELECT = Object.fromEntries(
   Object.keys(ApiMeSchema.shape).map((field) => [field, true]),
 ) as Record<keyof ApiMeDTO, true>;
+
+/**
+ * The cast above hides a renamed or dropped column from the compiler, and
+ * the query would only fail once a request hits it. This turns that into a
+ * build error naming the offending field.
+ */
+type UnknownColumns = Exclude<keyof ApiMeDTO, keyof User>;
+export const CONTRACT_MATCHES_MODEL: UnknownColumns extends never
+  ? true
+  : UnknownColumns = true;
 
 const ABSOLUTE_URL = /^https?:\/\//;
 

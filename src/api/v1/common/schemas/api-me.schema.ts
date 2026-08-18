@@ -1,14 +1,26 @@
 // src/api/v1/common/schemas/api-me.schema.ts
 import { z } from 'zod';
+import {
+  Gender,
+  UserRole,
+  UserTheme,
+  Visibility,
+} from 'src/generated/prisma/enums';
 
+/**
+ * Enums come from the prisma schema so the two cannot silently disagree.
+ * What keeps that from widening the contract behind our back is
+ * api-me.schema.spec, which pins the exact values this api promises: adding
+ * one upstream breaks the build, not a consumer.
+ */
 export const ApiMeSchema = z.object({
   username: z.string(),
   name: z.string().nullable(),
   surname: z.string().nullable(),
   email: z.string(),
   birthdate: z.date(),
-  role: z.enum(['user', 'moderator', 'admin']),
-  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']),
+  role: z.enum(UserRole),
+  gender: z.enum(Gender),
   nationality: z.string(),
   city: z.string().nullable(),
   state: z.string().nullable(),
@@ -18,11 +30,11 @@ export const ApiMeSchema = z.object({
   score: z.number().int(),
   isOnline: z.boolean(),
   isEmailVerified: z.boolean(),
-  visibility: z.enum(['public', 'private']),
+  visibility: z.enum(Visibility),
   lastSeenAt: z.date().nullable(),
   avatarUrl: z.url().nullable(),
   bannerUrl: z.url().nullable(),
-  userTheme: z.enum(['light', 'dark', 'system', 'other']),
+  userTheme: z.enum(UserTheme),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
