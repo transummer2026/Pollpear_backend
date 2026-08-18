@@ -59,7 +59,12 @@ describe('VotesService', () => {
   }
 
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-17T12:00:00Z'));
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('validateVote', () => {
