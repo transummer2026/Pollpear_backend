@@ -3,6 +3,7 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MeService } from 'src/me/me.service';
 import type { User } from 'src/generated/prisma/client';
+import { publicMedia } from '../common/media';
 import {
   ApiMeSchema,
   type ApiMeDTO,
@@ -22,18 +23,6 @@ type UnknownColumns = Exclude<keyof ApiMeDTO, keyof User>;
 export const CONTRACT_MATCHES_MODEL: UnknownColumns extends never
   ? true
   : UnknownColumns = true;
-
-const ABSOLUTE_URL = /^https?:\/\//;
-
-/**
- * A media column holds an absolute url once something was uploaded, and the
- * relative path of a built-in placeholder until then. That path resolves
- * against the front origin, which a third party client does not have, so it
- * is reported as no image at all rather than as a link nobody can follow.
- */
-function publicMedia(value: string): string | null {
-  return ABSOLUTE_URL.test(value) ? value : null;
-}
 
 @Injectable()
 export class ApiMeService {
