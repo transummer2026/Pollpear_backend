@@ -4,9 +4,8 @@ import {
   UserSchema,
   type UserUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
+import { AvatarService } from 'src/file-upload/avatar.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { ApiKeyService } from 'src/api-key/api-key.service';
@@ -16,8 +15,7 @@ export class MeService {
   constructor(
     private prisma: PrismaService,
     private readonly userService: UsersService,
-    private readonly fileUploadService: FileUploadService,
-    private readonly storageService: StorageService,
+    private readonly avatarService: AvatarService,
     private readonly websocketEmitter: WebsocketEmitter,
     private readonly apiKeyService: ApiKeyService,
   ) {}
@@ -40,12 +38,7 @@ export class MeService {
     const user = await this.userService.findByUserId(userId);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const image = await this.fileUploadService.processImage(file, 'avatar');
-    const key = `avatars/${userId}.webp`;
-    await this.storageService.save(key, image, 'image/webp');
-    const avatarUrl = `${this.storageService.publicUrl(key)}?v=${Date.now()}`;
-
-    const updatedUser = await this.updateAvatar(userId, avatarUrl);
+    const updatedUser = await this.avatarService.replace(userId, file);
     return UserSchema.parse(updatedUser);
   }
 
@@ -101,17 +94,6 @@ export class MeService {
       },
       data: {
         deletedAt: new Date(),
-      },
-    });
-  }
-
-  private async updateAvatar(userId: number, uploadImage: string) {
-    return await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        avatarUrl: uploadImage,
       },
     });
   }

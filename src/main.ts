@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import { CaslExceptionFilter } from './common/filters/casl-exception.filters';
 import { WebsocketAdapter } from './websocket/websocket.adapter';
 import { ApiModule } from './api/api.module';
+import { ApiV1Module } from './api/v1/v1.module';
 import {
   describeApiV1,
   OPENAPI_DOCS_PATH,
@@ -17,7 +18,7 @@ import {
 
 function setupApiDocs(app: NestExpressApplication) {
   const document = SwaggerModule.createDocument(app, describeApiV1(), {
-    include: [ApiModule],
+    include: [ApiModule, ApiV1Module],
     deepScanRoutes: true,
   });
 
