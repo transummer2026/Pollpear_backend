@@ -28,7 +28,6 @@ function setupApiDocs(app: NestExpressApplication) {
 }
 import { VaultService } from './vault/vault.service';
 
-
 /**
  * NestFactory exposes static methods that allow creating an application
  * instance. The create() method returns the app object, which fulfills
