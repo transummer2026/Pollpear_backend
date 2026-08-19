@@ -1,11 +1,34 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import {
-  UserDTO,
+  type UserDTO,
   UserSchema,
+  type UserPublicProfileDTO,
+  UserPublicProfileSchema,
   type UserUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
+import {
+  type FriendListItemDTO,
+  FriendListItemSchema,
+  type FriendshipDTO,
+  FriendshipSchema,
+  type FriendshipStatusUpdateDTO,
+} from 'Pollpear_shared/src/schemas/friendship.schema';
+import {
+  type BlockDTO,
+  BlockSchema,
+  type BlockListItemDTO,
+  BlockListItemSchema,
+  type BlockStatusDTO,
+  BlockStatusSchema,
+} from 'Pollpear_shared/src/schemas/block.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { ForbiddenError, subject } from '@casl/ability';
 
@@ -15,6 +38,19 @@ const SEARCH_SELECT = {
   username: true,
   name: true,
   surname: true,
+  avatarUrl: true,
+} as const;
+
+const FRIEND_USER_SELECT = {
+  id: true,
+  username: true,
+  avatarUrl: true,
+  isOnline: true,
+} as const;
+
+const BLOCKED_USER_SELECT = {
+  id: true,
+  username: true,
   avatarUrl: true,
 } as const;
 
@@ -64,24 +100,266 @@ export class UsersService {
     return [...startsWith, ...contains];
   }
 
+  async findOne(id: number): Promise<UserPublicProfileDTO> {
+    const user = await this.findByUserId(id);
+    if (!user) throw new NotFoundException('User not found');
+    return UserPublicProfileSchema.parse(user);
+  }
+
   report(id: number) {
     return `report user #${id} works`;
   }
 
-  block(id: number) {
-    return `block user #${id} works`;
+  async getBlockStatus(
+    callerId: number,
+    targetId: number,
+  ): Promise<BlockStatusDTO> {
+    const [blockedByMe, blockedMe] = await Promise.all([
+      this.prisma.block.findUnique({
+        where: {
+          blockerId_blockedId: { blockerId: callerId, blockedId: targetId },
+        },
+      }),
+      this.prisma.block.findUnique({
+        where: {
+          blockerId_blockedId: { blockerId: targetId, blockedId: callerId },
+        },
+      }),
+    ]);
+
+    return BlockStatusSchema.parse({
+      blockedByMe: blockedByMe !== null,
+      blockedMe: blockedMe !== null,
+    });
   }
 
-  createFriendRequest(id: number) {
-    return `send friendship request to user #${id} works`;
+  async getBlockedUsers(
+    callerId: number,
+    targetId: number,
+  ): Promise<BlockListItemDTO[]> {
+    if (callerId !== targetId) {
+      throw new ForbiddenException('You can only view your own blocked users.');
+    }
+
+    const blocks = await this.prisma.block.findMany({
+      where: { blockerId: targetId },
+      include: { blocked: { select: BLOCKED_USER_SELECT } },
+    });
+
+    return blocks.map((block) =>
+      BlockListItemSchema.parse({
+        blockId: block.id,
+        createdAt: block.createdAt,
+        user: block.blocked,
+      }),
+    );
   }
 
-  updateFriendRequest(id: number) {
-    return `update friendship with user #${id} works`;
+  async blockUser(userId: number, targetId: number): Promise<BlockDTO> {
+    if (userId === targetId) {
+      throw new BadRequestException('Cannot block yourself.');
+    }
+
+    const existing = await this.prisma.block.findUnique({
+      where: {
+        blockerId_blockedId: { blockerId: userId, blockedId: targetId },
+      },
+    });
+    if (existing) {
+      throw new ConflictException('You already blocked this user.');
+    }
+
+    const [block] = await this.prisma.$transaction([
+      this.prisma.block.create({
+        data: { blockerId: userId, blockedId: targetId },
+      }),
+      this.prisma.friendship.updateMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { requesterId: userId, addresseeId: targetId },
+            { requesterId: targetId, addresseeId: userId },
+          ],
+        },
+        data: { deletedAt: new Date() },
+      }),
+    ]);
+
+    return BlockSchema.parse(block);
   }
 
-  removeFriendship(id: number) {
-    return `delete friendship with user #${id} works`;
+  async unblockUser(userId: number, targetId: number): Promise<void> {
+    const existing = await this.prisma.block.findUnique({
+      where: {
+        blockerId_blockedId: { blockerId: userId, blockedId: targetId },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('You have not blocked this user.');
+    }
+
+    await this.prisma.block.delete({ where: { id: existing.id } });
+  }
+
+  async getFriendshipWith(
+    userId: number,
+    otherId: number,
+  ): Promise<FriendshipDTO | null> {
+    const friendship = await this.findFriendshipBetween(userId, otherId);
+    return friendship ? FriendshipSchema.parse(friendship) : null;
+  }
+
+  async getFriends(userId: number): Promise<FriendListItemDTO[]> {
+    const friendships = await this.prisma.friendship.findMany({
+      where: {
+        deletedAt: null,
+        status: 'accepted',
+        OR: [{ requesterId: userId }, { addresseeId: userId }],
+      },
+      include: {
+        requester: { select: FRIEND_USER_SELECT },
+        addressee: { select: FRIEND_USER_SELECT },
+      },
+    });
+
+    return friendships.map((friendship) =>
+      FriendListItemSchema.parse({
+        friendshipId: friendship.id,
+        status: friendship.status,
+        createdAt: friendship.createdAt,
+        user:
+          friendship.requesterId === userId
+            ? friendship.addressee
+            : friendship.requester,
+      }),
+    );
+  }
+
+  async getFriendRequests(
+    callerId: number,
+    targetId: number,
+  ): Promise<FriendListItemDTO[]> {
+    if (callerId !== targetId) {
+      throw new ForbiddenException(
+        'You can only view your own friend requests.',
+      );
+    }
+
+    const friendships = await this.prisma.friendship.findMany({
+      where: { addresseeId: targetId, status: 'pending', deletedAt: null },
+      include: { requester: { select: FRIEND_USER_SELECT } },
+    });
+
+    return friendships.map((friendship) =>
+      FriendListItemSchema.parse({
+        friendshipId: friendship.id,
+        status: friendship.status,
+        createdAt: friendship.createdAt,
+        user: friendship.requester,
+      }),
+    );
+  }
+
+  async createFriendRequest(
+    userId: number,
+    targetId: number,
+  ): Promise<FriendshipDTO> {
+    if (userId === targetId) {
+      throw new BadRequestException(
+        'Cannot send a friend request to yourself.',
+      );
+    }
+
+    const blocked = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: targetId },
+          { blockerId: targetId, blockedId: userId },
+        ],
+      },
+    });
+    if (blocked) {
+      throw new ForbiddenException(
+        'Cannot send a friend request to this user.',
+      );
+    }
+
+    const existing = await this.findFriendshipBetween(userId, targetId);
+    if (existing) {
+      if (existing.status !== 'rejected') {
+        throw new ConflictException(
+          'A friendship already exists with this user.',
+        );
+      }
+
+      const revived = await this.prisma.friendship.update({
+        where: { id: existing.id },
+        data: { requesterId: userId, addresseeId: targetId, status: 'pending' },
+      });
+      return FriendshipSchema.parse(revived);
+    }
+
+    const friendship = await this.prisma.friendship.upsert({
+      where: {
+        requesterId_addresseeId: {
+          requesterId: userId,
+          addresseeId: targetId,
+        },
+      },
+      create: { requesterId: userId, addresseeId: targetId, status: 'pending' },
+      update: { status: 'pending', deletedAt: null },
+    });
+
+    return FriendshipSchema.parse(friendship);
+  }
+
+  async updateFriendRequest(
+    userId: number,
+    otherId: number,
+    status: FriendshipStatusUpdateDTO['status'],
+  ): Promise<FriendshipDTO> {
+    const friendship = await this.prisma.friendship.findFirst({
+      where: {
+        requesterId: otherId,
+        addresseeId: userId,
+        status: 'pending',
+        deletedAt: null,
+      },
+    });
+    if (!friendship) {
+      throw new NotFoundException('No pending friend request from this user.');
+    }
+
+    const updated = await this.prisma.friendship.update({
+      where: { id: friendship.id },
+      data: { status },
+    });
+
+    return FriendshipSchema.parse(updated);
+  }
+
+  async removeFriendship(userId: number, otherId: number): Promise<void> {
+    const friendship = await this.findFriendshipBetween(userId, otherId);
+    if (!friendship) {
+      throw new NotFoundException('No friendship found with this user.');
+    }
+
+    await this.prisma.friendship.update({
+      where: { id: friendship.id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  private findFriendshipBetween(userId: number, otherId: number) {
+    return this.prisma.friendship.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          { requesterId: userId, addresseeId: otherId },
+          { requesterId: otherId, addresseeId: userId },
+        ],
+      },
+    });
   }
 
   ban(id: number) {
