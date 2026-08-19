@@ -135,7 +135,7 @@ describe('ApiKeyService', () => {
     });
   });
 
-  describe('rename', () => {
+  describe('update', () => {
     it('renames the active key', async () => {
       findFirst.mockResolvedValue({ id: 3, keyHash: 'hash-3' });
       const renamed = {
@@ -146,7 +146,7 @@ describe('ApiKeyService', () => {
       };
       update.mockResolvedValue(renamed);
 
-      await expect(service.rename(7, 'renamed')).resolves.toEqual(renamed);
+      await expect(service.update(7, 'renamed')).resolves.toEqual(renamed);
       expect(update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 3 },
@@ -158,10 +158,10 @@ describe('ApiKeyService', () => {
     it('rejects when there is no active key', async () => {
       findFirst.mockResolvedValue(null);
 
-      await expect(service.rename(7, 'renamed')).rejects.toThrow(
+      await expect(service.update(7, 'renamed')).rejects.toThrow(
         NotFoundException,
       );
-      await expect(service.rename(7, 'renamed')).rejects.toThrow(
+      await expect(service.update(7, 'renamed')).rejects.toThrow(
         'No active api key',
       );
       expect(update).not.toHaveBeenCalled();
