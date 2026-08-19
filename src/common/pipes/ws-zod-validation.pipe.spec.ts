@@ -1,8 +1,13 @@
+import { Logger } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { z } from 'zod';
 import { WsZodValidationPipe } from './ws-zod-validation.pipe';
 
 describe('WsZodValidationPipe', () => {
+  beforeAll(() => {
+    Logger.overrideLogger(false);
+  });
+
   const pipe = new WsZodValidationPipe(
     z.object({
       roomId: z.number().int().positive(),

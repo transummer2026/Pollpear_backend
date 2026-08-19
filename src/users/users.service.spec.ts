@@ -64,6 +64,24 @@ function makeBlock(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
+const SEARCH_SELECT = {
+  id: true,
+  username: true,
+  name: true,
+  surname: true,
+  avatarUrl: true,
+};
+
+function searchRow(id: number, username = `user${id}`) {
+  return {
+    id,
+    username,
+    name: null,
+    surname: null,
+    avatarUrl: '/uploads/avatars/default.svg',
+  };
+}
+
 type FindFirstArgs = { where: Record<string, unknown> };
 type FindManyArgs = {
   where: Record<string, unknown>;
@@ -88,7 +106,11 @@ type BlockDeleteArgs = { where: { id: number } };
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: {
-    user: { findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]> };
+    user: {
+      findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
+      findMany: jest.Mock<Promise<unknown[]>, [Record<string, unknown>]>;
+    };
+    ban: { findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]> };
     friendship: {
       findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
       findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]>;
@@ -108,7 +130,11 @@ describe('UsersService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>() },
+      user: {
+        findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>(),
+        findMany: jest.fn<Promise<unknown[]>, [Record<string, unknown>]>(),
+      },
+      ban: { findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>() },
       friendship: {
         findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>(),
         findMany: jest.fn<Promise<unknown[]>, [FindManyArgs]>(),
@@ -663,6 +689,89 @@ describe('UsersService', () => {
       await service.unblockUser(1, 2);
 
       expect(prisma.block.delete).toHaveBeenCalledWith({ where: { id: 20 } });
+    });
+  });
+
+  describe('search', () => {
+    it('ranks username prefixes first and fills the rest with contains matches', async () => {
+      const prefixed = [searchRow(1, 'ali'), searchRow(2, 'alice')];
+      const contained = [searchRow(3, 'magali')];
+      prisma.user.findMany
+        .mockResolvedValueOnce(prefixed)
+        .mockResolvedValueOnce(contained);
+
+      await expect(service.search('ali')).resolves.toEqual([
+        ...prefixed,
+        ...contained,
+      ]);
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+        where: {
+          deletedAt: null,
+          visibility: { not: 'private' },
+          username: { startsWith: 'ali', mode: 'insensitive' },
+        },
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        take: 5,
+      });
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          deletedAt: null,
+          visibility: { not: 'private' },
+          id: { notIn: [1, 2] },
+          OR: [
+            { username: { contains: 'ali', mode: 'insensitive' } },
+            { name: { contains: 'ali', mode: 'insensitive' } },
+            { surname: { contains: 'ali', mode: 'insensitive' } },
+          ],
+        },
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        take: 3,
+      });
+    });
+
+    it('skips the contains query when prefixes already fill the limit', async () => {
+      const prefixed = [1, 2, 3, 4, 5].map((id) => searchRow(id));
+      prisma.user.findMany.mockResolvedValueOnce(prefixed);
+
+      await expect(service.search('user')).resolves.toEqual(prefixed);
+
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('findByUserId', () => {
+    it('rejects an invalid id before touching the database', async () => {
+      await expect(service.findByUserId(NaN)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('looks up only non-deleted users', async () => {
+      const user = makeUser({ id: 42 });
+      prisma.user.findFirst.mockResolvedValue(user);
+
+      await expect(service.findByUserId(42)).resolves.toBe(user);
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { id: 42, deletedAt: null },
+      });
+    });
+  });
+
+  describe('findByBanStatus', () => {
+    it('matches only bans that have not ended yet', async () => {
+      const ban = { id: 1 };
+      prisma.ban.findFirst.mockResolvedValue(ban);
+
+      await expect(service.findByBanStatus(42)).resolves.toBe(ban);
+
+      expect(prisma.ban.findFirst).toHaveBeenCalledWith({
+        where: { userId: 42, endedAt: { gt: expect.any(Date) as Date } },
+      });
     });
   });
 });
