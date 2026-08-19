@@ -46,7 +46,6 @@ async function bootstrap() {
   app.useGlobalFilters(new PrismaExceptionFilter(), new CaslExceptionFilter());
   app.useWebSocketAdapter(new WebsocketAdapter(app));
   setupApiDocs(app);
-  await app.listen(process.env.NESTJS_PORT ?? 3000);
   const vault = app.get(VaultService);
   await app.listen(vault.app.backend_port);
 }
