@@ -8,8 +8,10 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import {
-  UserDTO,
+  type UserDTO,
   UserSchema,
+  type UserPublicProfileDTO,
+  UserPublicProfileSchema,
   type UserUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import {
@@ -98,10 +100,10 @@ export class UsersService {
     return [...startsWith, ...contains];
   }
 
-  async findOne(id: number): Promise<UserDTO> {
+  async findOne(id: number): Promise<UserPublicProfileDTO> {
     const user = await this.findByUserId(id);
     if (!user) throw new NotFoundException('User not found');
-    return UserSchema.parse(user);
+    return UserPublicProfileSchema.parse(user);
   }
 
   report(id: number) {

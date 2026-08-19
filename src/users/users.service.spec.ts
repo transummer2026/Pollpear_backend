@@ -138,7 +138,7 @@ describe('UsersService', () => {
   });
 
   describe('findOne', () => {
-    it('returns the user without the password hash when found', async () => {
+    it('returns only the public profile fields when found', async () => {
       prisma.user.findFirst.mockResolvedValue(makeUser());
 
       const result = await service.findOne(1);
@@ -146,8 +146,14 @@ describe('UsersService', () => {
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { id: 1, deletedAt: null },
       });
-      expect(result).not.toHaveProperty('passwordHash');
       expect(result.username).toBe('alice');
+      expect(result).not.toHaveProperty('passwordHash');
+      expect(result).not.toHaveProperty('email');
+      expect(result).not.toHaveProperty('birthdate');
+      expect(result).not.toHaveProperty('gender');
+      expect(result).not.toHaveProperty('nationality');
+      expect(result).not.toHaveProperty('bio');
+      expect(result).not.toHaveProperty('role');
     });
 
     it('throws NotFoundException when the user does not exist', async () => {
