@@ -4,9 +4,10 @@ import { MeController } from './me.controller';
 import { UsersModule } from 'src/users/users.module';
 import { FileUploadModule } from 'src/file-upload/file-upload.module';
 import { ApiKeyModule } from 'src/api-key/api-key.module';
+import { RevocationModule } from 'src/revocation/revocation.module';
 
 @Module({
-  imports: [UsersModule, FileUploadModule, ApiKeyModule],
+  imports: [UsersModule, FileUploadModule, ApiKeyModule, RevocationModule],
   controllers: [MeController],
   providers: [MeService],
   exports: [MeService],

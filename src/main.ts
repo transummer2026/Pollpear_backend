@@ -16,8 +16,8 @@ import {
   OPENAPI_JSON_PATH,
 } from './api/v1/common/openapi';
 
-function setupApiDocs(app: NestExpressApplication) {
-  const document = SwaggerModule.createDocument(app, describeApiV1(), {
+function setupApiDocs(app: NestExpressApplication, publicUrl: string) {
+  const document = SwaggerModule.createDocument(app, describeApiV1(publicUrl), {
     include: [ApiModule, ApiV1Module],
     deepScanRoutes: true,
   });
@@ -45,8 +45,8 @@ async function bootstrap() {
   app.use(cookieParser());
   app.useGlobalFilters(new PrismaExceptionFilter(), new CaslExceptionFilter());
   app.useWebSocketAdapter(new WebsocketAdapter(app));
-  setupApiDocs(app);
   const vault = app.get(VaultService);
+  setupApiDocs(app, vault.app.gateway_url);
   await app.listen(vault.app.backend_port);
 }
 void bootstrap();

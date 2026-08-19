@@ -7,8 +7,7 @@ import {
 import { AvatarService } from 'src/file-upload/avatar.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
-import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
-import { ApiKeyService } from 'src/api-key/api-key.service';
+import { RevocationService } from 'src/revocation/revocation.service';
 
 @Injectable()
 export class MeService {
@@ -16,8 +15,7 @@ export class MeService {
     private prisma: PrismaService,
     private readonly userService: UsersService,
     private readonly avatarService: AvatarService,
-    private readonly websocketEmitter: WebsocketEmitter,
-    private readonly apiKeyService: ApiKeyService,
+    private readonly revocationService: RevocationService,
   ) {}
 
   async myProfile(userId: number): Promise<UserDTO> {
@@ -50,16 +48,9 @@ export class MeService {
     return 'change password route works';
   }
 
-  /**
-   * The gateway owns the session store and invalidates it around this
-   * call; what is left here is closing the websocket tunnels opened
-   * with those sessions, and revoking the api keys it never knew about.
-   */
   async remove(userId: number) {
-    const user = await this.updateDeletedAt(userId);
-    await this.apiKeyService.revokeAll(userId);
-    await this.websocketEmitter.revokeUser(userId);
-    return user;
+    await this.revocationService.revokeAllAccess(userId);
+    return await this.updateDeletedAt(userId);
   }
 
   // Prisma helpers
@@ -69,21 +60,7 @@ export class MeService {
       where: {
         id: userId,
       },
-      data: {
-        username: body.username,
-        email: body.email,
-        birthdate: body.birthdate,
-        gender: body.gender,
-        nationality: body.nationality,
-        name: body.name,
-        surname: body.surname,
-        city: body.city,
-        state: body.state,
-        country: body.country,
-        company: body.company,
-        bio: body.bio,
-        userTheme: body.userTheme,
-      },
+      data: body,
     });
   }
 

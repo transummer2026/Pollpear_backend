@@ -3,8 +3,8 @@ import { MeService } from './me.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
 import { avatarServiceMock } from 'src/file-upload/avatar.service.mock';
-import { websocketEmitterMock } from 'src/websocket/websocket.emitter.mock';
 import { apiKeyServiceMock } from 'src/api-key/api-key.service.mock';
+import { revocationServiceMock } from 'src/revocation/revocation.service.mock';
 
 describe('MeService', () => {
   let service: MeService;
@@ -16,8 +16,8 @@ describe('MeService', () => {
         prismaMock,
         usersServiceMock,
         avatarServiceMock,
-        websocketEmitterMock,
         apiKeyServiceMock,
+        revocationServiceMock,
       ],
     }).compile();
 

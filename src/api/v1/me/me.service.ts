@@ -4,25 +4,21 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { MeService } from 'src/me/me.service';
 import type { User } from 'src/generated/prisma/client';
 import { publicMedia } from '../common/media';
+import { selectOf, type AssertColumns } from '../common/select';
 import {
   ApiMeSchema,
   type ApiMeDTO,
   type ApiMeUpdateDTO,
 } from '../common/schemas/api-me.schema';
 
-const ME_SELECT = Object.fromEntries(
-  Object.keys(ApiMeSchema.shape).map((field) => [field, true]),
-) as Record<keyof ApiMeDTO, true>;
+const ME_SELECT = selectOf(ApiMeSchema);
 
 /**
  * The cast above hides a renamed or dropped column from the compiler, and
  * the query would only fail once a request hits it. This turns that into a
  * build error naming the offending field.
  */
-type UnknownColumns = Exclude<keyof ApiMeDTO, keyof User>;
-export const CONTRACT_MATCHES_MODEL: UnknownColumns extends never
-  ? true
-  : UnknownColumns = true;
+export const CONTRACT_MATCHES_MODEL: AssertColumns<ApiMeDTO, User> = true;
 
 @Injectable()
 export class ApiMeService {
