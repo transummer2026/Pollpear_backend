@@ -60,6 +60,8 @@ export type AppAbility = Ability<
       | 'moderate'
       | 'vote'
       | 'report'
+      | 'join'
+      | 'invite'
     ),
     'all' | AppSubjects,
   ],
