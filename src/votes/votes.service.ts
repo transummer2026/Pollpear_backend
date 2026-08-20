@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
@@ -14,18 +15,47 @@ import { Vote } from 'src/generated/prisma/client';
 export class VotesService {
   constructor(private prisma: PrismaService) {}
 
+  async findOneVote(pollid: number, userId: number) {
+    const vote = await this.prisma.vote.findUniqueOrThrow({
+      where: {
+        createdById_pollId: {
+          createdById: userId,
+          pollId: pollid,
+        },
+        deletedAt: null,
+      },
+      include: {
+        voteOptions: true,
+      },
+    });
+    return vote;
+  }
+
   /**
    * Vote is soft-deleted, but (createdById, pollId) stays unique, so a
    * re-vote after removal has to revive the existing row rather than
    * create a new one - same upsert-revival pattern as hashtags.
+   * The upsert only revives a soft-deleted row;
+   * an active vote must go through updateVote instead
    */
   async createVote(
     pollId: number,
     userId: number,
     body: VoteCreateDTO,
   ): Promise<Vote> {
-    await this.validateVote(pollId, body);
-    return this.prisma.vote.upsert({
+    const poll = await this.validateVote(pollId, body);
+    const existingVote = await this.prisma.vote.findUnique({
+      where: {
+        createdById_pollId: {
+          createdById: userId,
+          pollId,
+        },
+      },
+    });
+    if (existingVote && !existingVote.deletedAt) {
+      throw new ConflictException('User has already voted in this poll');
+    }
+    const vote = this.prisma.vote.upsert({
       where: { createdById_pollId: { createdById: userId, pollId } },
       create: {
         createdById: userId,
@@ -44,6 +74,18 @@ export class VotesService {
         },
       },
     });
+    if (poll.status === 'pending') {
+      await this.prisma.poll.update({
+        where: {
+          id: pollId,
+        },
+        data: {
+          status: 'active',
+          publishedAt: new Date(),
+        },
+      });
+    }
+    return vote;
   }
 
   /**
@@ -99,13 +141,13 @@ export class VotesService {
     const poll = await this.prisma.poll.findFirstOrThrow({
       where: { id: pollId, deletedAt: null },
     });
-    if (poll.status !== 'active')
+    if (poll.status === 'closed')
       throw new ForbiddenException('Poll is not active.');
     if (poll.endsAt < new Date())
       throw new ForbiddenException('Poll is closed.');
     if (poll.type !== body.type)
       throw new BadRequestException('Poll type does not match.');
-    if (!body.optionsVoted) return;
+    if (!body.optionsVoted) return poll;
     const optionIds = body.optionsVoted.map(
       (optionVoted) => optionVoted.optionId,
     );
@@ -121,5 +163,6 @@ export class VotesService {
     if (optionIds.length != optionsWithSamePollId.length) {
       throw new BadRequestException();
     }
+    return poll;
   }
 }

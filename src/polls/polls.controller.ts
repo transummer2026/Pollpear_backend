@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Patch,
   Param,
@@ -40,6 +41,18 @@ export class PollsController {
     @Body(new ZodValidationPipe(PollCreateSchema)) body: PollCreateDTO,
   ) {
     return this.pollsService.create(userId, body);
+  }
+
+  @Get(':id')
+  @CheckAbilities(['read', 'Poll'])
+  findOnePoll(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
+    return this.pollsService.findOnePoll(id, userId);
+  }
+
+  @Get()
+  @CheckAbilities(['read', 'Poll'])
+  findMeManyPolls(@UserId() userId: number) {
+    return this.pollsService.findMeManyPolls(userId);
   }
 
   @Patch(':id')
@@ -87,6 +100,12 @@ export class PollsController {
   }
 
   //routes will dissapear because later we will use wbesockets
+  @Get(':id/vote:id')
+  @CheckAbilities(['read', 'PollVote'])
+  findOneVote(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
+    return this.votesService.findOneVote(id, userId);
+  }
+
   @Post(':id/vote')
   @CheckAbilities(['create', 'PollVote'])
   createVote(
