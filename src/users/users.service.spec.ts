@@ -109,6 +109,8 @@ describe('UsersService', () => {
     user: {
       findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
       findMany: jest.Mock<Promise<unknown[]>, [Record<string, unknown>]>;
+      update: jest.Mock<Promise<unknown>, [UpdateArgs]>;
+      updateMany: jest.Mock<Promise<unknown>, [UpdateManyArgs]>;
     };
     ban: { findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]> };
     friendship: {
@@ -133,6 +135,8 @@ describe('UsersService', () => {
       user: {
         findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>(),
         findMany: jest.fn<Promise<unknown[]>, [Record<string, unknown>]>(),
+        update: jest.fn<Promise<unknown>, [UpdateArgs]>(),
+        updateMany: jest.fn<Promise<unknown>, [UpdateManyArgs]>(),
       },
       ban: { findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>() },
       friendship: {
@@ -771,6 +775,45 @@ describe('UsersService', () => {
 
       expect(prisma.ban.findFirst).toHaveBeenCalledWith({
         where: { userId: 42, endedAt: { gt: expect.any(Date) as Date } },
+      });
+    });
+  });
+
+  describe('setOnline', () => {
+    it('marks the user online', async () => {
+      await service.setOnline(7);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: { isOnline: true },
+      });
+    });
+  });
+
+  describe('setOffline', () => {
+    afterEach(() => jest.useRealTimers());
+
+    it('marks the user offline and stamps the last seen date', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-19T12:00:00Z'));
+
+      await service.setOffline(7);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: { isOnline: false, lastSeenAt: new Date('2026-08-19T12:00:00Z') },
+      });
+    });
+  });
+
+  describe('resetOnlineStatus', () => {
+    it('resets every user still flagged online and reports how many', async () => {
+      prisma.user.updateMany.mockResolvedValue({ count: 3 });
+
+      await expect(service.resetOnlineStatus()).resolves.toBe(3);
+
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { isOnline: true },
+        data: { isOnline: false },
       });
     });
   });

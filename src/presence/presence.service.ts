@@ -1,29 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class PresenceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private users: UsersService) {}
 
   async setOnline(userId: number): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { isOnline: true },
-    });
+    await this.users.setOnline(userId);
   }
 
   async setOffline(userId: number): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { isOnline: false, lastSeenAt: new Date() },
-    });
+    await this.users.setOffline(userId);
   }
 
   async resetAll(): Promise<number> {
-    const { count } = await this.prisma.user.updateMany({
-      where: { isOnline: true },
-      data: { isOnline: false },
-    });
-    return count;
+    return await this.users.resetOnlineStatus();
   }
 }

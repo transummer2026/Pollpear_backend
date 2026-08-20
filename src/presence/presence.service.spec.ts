@@ -1,45 +1,37 @@
-import { PrismaService } from 'src/prisma/prisma.service';
+import { UsersService } from 'src/users/users.service';
 import { PresenceService } from './presence.service';
 
 describe('PresenceService', () => {
-  const update = jest.fn();
-  const updateMany = jest.fn();
-  const prisma = { user: { update, updateMany } } as unknown as PrismaService;
-  const service = new PresenceService(prisma);
+  const setOnline = jest.fn();
+  const setOffline = jest.fn();
+  const resetOnlineStatus = jest.fn();
+  const users = {
+    setOnline,
+    setOffline,
+    resetOnlineStatus,
+  } as unknown as UsersService;
+  const service = new PresenceService(users);
 
   beforeEach(() => jest.clearAllMocks());
-
-  afterEach(() => jest.useRealTimers());
 
   it('marks the user online', async () => {
     await service.setOnline(7);
 
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 7 },
-      data: { isOnline: true },
-    });
+    expect(setOnline).toHaveBeenCalledWith(7);
   });
 
-  it('marks the user offline and stamps the last seen date', async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-08-19T12:00:00Z'));
-
+  it('marks the user offline', async () => {
     await service.setOffline(7);
 
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 7 },
-      data: { isOnline: false, lastSeenAt: new Date('2026-08-19T12:00:00Z') },
-    });
+    expect(setOffline).toHaveBeenCalledWith(7);
   });
 
   it('resets every user still flagged online and reports how many', async () => {
-    updateMany.mockResolvedValue({ count: 3 });
+    resetOnlineStatus.mockResolvedValue(3);
 
     const count = await service.resetAll();
 
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { isOnline: true },
-      data: { isOnline: false },
-    });
+    expect(resetOnlineStatus).toHaveBeenCalled();
     expect(count).toBe(3);
   });
 });
