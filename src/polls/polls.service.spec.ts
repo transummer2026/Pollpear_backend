@@ -1,4 +1,5 @@
 import { ForbiddenError } from '@casl/ability';
+import { Logger } from '@nestjs/common';
 import {
   PollCreateDTO,
   PollUpdateDTO,
@@ -70,6 +71,7 @@ describe('PollsService', () => {
       connectOrCreateHashtag,
       buildHashtagsNestedWrite,
     } as unknown as HashtagsService,
+    { error: jest.fn(), warn: jest.fn(), log: jest.fn() } as unknown as Logger,
   );
 
   beforeEach(() => {

@@ -28,12 +28,13 @@ export class PollsService {
     return await this.createPoll(userId, body);
   }
 
-  async findOnePoll(id: number, userId: number) {
+  async findMeOnePoll(id: number, userId: number) {
     const [poll, userVote] = await Promise.all([
       this.prisma.poll.findUniqueOrThrow({
         where: { id, deletedAt: null },
         include: {
           options: {
+            where: { deletedAt: null },
             include: {
               _count: {
                 select: {
@@ -43,7 +44,7 @@ export class PollsService {
             },
           },
           createdBy: true,
-          room: true,
+          room: { where: { deletedAt: null } },
           pollHashtags: {
             include: {
               hashtag: true,
@@ -65,6 +66,10 @@ export class PollsService {
       }),
     ]);
     const hasVoted = userVote !== null;
+
+    const voterCount = poll.votes.length;
+    this.logger.debug(`voterCount is worth ${voterCount}`);
+
     let sliderResult = 0;
     if (poll.type === 'slider' && poll.votes.length > 0) {
       const sliderResultSum = poll.votes.reduce(
@@ -73,9 +78,14 @@ export class PollsService {
         },
         0,
       );
-      sliderResult = Math.round(sliderResultSum / poll.votes.length / 100);
+      sliderResult = sliderResultSum / poll.votes.length / 100;
     }
-    return PollReadSchema.parse({ ...poll, hasVoted, sliderResult });
+    return PollReadSchema.parse({
+      ...poll,
+      hasVoted,
+      voterCount,
+      sliderResult,
+    });
   }
 
   /**

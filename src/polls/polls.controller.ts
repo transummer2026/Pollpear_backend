@@ -45,8 +45,11 @@ export class PollsController {
 
   @Get(':id')
   @CheckAbilities(['read', 'Poll'])
-  findOnePoll(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
-    return this.pollsService.findOnePoll(id, userId);
+  findMeOnePoll(
+    @Param('id', ParseIntPipe) id: number,
+    @UserId() userId: number,
+  ) {
+    return this.pollsService.findMeOnePoll(id, userId);
   }
 
   @Get()
