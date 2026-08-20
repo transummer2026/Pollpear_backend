@@ -123,7 +123,9 @@ describe('PollsService', () => {
   // `parse` is stubbed to just return whatever it's given.
   jest
     .spyOn(PollReadSchema, 'parse')
-    .mockImplementation((value) => value as ReturnType<typeof PollReadSchema.parse>);
+    .mockImplementation(
+      (value) => value as ReturnType<typeof PollReadSchema.parse>,
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -289,9 +291,11 @@ describe('PollsService', () => {
       expect(result.hasVoted).toBe(false);
     });
 
-    it('counts every vote on the poll, not just the requesting user\'s', async () => {
+    it("counts every vote on the poll, not just the requesting user's", async () => {
       pollFindUniqueOrThrow.mockResolvedValue(
-        makePoll({ votes: [makeVote({ id: 1 }), makeVote({ id: 2, createdById: 99 })] }),
+        makePoll({
+          votes: [makeVote({ id: 1 }), makeVote({ id: 2, createdById: 99 })],
+        }),
       );
       voteFindUnique.mockResolvedValue(null);
 
@@ -317,7 +321,10 @@ describe('PollsService', () => {
 
     it('leaves sliderResult at 0 for non-slider polls, even if freeField is set', async () => {
       pollFindUniqueOrThrow.mockResolvedValue(
-        makePoll({ type: 'multiple_choice', votes: [makeVote({ freeField: '80' })] }),
+        makePoll({
+          type: 'multiple_choice',
+          votes: [makeVote({ freeField: '80' })],
+        }),
       );
       voteFindUnique.mockResolvedValue(null);
 
@@ -327,7 +334,9 @@ describe('PollsService', () => {
     });
 
     it('leaves sliderResult at 0 for a slider poll with no votes yet', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(makePoll({ type: 'slider', votes: [] }));
+      pollFindUniqueOrThrow.mockResolvedValue(
+        makePoll({ type: 'slider', votes: [] }),
+      );
       voteFindUnique.mockResolvedValue(null);
 
       const result = await service.findMeOnePoll(7, 42);
@@ -359,7 +368,10 @@ describe('PollsService', () => {
 
   describe('findMeManyPolls', () => {
     it('matches hasVoted per poll from the bulk vote list', async () => {
-      pollFindMany.mockResolvedValue([makePoll({ id: 1 }), makePoll({ id: 2 })]);
+      pollFindMany.mockResolvedValue([
+        makePoll({ id: 1 }),
+        makePoll({ id: 2 }),
+      ]);
       voteFindMany.mockResolvedValue([makeVote({ pollId: 2 })]);
 
       const [pollOne, pollTwo] = (await service.findMeManyPolls(42)) as Array<{
@@ -375,13 +387,22 @@ describe('PollsService', () => {
         makePoll({
           id: 1,
           type: 'slider',
-          votes: [makeVote({ pollId: 1, freeField: '100' }), makeVote({ pollId: 1, freeField: '0' })],
+          votes: [
+            makeVote({ pollId: 1, freeField: '100' }),
+            makeVote({ pollId: 1, freeField: '0' }),
+          ],
         }),
-        makePoll({ id: 2, type: 'multiple_choice', votes: [makeVote({ pollId: 2 })] }),
+        makePoll({
+          id: 2,
+          type: 'multiple_choice',
+          votes: [makeVote({ pollId: 2 })],
+        }),
       ]);
       voteFindMany.mockResolvedValue([]);
 
-      const [sliderPoll, choicePoll] = (await service.findMeManyPolls(42)) as Array<{
+      const [sliderPoll, choicePoll] = (await service.findMeManyPolls(
+        42,
+      )) as Array<{
         voterCount: number;
         sliderResult: number;
       }>;
