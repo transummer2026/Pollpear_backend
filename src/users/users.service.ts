@@ -438,6 +438,28 @@ export class UsersService {
     });
   }
 
+  async setOnline(userId: number): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isOnline: true },
+    });
+  }
+
+  async setOffline(userId: number): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isOnline: false, lastSeenAt: new Date() },
+    });
+  }
+
+  async resetOnlineStatus(): Promise<number> {
+    const { count } = await this.prisma.user.updateMany({
+      where: { isOnline: true },
+      data: { isOnline: false },
+    });
+    return count;
+  }
+
   private async updateUserProfile(userId: number, data: UserUpdateDTO) {
     return await this.prisma.user.update({
       where: {
