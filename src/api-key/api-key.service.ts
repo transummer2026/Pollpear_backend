@@ -104,11 +104,11 @@ export class ApiKeyService {
       return;
     }
 
+    await this.redis.deleteApiKeys(apiKeys.map((apiKey) => apiKey.keyHash));
     await this.prisma.apiKey.updateMany({
       where: this.activeWhere(userId),
       data: { revoked: true },
     });
-    await this.redis.deleteApiKeys(apiKeys.map((apiKey) => apiKey.keyHash));
     this.logger.warn(
       `api key ban on user ${userId}: ${apiKeys.length} key(s) revoked ` +
         `(${apiKeys.map((apiKey) => fingerprint(apiKey.keyHash)).join(', ')})`,

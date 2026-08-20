@@ -3,10 +3,9 @@ import { MeController } from './me.controller';
 import { MeService } from './me.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
-import { fileUploadServiceMock } from 'src/file-upload/file-upload.service.mock';
-import { storageServiceMock } from 'src/storage/storage.service.mock';
-import { websocketEmitterMock } from 'src/websocket/websocket.emitter.mock';
+import { avatarServiceMock } from 'src/file-upload/avatar.service.mock';
 import { apiKeyServiceMock } from 'src/api-key/api-key.service.mock';
+import { revocationServiceMock } from 'src/revocation/revocation.service.mock';
 
 describe('MeController', () => {
   let controller: MeController;
@@ -18,10 +17,9 @@ describe('MeController', () => {
         MeService,
         prismaMock,
         usersServiceMock,
-        fileUploadServiceMock,
-        storageServiceMock,
-        websocketEmitterMock,
+        avatarServiceMock,
         apiKeyServiceMock,
+        revocationServiceMock,
       ],
     }).compile();
 

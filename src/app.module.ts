@@ -13,8 +13,6 @@ import { ContactModule } from './contact/contact.module';
 import { ApiModule } from './api/api.module';
 import { SearchModule } from './search/search.module';
 import { SecretsModule } from './secrets/secrets.module';
-import { ApiKeysModule } from './api/v1/keys/keys.module';
-import { ApiRegisterModule } from './api/v1/register/register.module';
 import { ApiUsersModule } from './api/v1/users/users.module';
 import { ApiPollsModule } from './api/v1/polls/polls.module';
 import { RedisModule as RedisModuleIo } from '@nestjs-modules/ioredis';
@@ -58,8 +56,6 @@ import { WebsocketModule } from './websocket/websocket.module';
     ContactModule,
     ApiModule,
     SearchModule,
-    ApiKeysModule,
-    ApiRegisterModule,
     ApiPollsModule,
     ApiUsersModule,
     RedisModule,

@@ -1,10 +1,8 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { ApiKeyService } from 'src/api-key/api-key.service';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
+import { AvatarService } from 'src/file-upload/avatar.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { StorageService } from 'src/storage/storage.service';
+import { RevocationService } from 'src/revocation/revocation.service';
 import { UsersService } from 'src/users/users.service';
-import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { MeService } from './me.service';
 
 function makeUser(overrides: Record<string, unknown> = {}) {
@@ -46,27 +44,13 @@ describe('MeService', () => {
   const findByUserId = jest.fn();
   const users = { findByUserId } as unknown as UsersService;
 
-  const processImage = jest.fn();
-  const fileUpload = { processImage } as unknown as FileUploadService;
+  const replace = jest.fn();
+  const avatar = { replace } as unknown as AvatarService;
 
-  const save = jest.fn();
-  const publicUrl = jest.fn();
-  const storage = { save, publicUrl } as unknown as StorageService;
+  const revokeAllAccess = jest.fn();
+  const revocation = { revokeAllAccess } as unknown as RevocationService;
 
-  const revokeUser = jest.fn();
-  const emitter = { revokeUser } as unknown as WebsocketEmitter;
-
-  const revokeAll = jest.fn();
-  const apiKeys = { revokeAll } as unknown as ApiKeyService;
-
-  const service = new MeService(
-    prisma,
-    users,
-    fileUpload,
-    storage,
-    emitter,
-    apiKeys,
-  );
+  const service = new MeService(prisma, users, avatar, revocation);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -94,32 +78,19 @@ describe('MeService', () => {
       await expect(
         service.uploadAvatar(7, {} as Express.Multer.File),
       ).rejects.toThrow(UnauthorizedException);
-      expect(processImage).not.toHaveBeenCalled();
-      expect(save).not.toHaveBeenCalled();
+      expect(replace).not.toHaveBeenCalled();
     });
 
-    it('stores the processed image under the user key and busts the url cache', async () => {
+    it('delegates to the avatar pipeline and returns the refreshed profile', async () => {
       findByUserId.mockResolvedValue(makeUser());
-      const image = Buffer.from('webp-bytes');
-      processImage.mockResolvedValue(image);
-      publicUrl.mockReturnValue('https://cdn.test/uploads/avatars/7.webp');
-      update.mockResolvedValue(
+      replace.mockResolvedValue(
         makeUser({ avatarUrl: 'https://cdn.test/uploads/avatars/7.webp?v=1' }),
       );
       const file = { buffer: Buffer.alloc(1) } as Express.Multer.File;
 
       const result = await service.uploadAvatar(7, file);
 
-      expect(processImage).toHaveBeenCalledWith(file, 'avatar');
-      expect(save).toHaveBeenCalledWith('avatars/7.webp', image, 'image/webp');
-      expect(publicUrl).toHaveBeenCalledWith('avatars/7.webp');
-      const [updateArg] = update.mock.calls[0] as [
-        { where: { id: number }; data: { avatarUrl: string } },
-      ];
-      expect(updateArg.where).toEqual({ id: 7 });
-      expect(updateArg.data.avatarUrl).toMatch(
-        /^https:\/\/cdn\.test\/uploads\/avatars\/7\.webp\?v=\d+$/,
-      );
+      expect(replace).toHaveBeenCalledWith(7, file);
       expect(result.avatarUrl).toBe(
         'https://cdn.test/uploads/avatars/7.webp?v=1',
       );
@@ -127,18 +98,20 @@ describe('MeService', () => {
   });
 
   describe('remove', () => {
-    it('soft-deletes the account and revokes every live credential', async () => {
+    it('revokes every live credential before soft-deleting the account', async () => {
       update.mockResolvedValue(makeUser({ deletedAt: new Date() }));
 
       await service.remove(7);
 
+      expect(revokeAllAccess).toHaveBeenCalledWith(7);
       const [updateArg] = update.mock.calls[0] as [
         { where: { id: number }; data: { deletedAt: Date } },
       ];
       expect(updateArg.where).toEqual({ id: 7 });
       expect(updateArg.data.deletedAt).toBeInstanceOf(Date);
-      expect(revokeAll).toHaveBeenCalledWith(7);
-      expect(revokeUser).toHaveBeenCalledWith(7);
+      expect(revokeAllAccess.mock.invocationCallOrder[0]).toBeLessThan(
+        update.mock.invocationCallOrder[0],
+      );
     });
   });
 });

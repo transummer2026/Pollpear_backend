@@ -28,8 +28,9 @@ export function toOpenApi(schema: z.ZodType): OpenApiSchema {
   }) as OpenApiSchema;
 }
 
-export function describeApiV1() {
+export function describeApiV1(publicUrl: string) {
   return new DocumentBuilder()
+    .addServer(publicUrl)
     .setTitle('Pollpear public API')
     .setDescription(apiV1.resources.join(', '))
     .setVersion(apiV1.version)
