@@ -2,6 +2,7 @@ import { ForbiddenError } from '@casl/ability';
 import { Logger } from '@nestjs/common';
 import {
   PollCreateDTO,
+  PollReadSchema,
   PollUpdateDTO,
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
@@ -45,20 +46,56 @@ function updateBody(): PollUpdateDTO {
   };
 }
 
+/**
+ * A single vote row, defaulted to belong to poll 7 and user 42. `freeField`
+ * only matters for slider polls — it holds the numeric value the voter chose.
+ */
+function makeVote(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 1,
+    freeField: null as string | null,
+    createdById: 42,
+    pollId: 7,
+    ...overrides,
+  };
+}
+
+/**
+ * A poll fixture with only the fields `shapePollForUser` (exercised via
+ * `findMeOnePoll`/`findMeManyPolls`) actually reads: `type`, `isAnonymous`,
+ * `createdBy`, `votes`. `PollReadSchema.parse` is stubbed below, so this
+ * doesn't need to satisfy the full Prisma-generated schema.
+ */
+function makePoll(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 7,
+    type: 'multiple_choice',
+    isAnonymous: false,
+    createdBy: { id: 1, name: 'Author' },
+    votes: [] as ReturnType<typeof makeVote>[],
+    ...overrides,
+  };
+}
+
 describe('PollsService', () => {
   const pollCreate = jest.fn();
   const pollUpdate = jest.fn();
   const pollFindMany = jest.fn();
   const pollFindFirstOrThrow = jest.fn();
+  const pollFindUniqueOrThrow = jest.fn();
   const userFindUniqueOrThrow = jest.fn();
+  const voteFindUnique = jest.fn();
+  const voteFindMany = jest.fn();
   const prisma = {
     poll: {
       create: pollCreate,
       update: pollUpdate,
       findMany: pollFindMany,
       findFirstOrThrow: pollFindFirstOrThrow,
+      findUniqueOrThrow: pollFindUniqueOrThrow,
     },
     user: { findUniqueOrThrow: userFindUniqueOrThrow },
+    vote: { findUnique: voteFindUnique, findMany: voteFindMany },
   } as unknown as PrismaService;
   const buildOptionsNestedWrite = jest.fn();
   const buildHashtagsNestedWrite = jest.fn();
@@ -71,8 +108,22 @@ describe('PollsService', () => {
       connectOrCreateHashtag,
       buildHashtagsNestedWrite,
     } as unknown as HashtagsService,
-    { error: jest.fn(), warn: jest.fn(), log: jest.fn() } as unknown as Logger,
+    {
+      error: jest.fn(),
+      warn: jest.fn(),
+      log: jest.fn(),
+      debug: jest.fn(),
+    } as unknown as Logger,
   );
+
+  // `findMeOnePoll`/`findMeManyPolls` run their assembled poll through
+  // `PollReadSchema.parse`, which enforces the full Prisma-generated shape.
+  // These tests care about the service's own logic (hasVoted/voterCount/
+  // sliderResult/anonymization), not re-validating that shared schema, so
+  // `parse` is stubbed to just return whatever it's given.
+  jest
+    .spyOn(PollReadSchema, 'parse')
+    .mockImplementation((value) => value as ReturnType<typeof PollReadSchema.parse>);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -177,7 +228,7 @@ describe('PollsService', () => {
       expect(buildOptionsNestedWrite).toHaveBeenCalledWith(7, body.options);
       expect(buildHashtagsNestedWrite).toHaveBeenCalledWith(7, body.hashtags);
       expect(pollUpdate).toHaveBeenCalledWith({
-        where: { id: 7 },
+        where: { id: 7, endsAt: { gte: expect.any(Date) as Date } },
         data: {
           title: 'Renamed',
           options: optionsWrite,
@@ -216,6 +267,129 @@ describe('PollsService', () => {
         where: { id: 7 },
         data: { deletedAt: expect.any(Date) as Date },
       });
+    });
+  });
+
+  describe('findMeOnePoll', () => {
+    it('reports hasVoted true when the requesting user has a vote on record', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(makePoll());
+      voteFindUnique.mockResolvedValue(makeVote());
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.hasVoted).toBe(true);
+    });
+
+    it('reports hasVoted false when the lookup finds no vote', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(makePoll());
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.hasVoted).toBe(false);
+    });
+
+    it('counts every vote on the poll, not just the requesting user\'s', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(
+        makePoll({ votes: [makeVote({ id: 1 }), makeVote({ id: 2, createdById: 99 })] }),
+      );
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.voterCount).toBe(2);
+    });
+
+    it('averages slider votes into a 0-1 sliderResult', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(
+        makePoll({
+          type: 'slider',
+          votes: [makeVote({ freeField: '80' }), makeVote({ freeField: '40' })],
+        }),
+      );
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      // (80 + 40) / 2 votes / 100 = 0.6
+      expect(result.sliderResult).toBeCloseTo(0.6);
+    });
+
+    it('leaves sliderResult at 0 for non-slider polls, even if freeField is set', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(
+        makePoll({ type: 'multiple_choice', votes: [makeVote({ freeField: '80' })] }),
+      );
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.sliderResult).toBe(0);
+    });
+
+    it('leaves sliderResult at 0 for a slider poll with no votes yet', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(makePoll({ type: 'slider', votes: [] }));
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.sliderResult).toBe(0);
+    });
+
+    it('hides the author on an anonymous poll', async () => {
+      pollFindUniqueOrThrow.mockResolvedValue(makePoll({ isAnonymous: true }));
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.createdBy).toBeNull();
+    });
+
+    it('keeps the author on a non-anonymous poll', async () => {
+      const author = { id: 1, name: 'Author' };
+      pollFindUniqueOrThrow.mockResolvedValue(
+        makePoll({ isAnonymous: false, createdBy: author }),
+      );
+      voteFindUnique.mockResolvedValue(null);
+
+      const result = await service.findMeOnePoll(7, 42);
+
+      expect(result.createdBy).toBe(author);
+    });
+  });
+
+  describe('findMeManyPolls', () => {
+    it('matches hasVoted per poll from the bulk vote list', async () => {
+      pollFindMany.mockResolvedValue([makePoll({ id: 1 }), makePoll({ id: 2 })]);
+      voteFindMany.mockResolvedValue([makeVote({ pollId: 2 })]);
+
+      const [pollOne, pollTwo] = (await service.findMeManyPolls(42)) as Array<{
+        hasVoted: boolean;
+      }>;
+
+      expect(pollOne.hasVoted).toBe(false);
+      expect(pollTwo.hasVoted).toBe(true);
+    });
+
+    it('computes voterCount and sliderResult independently per poll', async () => {
+      pollFindMany.mockResolvedValue([
+        makePoll({
+          id: 1,
+          type: 'slider',
+          votes: [makeVote({ pollId: 1, freeField: '100' }), makeVote({ pollId: 1, freeField: '0' })],
+        }),
+        makePoll({ id: 2, type: 'multiple_choice', votes: [makeVote({ pollId: 2 })] }),
+      ]);
+      voteFindMany.mockResolvedValue([]);
+
+      const [sliderPoll, choicePoll] = (await service.findMeManyPolls(42)) as Array<{
+        voterCount: number;
+        sliderResult: number;
+      }>;
+
+      expect(sliderPoll.voterCount).toBe(2);
+      expect(sliderPoll.sliderResult).toBeCloseTo(0.5);
+      expect(choicePoll.voterCount).toBe(1);
+      expect(choicePoll.sliderResult).toBe(0);
     });
   });
 });

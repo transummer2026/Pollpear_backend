@@ -94,7 +94,10 @@ export class VotesService {
    * current are to create, the ones in current and not in new are to delete.
    */
   async updateVote(pollId: number, userId: number, body: VoteUpdateDTO) {
-    await this.validateVote(pollId, body);
+    const poll = await this.validateVote(pollId, body);
+    if (!poll.allowChangeVote) {
+      throw new ForbiddenException('This poll does not allow vote changes.');
+    }
     const vote = await this.prisma.vote.findFirstOrThrow({
       where: { pollId, createdById: userId, deletedAt: null },
       include: { voteOptions: true },

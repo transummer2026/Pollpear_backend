@@ -1,12 +1,12 @@
-PATCH http://localhost:3000/polls/41/vote HTTP/1.1
+PATCH http://localhost:3000/polls/1/vote HTTP/1.1
 Content-Type: application/json
 x-user-id: 1
 
 {
-	"type": "multiple_choice",
+	"type": "single_choice",
 	"optionsVoted": [
 		{
-			"optionId": 130
+			"optionId": 1
 		}
 	]
 }

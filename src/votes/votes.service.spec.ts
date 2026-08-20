@@ -12,6 +12,7 @@ function poll(overrides: Record<string, unknown> = {}) {
     status: 'active',
     type: 'multiple_choice',
     endsAt: new Date(Date.now() + 60_000),
+    allowChangeVote: true,
     ...overrides,
   };
 }
@@ -188,6 +189,15 @@ describe('VotesService', () => {
         where: { pollId: 7, createdById: 42, deletedAt: null },
         include: { voteOptions: true },
       });
+    });
+
+    it('rejects the update when the poll disallows vote changes', async () => {
+      pollFindFirstOrThrow.mockResolvedValue(poll({ allowChangeVote: false }));
+
+      await expect(service.updateVote(7, 42, choiceBody(1))).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(voteUpdate).not.toHaveBeenCalled();
     });
 
     it('creates only the newly picked options', async () => {
