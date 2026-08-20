@@ -62,6 +62,7 @@ export type AppAbility = Ability<
       | 'report'
       | 'join'
       | 'invite'
+      | 'kick'
     ),
     'all' | AppSubjects,
   ],

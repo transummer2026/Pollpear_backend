@@ -134,8 +134,13 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('create', 'Room')).toBe(true);
       });
 
-      it('denies moderate on Room', () => {
-        expect(ability.can('moderate', 'Room')).toBe(false);
+      it('grants moderate on the user own Room only', () => {
+        expect(ability.can('moderate', roomSubject({ createdById: 1 }))).toBe(
+          true,
+        );
+        expect(ability.can('moderate', roomSubject({ createdById: 99 }))).toBe(
+          false,
+        );
       });
 
       it('grants read on an active public Room', () => {
@@ -172,6 +177,16 @@ describe('CaslAbilityFactory', () => {
         });
 
         expect(ability.can('read', room)).toBe(true);
+      });
+
+      it('denies read on a closed Room even for a member', () => {
+        const room = roomSubject({
+          status: 'closed',
+          visibility: 'public',
+          roomMembers: [{ userId: 1 }],
+        });
+
+        expect(ability.can('read', room)).toBe(false);
       });
 
       it('grants join on an active public Room', () => {
@@ -253,6 +268,24 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('update', room)).toBe(false);
         expect(ability.can('delete', room)).toBe(false);
       });
+
+      it('grants kick on the user own active Room', () => {
+        const room = roomSubject({ status: 'active', createdById: 1 });
+
+        expect(ability.can('kick', room)).toBe(true);
+      });
+
+      it('denies kick on the user own closed Room', () => {
+        const room = roomSubject({ status: 'closed', createdById: 1 });
+
+        expect(ability.can('kick', room)).toBe(false);
+      });
+
+      it('denies kick on an active Room created by someone else', () => {
+        const room = roomSubject({ status: 'active', createdById: 99 });
+
+        expect(ability.can('kick', room)).toBe(false);
+      });
     });
 
     describe('moderator role', () => {
@@ -260,6 +293,12 @@ describe('CaslAbilityFactory', () => {
 
       it('gains moderate on Room', () => {
         expect(ability.can('moderate', 'Room')).toBe(true);
+      });
+
+      it('gains kick on any Room', () => {
+        const room = roomSubject({ status: 'active', createdById: 99 });
+
+        expect(ability.can('kick', room)).toBe(true);
       });
 
       it('still cannot delete a Room created by someone else', () => {
