@@ -71,8 +71,16 @@ export class PresenceGateway
   }
 
   private async notifyFriends(userId: number, event: string) {
-    const friends = await this.users.friendIds(userId);
-    this.emitter.toUsers(friends, event, { userId });
+    try {
+      const friends = await this.users.friendIds(userId);
+      this.emitter.toUsers(friends, event, { userId });
+    } catch (error) {
+      this.logger.warn(
+        `failed to notify friends of ${event} for user ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private async countSockets(userId: number): Promise<number> {

@@ -116,13 +116,17 @@ describe('PresenceGateway', () => {
       expect(toUsers).not.toHaveBeenCalled();
     });
 
-    it('keeps the connection alive when the friends lookup fails', async () => {
-      fetchSockets.mockResolvedValue(fakeSockets(1));
+    it('still compensates when the friends lookup fails', async () => {
+      fetchSockets
+        .mockResolvedValueOnce(fakeSockets(1))
+        .mockResolvedValueOnce(fakeSockets(0));
       friendIds.mockRejectedValue(new Error('db down'));
       const { socket, disconnect } = fakeClient('s1', 42);
 
       await expect(gateway.handleConnection(socket)).resolves.toBeUndefined();
 
+      expect(setOnline).toHaveBeenCalledWith(42);
+      expect(setOffline).toHaveBeenCalledWith(42);
       expect(disconnect).not.toHaveBeenCalled();
       expect(toUsers).not.toHaveBeenCalled();
     });
