@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PollsController } from './polls.controller';
 import { PollsService } from './polls.service';
@@ -20,6 +21,7 @@ describe('PollsController', () => {
         optionsServiceMock,
         hashtagsServiceMock,
         votesServiceMock,
+        Logger,
       ],
     }).compile();
 

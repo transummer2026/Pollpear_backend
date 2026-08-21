@@ -38,6 +38,7 @@ function storedVote(...optionIds: number[]) {
 describe('VotesService', () => {
   const pollFindFirstOrThrow = jest.fn();
   const optionFindMany = jest.fn();
+  const voteFindUnique = jest.fn();
   const voteFindFirstOrThrow = jest.fn();
   const voteUpsert = jest.fn();
   const voteUpdate = jest.fn();
@@ -45,6 +46,7 @@ describe('VotesService', () => {
     poll: { findFirstOrThrow: pollFindFirstOrThrow },
     option: { findMany: optionFindMany },
     vote: {
+      findUnique: voteFindUnique,
       findFirstOrThrow: voteFindFirstOrThrow,
       upsert: voteUpsert,
       update: voteUpdate,
@@ -62,6 +64,7 @@ describe('VotesService', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-08-17T12:00:00Z'));
     jest.clearAllMocks();
+    voteFindUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -70,7 +73,7 @@ describe('VotesService', () => {
 
   describe('validateVote', () => {
     it('rejects a poll that is not active', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ status: 'pending' }));
+      pollFindFirstOrThrow.mockResolvedValue(poll({ status: 'closed' }));
 
       const act = service.validateVote(7, choiceBody(1));
 
@@ -114,7 +117,9 @@ describe('VotesService', () => {
       pollFindFirstOrThrow.mockResolvedValue(poll());
       const body: VoteUpdateDTO = { type: 'multiple_choice' };
 
-      await expect(service.validateVote(7, body)).resolves.toBeUndefined();
+      await expect(service.validateVote(7, body)).resolves.toMatchObject({
+        id: 7,
+      });
 
       expect(pollFindFirstOrThrow).toHaveBeenCalledWith({
         where: { id: 7, deletedAt: null },
