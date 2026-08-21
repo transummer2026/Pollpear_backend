@@ -150,6 +150,60 @@ export class PollsService {
     });
   }
 
+  // differences with me many polls.
+  async findUsersManyPolls(userId: number, targetId: number) {
+    this.logger.debug('entered the findUsersManyPolls');
+    const [polls, votesMadeByUser] = await Promise.all([
+      this.prisma.poll.findMany({
+        where: {
+          createdById: targetId,
+          isAnonymous: false,
+          deletedAt: null,
+        },
+        include: {
+          options: {
+            where: { deletedAt: null },
+            include: {
+              _count: {
+                select: {
+                  voteOptions: true,
+                },
+              },
+            },
+          },
+          createdBy: true,
+          room: { where: { deletedAt: null } },
+          pollHashtags: {
+            include: {
+              hashtag: true,
+            },
+          },
+          votes: {
+            where: { deletedAt: null },
+            include: {
+              _count: {
+                select: {
+                  voteOptions: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.vote.findMany({
+        where: {
+          createdById: targetId,
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    return polls.map((poll) => {
+      const hasVoted = votesMadeByUser.some((v) => v.pollId === poll.id);
+      return this.shapePollForUser(poll, hasVoted);
+    });
+  }
+
   /**
    * Shapes a raw Prisma poll (relations already `include`d) into the DTO the
    * frontend expects: adds `voterCount` and `sliderResult`, nulls out
