@@ -78,10 +78,10 @@ describe('UsersController', () => {
     expect(result).toEqual(friendship);
   });
 
-  it('getFriends delegates with the target id only', () => {
-    void controller.getFriends(2);
+  it('getFriends delegates with (viewer, target)', () => {
+    void controller.getFriends(1, 2);
 
-    expect(service.getFriends).toHaveBeenCalledWith(2);
+    expect(service.getFriends).toHaveBeenCalledWith(1, 2);
   });
 
   it('createFriendRequest delegates with (viewer, target)', () => {

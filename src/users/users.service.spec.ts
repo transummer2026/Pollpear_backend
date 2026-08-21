@@ -246,7 +246,7 @@ describe('UsersService', () => {
         }),
       ]);
 
-      const result = await service.getFriends(1);
+      const result = await service.getFriends(1, 1);
 
       const friendUserSelect = {
         id: true,
@@ -289,6 +289,32 @@ describe('UsersService', () => {
           },
         },
       ]);
+    });
+
+    it("excludes the viewer from another user's friend list", async () => {
+      prisma.friendship.findMany.mockResolvedValue([]);
+
+      await service.getFriends(1, 2);
+
+      expect(prisma.friendship.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            deletedAt: null,
+            status: 'accepted',
+            OR: [{ requesterId: 2 }, { addresseeId: 2 }],
+            NOT: [{ requesterId: 1 }, { addresseeId: 1 }],
+          },
+        }),
+      );
+    });
+
+    it('does not filter anyone out of your own friend list', async () => {
+      prisma.friendship.findMany.mockResolvedValue([]);
+
+      await service.getFriends(1, 1);
+
+      const [args] = prisma.friendship.findMany.mock.calls[0];
+      expect(args.where).not.toHaveProperty('NOT');
     });
   });
 
