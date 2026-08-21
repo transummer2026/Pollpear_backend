@@ -466,6 +466,23 @@ export class UsersService {
     return count;
   }
 
+  async friendIds(userId: number): Promise<number[]> {
+    const friendships = await this.prisma.friendship.findMany({
+      where: {
+        deletedAt: null,
+        status: 'accepted',
+        OR: [{ requesterId: userId }, { addresseeId: userId }],
+      },
+      select: { requesterId: true, addresseeId: true },
+    });
+
+    return friendships.map((friendship) =>
+      friendship.requesterId === userId
+        ? friendship.addresseeId
+        : friendship.requesterId,
+    );
+  }
+
   private async updateUserProfile(userId: number, data: UserUpdateDTO) {
     return await this.prisma.user.update({
       where: {

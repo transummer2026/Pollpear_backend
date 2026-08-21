@@ -20,6 +20,18 @@ export class WebsocketEmitter {
     this.logger.debug(`sent ${event} to user ${userId}`);
   }
 
+  toUsers(userIds: number[], event: string, payload?: unknown): void {
+    if (userIds.length === 0) return;
+    if (!this.server) {
+      this.logger.warn(
+        `dropped ${event} for ${userIds.length} user(s): server not ready`,
+      );
+      return;
+    }
+    this.server.to(userIds.map(userChannel)).emit(event, payload);
+    this.logger.debug(`sent ${event} to ${userIds.length} user(s)`);
+  }
+
   async revokeUser(userId: number): Promise<void> {
     if (!this.server) {
       this.logger.warn(`cannot revoke user ${userId}: server not ready`);

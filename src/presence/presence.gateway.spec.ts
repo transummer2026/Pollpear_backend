@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { UsersService } from 'src/users/users.service';
+import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { PresenceGateway } from './presence.gateway';
 import { PresenceService } from './presence.service';
 
@@ -22,6 +24,10 @@ describe('PresenceGateway', () => {
     setOffline,
     resetAll,
   } as unknown as PresenceService;
+  const friendIds = jest.fn();
+  const users = { friendIds } as unknown as UsersService;
+  const toUsers = jest.fn();
+  const emitter = { toUsers } as unknown as WebsocketEmitter;
   const fetchSockets = jest.fn();
   const server = { to: jest.fn(() => ({ fetchSockets })) } as unknown as Server;
   let gateway: PresenceGateway;
@@ -32,10 +38,11 @@ describe('PresenceGateway', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    gateway = new PresenceGateway(presence);
+    gateway = new PresenceGateway(presence, users, emitter);
     gateway.server = server;
     setOnline.mockResolvedValue(undefined);
     setOffline.mockResolvedValue(undefined);
+    friendIds.mockResolvedValue([7, 9]);
   });
 
   describe('bootstrap', () => {
@@ -56,6 +63,9 @@ describe('PresenceGateway', () => {
 
       expect(setOnline).toHaveBeenCalledWith(42);
       expect(setOffline).not.toHaveBeenCalled();
+      expect(toUsers).toHaveBeenCalledWith([7, 9], 'friend:online', {
+        userId: 42,
+      });
     });
 
     it('stays silent when another tab of the same user is already open', async () => {
@@ -65,6 +75,7 @@ describe('PresenceGateway', () => {
 
       expect(setOnline).not.toHaveBeenCalled();
       expect(setOffline).not.toHaveBeenCalled();
+      expect(toUsers).not.toHaveBeenCalled();
     });
 
     it('compensates when every socket vanishes during the online write', async () => {
@@ -76,6 +87,12 @@ describe('PresenceGateway', () => {
 
       expect(setOnline).toHaveBeenCalledWith(42);
       expect(setOffline).toHaveBeenCalledWith(42);
+      expect(toUsers).toHaveBeenNthCalledWith(1, [7, 9], 'friend:online', {
+        userId: 42,
+      });
+      expect(toUsers).toHaveBeenNthCalledWith(2, [7, 9], 'friend:offline', {
+        userId: 42,
+      });
     });
 
     it('disconnects a socket that was never bound to a user', async () => {
@@ -96,6 +113,18 @@ describe('PresenceGateway', () => {
       await expect(gateway.handleConnection(socket)).resolves.toBeUndefined();
 
       expect(disconnect).not.toHaveBeenCalled();
+      expect(toUsers).not.toHaveBeenCalled();
+    });
+
+    it('keeps the connection alive when the friends lookup fails', async () => {
+      fetchSockets.mockResolvedValue(fakeSockets(1));
+      friendIds.mockRejectedValue(new Error('db down'));
+      const { socket, disconnect } = fakeClient('s1', 42);
+
+      await expect(gateway.handleConnection(socket)).resolves.toBeUndefined();
+
+      expect(disconnect).not.toHaveBeenCalled();
+      expect(toUsers).not.toHaveBeenCalled();
     });
   });
 
@@ -107,6 +136,9 @@ describe('PresenceGateway', () => {
 
       expect(setOffline).toHaveBeenCalledWith(42);
       expect(setOnline).not.toHaveBeenCalled();
+      expect(toUsers).toHaveBeenCalledWith([7, 9], 'friend:offline', {
+        userId: 42,
+      });
     });
 
     it('keeps the user online while other tabs remain open', async () => {
@@ -115,6 +147,7 @@ describe('PresenceGateway', () => {
       await gateway.handleDisconnect(fakeClient('s1', 42).socket);
 
       expect(setOffline).not.toHaveBeenCalled();
+      expect(toUsers).not.toHaveBeenCalled();
     });
 
     it('compensates when a socket reconnects during the offline write', async () => {
@@ -126,6 +159,12 @@ describe('PresenceGateway', () => {
 
       expect(setOffline).toHaveBeenCalledWith(42);
       expect(setOnline).toHaveBeenCalledWith(42);
+      expect(toUsers).toHaveBeenNthCalledWith(1, [7, 9], 'friend:offline', {
+        userId: 42,
+      });
+      expect(toUsers).toHaveBeenNthCalledWith(2, [7, 9], 'friend:online', {
+        userId: 42,
+      });
     });
 
     it('ignores a disconnect from a socket that was never bound', async () => {

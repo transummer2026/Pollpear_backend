@@ -33,6 +33,31 @@ describe('WebsocketEmitter', () => {
     expect(emit).toHaveBeenCalledWith('some:event', { a: 1 });
   });
 
+  it('sends an event to every listed user room at once', () => {
+    const emitter = new WebsocketEmitter();
+    emitter.server = server;
+
+    emitter.toUsers([7, 9], 'friend:online', { userId: 42 });
+
+    expect(to).toHaveBeenCalledWith(['user:7', 'user:9']);
+    expect(emit).toHaveBeenCalledWith('friend:online', { userId: 42 });
+  });
+
+  it('stays silent for an empty recipient list', () => {
+    const emitter = new WebsocketEmitter();
+    emitter.server = server;
+
+    emitter.toUsers([], 'friend:online', { userId: 42 });
+
+    expect(to).not.toHaveBeenCalled();
+  });
+
+  it('drops a multi-user event before the server is ready', () => {
+    const emitter = new WebsocketEmitter();
+
+    expect(() => emitter.toUsers([7], 'friend:online')).not.toThrow();
+  });
+
   it('revokes every socket of the user', async () => {
     const emitter = new WebsocketEmitter();
     emitter.server = server;

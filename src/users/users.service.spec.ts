@@ -843,4 +843,25 @@ describe('UsersService', () => {
       });
     });
   });
+
+  describe('friendIds', () => {
+    it('maps each accepted friendship to the other user id', async () => {
+      prisma.friendship.findMany.mockResolvedValue([
+        makeFriendship({ requesterId: 1, addresseeId: 2 }),
+        makeFriendship({ requesterId: 3, addresseeId: 1 }),
+      ]);
+
+      const ids = await service.friendIds(1);
+
+      expect(prisma.friendship.findMany).toHaveBeenCalledWith({
+        where: {
+          deletedAt: null,
+          status: 'accepted',
+          OR: [{ requesterId: 1 }, { addresseeId: 1 }],
+        },
+        select: { requesterId: true, addresseeId: true },
+      });
+      expect(ids).toEqual([2, 3]);
+    });
+  });
 });
