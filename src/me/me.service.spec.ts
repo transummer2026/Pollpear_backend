@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { AuthService } from 'src/auth/auth.service';
 import { AvatarService } from 'src/file-upload/avatar.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RevocationService } from 'src/revocation/revocation.service';
@@ -50,7 +51,11 @@ describe('MeService', () => {
   const revokeAllAccess = jest.fn();
   const revocation = { revokeAllAccess } as unknown as RevocationService;
 
-  const service = new MeService(prisma, users, avatar, revocation);
+  const verifyPassword = jest.fn();
+  const hashPassword = jest.fn();
+  const auth = { verifyPassword, hashPassword } as unknown as AuthService;
+
+  const service = new MeService(prisma, users, avatar, auth, revocation);
 
   beforeEach(() => jest.clearAllMocks());
 

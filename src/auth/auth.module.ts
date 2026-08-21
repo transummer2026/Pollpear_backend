@@ -15,6 +15,7 @@ import { AuthGuard } from './auth.guard';
 
 @Module({
   imports: [UsersModule, MailModule, PassportModule],
+  exports: [AuthService],
   controllers: [AuthController],
   providers: [
     OauthService,

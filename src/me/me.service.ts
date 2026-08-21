@@ -8,6 +8,8 @@ import { AvatarService } from 'src/file-upload/avatar.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { RevocationService } from 'src/revocation/revocation.service';
+import type { UserChangePasswordDTO } from 'Pollpear_shared/src/schemas/auth.schema';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class MeService {
@@ -15,6 +17,7 @@ export class MeService {
     private prisma: PrismaService,
     private readonly userService: UsersService,
     private readonly avatarService: AvatarService,
+    private readonly authService: AuthService,
     private readonly revocationService: RevocationService,
   ) {}
 
@@ -44,16 +47,18 @@ export class MeService {
     return 'settings route works';
   }
 
-  changePassword() {
-    return 'change password route works';
+  async changePassword(userId: number, body: UserChangePasswordDTO) {
+    const user = await this.userService.findByUserId(userId);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+    await this.authService.verifyPassword(user, body.oldPassword);
+    const newPasswordHash = await this.authService.hashPassword(body.password);
+    await this.updatePassword(userId, newPasswordHash);
   }
 
   async remove(userId: number) {
     await this.revocationService.revokeAllAccess(userId);
     return await this.updateDeletedAt(userId);
   }
-
-  // Prisma helpers
 
   private async updateMyProfile(userId: number, body: UserUpdateDTO) {
     return await this.prisma.user.update({
@@ -71,6 +76,17 @@ export class MeService {
       },
       data: {
         deletedAt: new Date(),
+      },
+    });
+  }
+
+  private async updatePassword(userId: number, newPasswordHash: string) {
+    return await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        passwordHash: newPasswordHash,
       },
     });
   }

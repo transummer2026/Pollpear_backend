@@ -26,6 +26,12 @@ import {
 } from 'Pollpear_shared/src/schemas/api-key.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiKeyService } from 'src/api-key/api-key.service';
+import {
+  type UserChangePasswordDTO,
+  UserChangePasswordSchema,
+  type UserDeleteDTO,
+  UserDeleteSchema,
+} from 'Pollpear_shared/src/schemas/auth.schema';
 
 @Controller('me')
 export class MeController {
@@ -64,11 +70,14 @@ export class MeController {
     return this.meService.settings();
   }
 
-  // a PUT needs the whole object as it deletes the old one and creates a new one
   @Put('settings/security')
-  @HttpCode(503)
-  changePassword() {
-    return this.meService.changePassword();
+  @HttpCode(204)
+  changePassword(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(UserChangePasswordSchema))
+    body: UserChangePasswordDTO,
+  ) {
+    return this.meService.changePassword(userId, body);
   }
 
   @Get('settings/security/apikey')
@@ -100,7 +109,12 @@ export class MeController {
 
   @Delete()
   @HttpCode(200)
-  remove(@UserId() userId: number) {
+  remove(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(UserDeleteSchema))
+    body: UserDeleteDTO,
+  ) {
+    void body;
     return this.meService.remove(userId);
   }
 }
