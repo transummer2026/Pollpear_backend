@@ -25,6 +25,23 @@ export class PollsService {
   ) {}
 
   /**
+   * Case-insensitive title search over public, non-deleted polls.
+   * @param q - search string
+   * @returns up to `SEARCH_RESULTS_LIMIT` results, each `{ id, title }`
+   */
+  search(q: string) {
+    return this.prisma.poll.findMany({
+      where: {
+        deletedAt: null,
+        visibility: 'public',
+        title: { contains: q, mode: 'insensitive' },
+      },
+      select: { id: true, title: true },
+      take: SEARCH_RESULTS_LIMIT,
+    });
+  }
+
+  /**
    * Creates a poll. Thin wrapper around {@link createPoll}.
    * @param userId - owner of the new poll
    * @param body - validated poll payload
@@ -32,6 +49,154 @@ export class PollsService {
    */
   async create(userId: number, body: PollCreateDTO) {
     return await this.createPoll(userId, body);
+  }
+
+  /**
+   * Updates a poll after a CASL check that the user may `'update'` it.
+   * @param id - poll id
+   * @param userId - user attempting the update
+   * @param body - validated fields to update
+   * @returns the updated Poll
+   * @throws `ForbiddenError` if the user lacks permission
+   */
+  async update(id: number, userId: number, body: PollUpdateDTO) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const poll = await this.prisma.poll.findFirstOrThrow({
+      where: { id, deletedAt: null },
+    });
+
+    const ability = this.abilityFactory.createForUser(user);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('Poll', poll),
+    );
+
+    return await this.updatePoll(id, body);
+  }
+
+  /**
+   * Soft-deletes a poll after a CASL check that the user may `'delete'` it.
+   * @param id - poll id
+   * @param userId - user attempting the deletion
+   * @returns the updated (soft-deleted) Poll
+   * @throws `ForbiddenError` if the user lacks permission
+   */
+  async remove(id: number, userId: number) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const poll = await this.prisma.poll.findFirstOrThrow({
+      where: { id, deletedAt: null },
+    });
+
+    const ability = this.abilityFactory.createForUser(user);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'delete',
+      subject('Poll', poll),
+    );
+    return this.deletePoll(id);
+  }
+
+  /** Placeholder, not implemented. Will report a poll for moderation. */
+  report(id: number) {
+    return `report Poll #${id} works`;
+  }
+
+  /** Placeholder, not implemented. Will report a single option. */
+  reportOption(id: number, optionId: number) {
+    return `report option #${optionId} for Poll #${id} works`;
+  }
+
+  /** Placeholder, not implemented. Will remove a single option from a poll. */
+  removeOption(id: number, optionId: number) {
+    return `remove option #${optionId} for Poll #${id} works`;
+  }
+
+  // Prisma Helpers — no authorization here, callers above already checked it.
+
+  /**
+   * Inserts a new poll. New polls always start `visibility: 'private'` and
+   * `status: 'pending'`. Hashtags are connected-or-created before linking.
+   * @param userId - owner of the poll
+   * @param options - options to create with the poll
+   * @param hashtags - hashtags to attach (created if they don't exist)
+   * @param body - remaining poll fields
+   * @returns the created Poll
+   */
+  async createPoll(
+    userId: number,
+    { options, hashtags, ...body }: PollCreateDTO,
+  ): Promise<Poll> {
+    const pollHashtags = hashtags
+      ? await Promise.all(
+          hashtags.map((hashtag) =>
+            this.hashtagsService.connectOrCreateHashtag(hashtag.name),
+          ),
+        )
+      : undefined;
+
+    return this.prisma.poll.create({
+      data: {
+        ...body,
+        visibility: 'private',
+        status: 'pending',
+        createdById: userId,
+        options: {
+          create: options,
+        },
+        pollHashtags: {
+          create: pollHashtags,
+        },
+      },
+    });
+  }
+
+  /**
+   * Updates a poll. `options`/`hashtags` are upserted, not replaced (so a
+   * poll switched to type "slider" can get its label option on the fly).
+   * `undefined` = field untouched, `[]` = clear it. `type` is immutable
+   * after creation, hence `void type`. Only applies while `endsAt` is still
+   * in the future.
+   * @param id - poll id
+   * @param options - new option set, or `undefined`/`[]`
+   * @param hashtags - new hashtag set, or `undefined`/`[]`
+   * @param body - remaining poll fields
+   * @returns the updated Poll
+   * @throws if the poll doesn't exist or has already ended
+   */
+  async updatePoll(
+    id: number,
+    { options, hashtags, type, ...body }: PollUpdateDTO,
+  ): Promise<Poll> {
+    void type;
+    return this.prisma.poll.update({
+      where: { id, endsAt: { gte: new Date() } },
+      data: {
+        ...body,
+        options: await this.optionsService.buildOptionsNestedWrite(id, options),
+        pollHashtags: await this.hashtagsService.buildHashtagsNestedWrite(
+          id,
+          hashtags,
+        ),
+      },
+    });
+  }
+
+  /**
+   * Soft-deletes a poll by stamping `deletedAt` (row is never actually
+   * removed; other queries filter it out via `deletedAt: null`).
+   * @param id - poll id
+   * @returns the updated Poll
+   */
+  async deletePoll(id: number) {
+    return await this.prisma.poll.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
   }
 
   /**
@@ -192,7 +357,7 @@ export class PollsService {
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: targetId,
+          createdById: userId,
           deletedAt: null,
         },
       }),
@@ -246,171 +411,6 @@ export class PollsService {
       voterCount,
       createdBy,
       sliderResult,
-    });
-  }
-
-  /**
-   * Case-insensitive title search over public, non-deleted polls.
-   * @param q - search string
-   * @returns up to `SEARCH_RESULTS_LIMIT` results, each `{ id, title }`
-   */
-  search(q: string) {
-    return this.prisma.poll.findMany({
-      where: {
-        deletedAt: null,
-        visibility: 'public',
-        title: { contains: q, mode: 'insensitive' },
-      },
-      select: { id: true, title: true },
-      take: SEARCH_RESULTS_LIMIT,
-    });
-  }
-
-  /**
-   * Updates a poll after a CASL check that the user may `'update'` it.
-   * @param id - poll id
-   * @param userId - user attempting the update
-   * @param body - validated fields to update
-   * @returns the updated Poll
-   * @throws `ForbiddenError` if the user lacks permission
-   */
-  async update(id: number, userId: number, body: PollUpdateDTO) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-    const poll = await this.prisma.poll.findFirstOrThrow({
-      where: { id, deletedAt: null },
-    });
-
-    const ability = this.abilityFactory.createForUser(user);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'update',
-      subject('Poll', poll),
-    );
-
-    return await this.updatePoll(id, body);
-  }
-
-  /**
-   * Soft-deletes a poll after a CASL check that the user may `'delete'` it.
-   * @param id - poll id
-   * @param userId - user attempting the deletion
-   * @returns the updated (soft-deleted) Poll
-   * @throws `ForbiddenError` if the user lacks permission
-   */
-  async remove(id: number, userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-    const poll = await this.prisma.poll.findFirstOrThrow({
-      where: { id, deletedAt: null },
-    });
-
-    const ability = this.abilityFactory.createForUser(user);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'delete',
-      subject('Poll', poll),
-    );
-    return this.deletePoll(id);
-  }
-
-  /** Placeholder, not implemented. Will report a poll for moderation. */
-  report(id: number) {
-    return `report Poll #${id} works`;
-  }
-
-  /** Placeholder, not implemented. Will report a single option. */
-  reportOption(id: number, optionId: number) {
-    return `report option #${optionId} for Poll #${id} works`;
-  }
-
-  /** Placeholder, not implemented. Will remove a single option from a poll. */
-  removeOption(id: number, optionId: number) {
-    return `remove option #${optionId} for Poll #${id} works`;
-  }
-
-  // Prisma Helpers — no authorization here, callers above already checked it.
-
-  /**
-   * Inserts a new poll. New polls always start `visibility: 'private'` and
-   * `status: 'pending'`. Hashtags are connected-or-created before linking.
-   * @param userId - owner of the poll
-   * @param options - options to create with the poll
-   * @param hashtags - hashtags to attach (created if they don't exist)
-   * @param body - remaining poll fields
-   * @returns the created Poll
-   */
-  async createPoll(
-    userId: number,
-    { options, hashtags, ...body }: PollCreateDTO,
-  ): Promise<Poll> {
-    const pollHashtags = hashtags
-      ? await Promise.all(
-          hashtags.map((hashtag) =>
-            this.hashtagsService.connectOrCreateHashtag(hashtag.name),
-          ),
-        )
-      : undefined;
-
-    return this.prisma.poll.create({
-      data: {
-        ...body,
-        visibility: 'private',
-        status: 'pending',
-        createdById: userId,
-        options: {
-          create: options,
-        },
-        pollHashtags: {
-          create: pollHashtags,
-        },
-      },
-    });
-  }
-
-  /**
-   * Updates a poll. `options`/`hashtags` are upserted, not replaced (so a
-   * poll switched to type "slider" can get its label option on the fly).
-   * `undefined` = field untouched, `[]` = clear it. `type` is immutable
-   * after creation, hence `void type`. Only applies while `endsAt` is still
-   * in the future.
-   * @param id - poll id
-   * @param options - new option set, or `undefined`/`[]`
-   * @param hashtags - new hashtag set, or `undefined`/`[]`
-   * @param body - remaining poll fields
-   * @returns the updated Poll
-   * @throws if the poll doesn't exist or has already ended
-   */
-  async updatePoll(
-    id: number,
-    { options, hashtags, type, ...body }: PollUpdateDTO,
-  ): Promise<Poll> {
-    void type;
-    return this.prisma.poll.update({
-      where: { id, endsAt: { gte: new Date() } },
-      data: {
-        ...body,
-        options: await this.optionsService.buildOptionsNestedWrite(id, options),
-        pollHashtags: await this.hashtagsService.buildHashtagsNestedWrite(
-          id,
-          hashtags,
-        ),
-      },
-    });
-  }
-
-  /**
-   * Soft-deletes a poll by stamping `deletedAt` (row is never actually
-   * removed; other queries filter it out via `deletedAt: null`).
-   * @param id - poll id
-   * @returns the updated Poll
-   */
-  async deletePoll(id: number) {
-    return await this.prisma.poll.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-      },
     });
   }
 }
