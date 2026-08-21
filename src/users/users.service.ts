@@ -209,12 +209,18 @@ export class UsersService {
     return friendship ? FriendshipSchema.parse(friendship) : null;
   }
 
-  async getFriends(userId: number): Promise<FriendListItemDTO[]> {
+  async getFriends(
+    callerId: number,
+    targetId: number,
+  ): Promise<FriendListItemDTO[]> {
     const friendships = await this.prisma.friendship.findMany({
       where: {
         deletedAt: null,
         status: 'accepted',
-        OR: [{ requesterId: userId }, { addresseeId: userId }],
+        OR: [{ requesterId: targetId }, { addresseeId: targetId }],
+        ...(callerId !== targetId
+          ? { NOT: [{ requesterId: callerId }, { addresseeId: callerId }] }
+          : {}),
       },
       include: {
         requester: { select: FRIEND_USER_SELECT },
@@ -228,7 +234,7 @@ export class UsersService {
         status: friendship.status,
         createdAt: friendship.createdAt,
         user:
-          friendship.requesterId === userId
+          friendship.requesterId === targetId
             ? friendship.addressee
             : friendship.requester,
       }),
@@ -458,6 +464,23 @@ export class UsersService {
       data: { isOnline: false },
     });
     return count;
+  }
+
+  async friendIds(userId: number): Promise<number[]> {
+    const friendships = await this.prisma.friendship.findMany({
+      where: {
+        deletedAt: null,
+        status: 'accepted',
+        OR: [{ requesterId: userId }, { addresseeId: userId }],
+      },
+      select: { requesterId: true, addresseeId: true },
+    });
+
+    return friendships.map((friendship) =>
+      friendship.requesterId === userId
+        ? friendship.addresseeId
+        : friendship.requesterId,
+    );
   }
 
   private async updateUserProfile(userId: number, data: UserUpdateDTO) {

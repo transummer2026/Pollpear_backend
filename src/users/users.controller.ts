@@ -82,8 +82,8 @@ export class UsersController {
   }
 
   @Get(':id/friends')
-  getFriends(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.getFriends(id);
+  getFriends(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getFriends(userId, id);
   }
 
   @Get(':id/friend-requests')

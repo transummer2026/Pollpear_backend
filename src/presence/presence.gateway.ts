@@ -5,8 +5,10 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { UsersService } from 'src/users/users.service';
 import { AuthenticatedGateway } from 'src/websocket/authenticated-gateway.decorator';
 import { socketUserId, userChannel } from 'src/websocket/socket-user';
+import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { PresenceService } from './presence.service';
 
 @AuthenticatedGateway()
@@ -18,7 +20,11 @@ export class PresenceGateway
 
   private readonly logger = new Logger(PresenceGateway.name);
 
-  constructor(private presence: PresenceService) {}
+  constructor(
+    private presence: PresenceService,
+    private users: UsersService,
+    private emitter: WebsocketEmitter,
+  ) {}
 
   async onApplicationBootstrap() {
     const count = await this.presence.resetAll();
@@ -37,8 +43,10 @@ export class PresenceGateway
     try {
       if ((await this.countSockets(userId)) !== 1) return;
       await this.presence.setOnline(userId);
+      await this.notifyFriends(userId, 'friend:online');
       if ((await this.countSockets(userId)) === 0) {
         await this.presence.setOffline(userId);
+        await this.notifyFriends(userId, 'friend:offline');
       }
     } catch (error) {
       this.logError('online', userId, error);
@@ -52,11 +60,26 @@ export class PresenceGateway
     try {
       if ((await this.countSockets(userId)) !== 0) return;
       await this.presence.setOffline(userId);
+      await this.notifyFriends(userId, 'friend:offline');
       if ((await this.countSockets(userId)) > 0) {
         await this.presence.setOnline(userId);
+        await this.notifyFriends(userId, 'friend:online');
       }
     } catch (error) {
       this.logError('offline', userId, error);
+    }
+  }
+
+  private async notifyFriends(userId: number, event: string) {
+    try {
+      const friends = await this.users.friendIds(userId);
+      this.emitter.toUsers(friends, event, { userId });
+    } catch (error) {
+      this.logger.warn(
+        `failed to notify friends of ${event} for user ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 
