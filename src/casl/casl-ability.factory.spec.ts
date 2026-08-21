@@ -1,5 +1,12 @@
 import { subject } from '@casl/ability';
-import { Poll, Room, User, UserRole } from 'src/generated/prisma/client';
+import {
+  Block,
+  Friendship,
+  Poll,
+  Room,
+  User,
+  UserRole,
+} from 'src/generated/prisma/client';
 import { CaslAbilityFactory } from './casl-ability.factory';
 
 function abilityFor(role: UserRole, id = 1) {
@@ -16,6 +23,14 @@ function pollSubject(attrs: Partial<Poll>) {
 
 function roomSubject(attrs: Partial<Room> & Record<string, unknown>) {
   return subject('Room', attrs as Room);
+}
+
+function friendshipSubject(attrs: Partial<Friendship>) {
+  return subject('Friendship', attrs as Friendship);
+}
+
+function blockSubject(attrs: Partial<Block>) {
+  return subject('Block', attrs as Block);
 }
 
 describe('CaslAbilityFactory', () => {
@@ -316,6 +331,128 @@ describe('CaslAbilityFactory', () => {
 
         expect(ability.can('delete', room)).toBe(true);
       });
+    });
+  });
+  describe('Friendship', () => {
+    const ability = abilityFor(UserRole.user);
+
+    it('grants create to everyone', () => {
+      expect(ability.can('create', 'Friendship')).toBe(true);
+    });
+
+    it('grants read on any accepted friendship', () => {
+      expect(
+        ability.can(
+          'read',
+          friendshipSubject({
+            status: 'accepted',
+            requesterId: 8,
+            addresseeId: 9,
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    it('grants read on a pending friendship only to its two sides', () => {
+      expect(
+        ability.can(
+          'read',
+          friendshipSubject({
+            status: 'pending',
+            requesterId: 1,
+            addresseeId: 2,
+          }),
+        ),
+      ).toBe(true);
+      expect(
+        ability.can(
+          'read',
+          friendshipSubject({
+            status: 'pending',
+            requesterId: 2,
+            addresseeId: 1,
+          }),
+        ),
+      ).toBe(true);
+      expect(
+        ability.can(
+          'read',
+          friendshipSubject({
+            status: 'pending',
+            requesterId: 8,
+            addresseeId: 9,
+          }),
+        ),
+      ).toBe(false);
+    });
+
+    it('grants update only to the addressee of a pending request', () => {
+      expect(
+        ability.can(
+          'update',
+          friendshipSubject({
+            status: 'pending',
+            requesterId: 2,
+            addresseeId: 1,
+          }),
+        ),
+      ).toBe(true);
+      expect(
+        ability.can(
+          'update',
+          friendshipSubject({
+            status: 'pending',
+            requesterId: 1,
+            addresseeId: 2,
+          }),
+        ),
+      ).toBe(false);
+      expect(
+        ability.can(
+          'update',
+          friendshipSubject({
+            status: 'accepted',
+            requesterId: 2,
+            addresseeId: 1,
+          }),
+        ),
+      ).toBe(false);
+    });
+
+    it('grants delete only to a side of the friendship', () => {
+      expect(
+        ability.can(
+          'delete',
+          friendshipSubject({ requesterId: 1, addresseeId: 2 }),
+        ),
+      ).toBe(true);
+      expect(
+        ability.can(
+          'delete',
+          friendshipSubject({ requesterId: 2, addresseeId: 1 }),
+        ),
+      ).toBe(true);
+      expect(
+        ability.can(
+          'delete',
+          friendshipSubject({ requesterId: 8, addresseeId: 9 }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe('Block', () => {
+    const ability = abilityFor(UserRole.user);
+
+    it('grants create to everyone', () => {
+      expect(ability.can('create', 'Block')).toBe(true);
+    });
+
+    it('grants read and delete only on own blocks', () => {
+      expect(ability.can('read', blockSubject({ blockerId: 1 }))).toBe(true);
+      expect(ability.can('read', blockSubject({ blockerId: 2 }))).toBe(false);
+      expect(ability.can('delete', blockSubject({ blockerId: 1 }))).toBe(true);
+      expect(ability.can('delete', blockSubject({ blockerId: 2 }))).toBe(false);
     });
   });
 });

@@ -31,6 +31,7 @@ import {
 } from 'Pollpear_shared/src/schemas/block.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { ForbiddenError, subject } from '@casl/ability';
+import type { Block, Friendship } from 'src/generated/prisma/client';
 
 const SEARCH_RESULTS_LIMIT = 5;
 const SEARCH_SELECT = {
@@ -137,9 +138,11 @@ export class UsersService {
     callerId: number,
     targetId: number,
   ): Promise<BlockListItemDTO[]> {
-    if (callerId !== targetId) {
-      throw new ForbiddenException('You can only view your own blocked users.');
-    }
+    const ability = await this.abilityFor(callerId);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'read',
+      subject('Block', { blockerId: targetId } as Block),
+    );
 
     const blocks = await this.prisma.block.findMany({
       where: { blockerId: targetId },
@@ -198,6 +201,12 @@ export class UsersService {
       throw new NotFoundException('You have not blocked this user.');
     }
 
+    const ability = await this.abilityFor(userId);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'delete',
+      subject('Block', existing),
+    );
+
     await this.prisma.block.delete({ where: { id: existing.id } });
   }
 
@@ -245,11 +254,14 @@ export class UsersService {
     callerId: number,
     targetId: number,
   ): Promise<FriendListItemDTO[]> {
-    if (callerId !== targetId) {
-      throw new ForbiddenException(
-        'You can only view your own friend requests.',
-      );
-    }
+    const ability = await this.abilityFor(callerId);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'read',
+      subject('Friendship', {
+        addresseeId: targetId,
+        status: 'pending',
+      } as Friendship),
+    );
 
     const friendships = await this.prisma.friendship.findMany({
       where: { addresseeId: targetId, status: 'pending', deletedAt: null },
@@ -336,6 +348,12 @@ export class UsersService {
       throw new NotFoundException('No pending friend request from this user.');
     }
 
+    const ability = await this.abilityFor(userId);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('Friendship', friendship),
+    );
+
     const updated = await this.prisma.friendship.update({
       where: { id: friendship.id },
       data: { status },
@@ -350,10 +368,23 @@ export class UsersService {
       throw new NotFoundException('No friendship found with this user.');
     }
 
+    const ability = await this.abilityFor(userId);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'delete',
+      subject('Friendship', friendship),
+    );
+
     await this.prisma.friendship.update({
       where: { id: friendship.id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  private async abilityFor(userId: number) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    return this.abilityFactory.createForUser(user);
   }
 
   private findFriendshipBetween(userId: number, otherId: number) {

@@ -16,6 +16,7 @@ import type {
   Room,
   User,
   Friendship,
+  Block,
   Ban,
   Option,
   Vote,
@@ -44,7 +45,8 @@ export type AppSubjects =
       Hashtag: Hashtag;
       Message: Message;
       Room: Room;
-      FriendShip: Friendship;
+      Friendship: Friendship;
+      Block: Block;
       Ban: Ban;
     }>;
 
