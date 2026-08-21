@@ -14,7 +14,12 @@ import {
   type VerifyEmailDTO,
   type ResendVerificationDTO,
 } from 'Pollpear_shared/src/schemas/auth.schema';
-import { UserRole, Visibility, UserTheme } from 'src/generated/prisma/client';
+import {
+  type User,
+  UserRole,
+  Visibility,
+  UserTheme,
+} from 'src/generated/prisma/client';
 import { hash, argon2id, verify } from 'argon2';
 import { UserDTO, UserSchema } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -34,7 +39,6 @@ const ARGON2_OPTIONS = {
   type: argon2id,
 };
 
-//in login there is no userid inside the request
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -52,7 +56,7 @@ export class AuthService {
     this.pepper = Buffer.from(pepper);
   }
 
-  private async hashPassword(password: string): Promise<string> {
+  async hashPassword(password: string): Promise<string> {
     try {
       return await hash(password, { ...ARGON2_OPTIONS, secret: this.pepper });
     } catch (e) {
@@ -61,9 +65,28 @@ export class AuthService {
     }
   }
 
-  /**
-   * using primsa ommit is more sercure than zod as zod
-   */
+  async verifyPassword(user: User | null, password: string): Promise<boolean> {
+    let passwordValid: boolean;
+    try {
+      const DUMMYHASH =
+        '$argon2id$v=19$m=65536,t=3,p=4$hQzqkGQTCVjMXHDAHWALtQ$bquAvFbQv9OIgSxZP4H5OXyFvSwrRvnbolFRUJd70+0';
+      passwordValid = await verify(user?.passwordHash ?? DUMMYHASH, password, {
+        secret: this.pepper,
+      });
+    } catch (e) {
+      this.logger.error('Failed to verify password', e);
+      throw new InternalServerErrorException(e);
+    }
+    if (!user || !passwordValid) {
+      this.logger.debug(
+        `Password verification failed for user ${user?.id ?? 'unknown'}`,
+      );
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return true;
+  }
+
   async register(body: RegisterDTO): Promise<UserDTO> {
     const passwordHash = await this.hashPassword(body.password);
     const user = await this.prisma.user.create({
@@ -104,37 +127,20 @@ export class AuthService {
   ): Promise<UserDTO> {
     const user = await this.userService.findByEmail(body.email);
 
-    const userIsDeleted = !!user?.deletedAt;
+    await this.verifyPassword(user, body.password);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    let passwordValid: boolean;
-    try {
-      const DUMMYHASH =
-        '$argon2id$v=19$m=65536,t=3,p=4$hQzqkGQTCVjMXHDAHWALtQ$bquAvFbQv9OIgSxZP4H5OXyFvSwrRvnbolFRUJd70+0';
-      passwordValid = await verify(
-        user?.passwordHash ?? DUMMYHASH,
-        body.password,
-        {
-          secret: this.pepper,
-        },
-      );
-    } catch (e) {
-      this.logger.error('Failed to verify password', e);
-      throw new InternalServerErrorException(e);
-    }
-    if (!user || !passwordValid)
-      throw new UnauthorizedException('Invalid credentials');
-
-    const userisBanned = await this.userService.findByBanStatus(user.id);
-    if (userisBanned) {
-      throw new ForbiddenException('User is banned.');
-    }
-
-    if (userIsDeleted) {
+    if (user.deletedAt) {
       throw new ForbiddenException('User is deleted.');
     }
 
     if (!user.isEmailVerified) {
       throw new ForbiddenException('Email not verified.');
+    }
+
+    const userisBanned = await this.userService.findByBanStatus(user.id);
+    if (userisBanned) {
+      throw new ForbiddenException('User is banned.');
     }
 
     await this.createSession(user.id, response);
@@ -235,6 +241,4 @@ export class AuthService {
       );
     }
   }
-
-  //Prisma request functions
 }
