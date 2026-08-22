@@ -1,10 +1,10 @@
-// src/api/v1/me/me.service.ts
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MeService } from 'src/me/me.service';
 import type { User } from 'src/generated/prisma/client';
 import { publicMedia } from '../common/media';
 import { selectOf, type AssertColumns } from '../common/select';
+import { ownerIsGone, rejectWhenOwnerIsGone } from './owner';
 import {
   ApiMeSchema,
   type ApiMeDTO,
@@ -13,12 +13,7 @@ import {
 
 const ME_SELECT = selectOf(ApiMeSchema);
 
-/**
- * The cast above hides a renamed or dropped column from the compiler, and
- * the query would only fail once a request hits it. This turns that into a
- * build error naming the offending field.
- */
-export const CONTRACT_MATCHES_MODEL: AssertColumns<ApiMeDTO, User> = true;
+export const ME_MATCHES_MODEL: AssertColumns<ApiMeDTO, User> = true;
 
 @Injectable()
 export class ApiMeService {
@@ -36,19 +31,20 @@ export class ApiMeService {
     });
 
     if (!user) {
-      this.logger.warn(`api key of deleted or unknown user ${ownerId} used`);
-      throw new UnauthorizedException('Invalid credentials');
+      throw ownerIsGone(this.logger, ownerId);
     }
 
     return this.toPublicProfile(user);
   }
 
   async updateMe(ownerId: number, body: ApiMeUpdateDTO): Promise<ApiMeDTO> {
-    const user = await this.prisma.user.update({
-      where: { id: ownerId, deletedAt: null },
-      data: body,
-      select: ME_SELECT,
-    });
+    const user = await this.prisma.user
+      .update({
+        where: { id: ownerId, deletedAt: null },
+        data: body,
+        select: ME_SELECT,
+      })
+      .catch(rejectWhenOwnerIsGone(this.logger, ownerId));
 
     return this.toPublicProfile(user);
   }

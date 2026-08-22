@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { ApiMeService } from './me.service';
 import { MeService } from 'src/me/me.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -124,6 +125,32 @@ describe('ApiMeService', () => {
       data: { bio: 'hello' },
       select: expect.objectContaining({ username: true }) as unknown,
     });
+  });
+
+  it('rejects an edit from a key whose owner is gone, like a read', async () => {
+    update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: '0.0.0',
+      }),
+    );
+
+    await expect(service.updateMe(OWNER_ID, { bio: 'hello' })).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('lets any other database error through, untranslated', async () => {
+    update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Value too long', {
+        code: 'P2000',
+        clientVersion: '0.0.0',
+      }),
+    );
+
+    await expect(service.updateMe(OWNER_ID, { bio: 'hello' })).rejects.toThrow(
+      Prisma.PrismaClientKnownRequestError,
+    );
   });
 
   it('delegates deletion to the account lifecycle', async () => {

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/swagger';
 import { ApiMeService } from './me.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { toOpenApi } from '../common/openapi';
 import {
@@ -25,6 +26,7 @@ export class ApiMeController {
   constructor(private readonly meService: ApiMeService) {}
 
   @Get()
+  @CheckAbilities(['read', 'User'])
   @ApiOperation({
     summary: 'The account behind the api key',
     description:
@@ -39,6 +41,7 @@ export class ApiMeController {
   }
 
   @Patch()
+  @CheckAbilities(['update', 'User'])
   @ApiOperation({
     summary: 'Edit the account behind the api key',
     description:

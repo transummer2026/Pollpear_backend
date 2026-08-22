@@ -19,16 +19,11 @@ import {
 } from '@nestjs/swagger';
 import { ApiMeAvatarService } from './avatar.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { toOpenApi } from '../../common/openapi';
 import { ApiMeAvatarSchema } from '../../common/schemas/api-me.schema';
 
-/**
- * Scalar builds its own snippets from the multipart media type, and they
- * carry a Content-Type header with no boundary. Curl repairs that on its
- * own, fetch does not: copied as is, the browser sends a body no server
- * can split. These samples are the ones to copy.
- */
-const CODE_SAMPLES = [
+const MULTIPART_SAMPLES = [
   {
     lang: 'curl',
     label: 'cURL',
@@ -62,10 +57,11 @@ export class ApiMeAvatarController {
   constructor(private readonly avatarService: ApiMeAvatarService) {}
 
   @Post()
+  @CheckAbilities(['update', 'User'])
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  @ApiExtension('x-codeSamples', CODE_SAMPLES)
+  @ApiExtension('x-codeSamples', MULTIPART_SAMPLES)
   @ApiOperation({
     summary: 'Replace the avatar of the account behind the api key',
     description:

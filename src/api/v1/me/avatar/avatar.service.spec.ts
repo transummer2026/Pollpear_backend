@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { ApiMeAvatarService } from './avatar.service';
 import { AvatarService } from 'src/file-upload/avatar.service';
 
@@ -39,5 +41,18 @@ describe('ApiMeAvatarService', () => {
     await service.replaceAvatar(OWNER_ID, file);
 
     expect(replace).toHaveBeenCalledWith(OWNER_ID, file);
+  });
+
+  it('rejects an upload from a key whose owner is gone', async () => {
+    replace.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: '0.0.0',
+      }),
+    );
+
+    await expect(service.replaceAvatar(OWNER_ID, file)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

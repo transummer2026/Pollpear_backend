@@ -1,16 +1,11 @@
-// src/api/v1/me/avatar/avatar.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { AvatarService } from 'src/file-upload/avatar.service';
+import { rejectWhenOwnerIsGone } from '../owner';
 import {
   ApiMeAvatarSchema,
   type ApiMeAvatarDTO,
 } from '../../common/schemas/api-me.schema';
 
-/**
- * Storing the image is shared with the front facade so both write the same
- * object under the same key. Only the answer is narrowed: a client posting
- * an image wants the url back, not the whole profile.
- */
 @Injectable()
 export class ApiMeAvatarService {
   private readonly logger = new Logger(ApiMeAvatarService.name);
@@ -21,7 +16,9 @@ export class ApiMeAvatarService {
     ownerId: number,
     file: Express.Multer.File,
   ): Promise<ApiMeAvatarDTO> {
-    const user = await this.avatarService.replace(ownerId, file);
+    const user = await this.avatarService
+      .replace(ownerId, file)
+      .catch(rejectWhenOwnerIsGone(this.logger, ownerId));
     this.logger.log(`user ${ownerId} replaced their avatar through the api`);
 
     return ApiMeAvatarSchema.parse({ avatarUrl: user.avatarUrl });
