@@ -215,7 +215,15 @@ export class UsersService {
     otherId: number,
   ): Promise<FriendshipDTO | null> {
     const friendship = await this.findFriendshipBetween(userId, otherId);
-    return friendship ? FriendshipSchema.parse(friendship) : null;
+    if (!friendship) return null;
+
+    const ability = await this.abilityFor(userId);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'read',
+      subject('Friendship', friendship),
+    );
+
+    return FriendshipSchema.parse(friendship);
   }
 
   async getFriends(
@@ -383,6 +391,7 @@ export class UsersService {
   private async abilityFor(userId: number) {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
+      select: { id: true, role: true },
     });
     return this.abilityFactory.createForUser(user);
   }
@@ -412,12 +421,9 @@ export class UsersService {
     userId: number,
     body: UserUpdateDTO,
   ): Promise<UserDTO> {
-    const requester = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
     const target = await this.prisma.user.findUniqueOrThrow({ where: { id } });
 
-    const ability = this.abilityFactory.createForUser(requester);
+    const ability = await this.abilityFor(userId);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
       subject('User', target),

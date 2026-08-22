@@ -10,7 +10,7 @@ import {
 import { CaslAbilityFactory } from './casl-ability.factory';
 
 function abilityFor(role: UserRole, id = 1) {
-  return new CaslAbilityFactory().createForUser({ id, role } as User);
+  return new CaslAbilityFactory().createForUser({ id, role });
 }
 
 function userSubject(attrs: Partial<User>) {

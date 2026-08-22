@@ -17,7 +17,7 @@ import { User } from 'src/generated/prisma/client';
  */
 @Injectable()
 export class CaslAbilityFactory {
-  createForUser(user: User): AppAbility {
+  createForUser(user: Pick<User, 'id' | 'role'>): AppAbility {
     const builder = new AbilityBuilder<AppAbility>(createPrismaAbility);
 
     const authorizationUser = new AuthorizationUser(user.id, user.role);
