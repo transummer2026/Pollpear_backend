@@ -39,6 +39,7 @@ describe('ApiAdminUserController (e2e)', () => {
   const findUnique = jest.fn();
   const update = jest.fn();
   const transaction = jest.fn();
+  const remove = jest.fn();
 
   const columns = {
     id: 5,
@@ -112,7 +113,7 @@ describe('ApiAdminUserController (e2e)', () => {
             $transaction: transaction,
           },
         },
-        { provide: MeService, useValue: {} },
+        { provide: MeService, useValue: { remove } },
       ],
     }).compile();
 
@@ -131,10 +132,11 @@ describe('ApiAdminUserController (e2e)', () => {
   });
 
   beforeEach(() => {
-    [findByUserId, findUnique, update, transaction].forEach((fn) =>
+    [findByUserId, findUnique, update, transaction, remove].forEach((fn) =>
       fn.mockClear(),
     );
     update.mockResolvedValue(undefined);
+    remove.mockResolvedValue(undefined);
   });
 
   const asUser = (id: number) => ({ 'x-user-id': String(id) });
@@ -298,6 +300,45 @@ describe('ApiAdminUserController (e2e)', () => {
       .expect(403)
       .expect(() => {
         expect(update).not.toHaveBeenCalled();
+      });
+  });
+
+  it('403s a plain user deleting somebody else, without touching the account', () => {
+    return request(app.getHttpServer())
+      .delete('/v1/admin/users/5')
+      .set(asUser(3))
+      .expect(403)
+      .expect(() => {
+        expect(remove).not.toHaveBeenCalled();
+      });
+  });
+
+  it('403s a moderator deleting somebody else: moderating is not deleting', () => {
+    return request(app.getHttpServer())
+      .delete('/v1/admin/users/5')
+      .set(asUser(2))
+      .expect(403)
+      .expect(() => {
+        expect(remove).not.toHaveBeenCalled();
+      });
+  });
+
+  it('lets an admin delete an account, through the lifecycle that revokes its keys', () => {
+    return request(app.getHttpServer())
+      .delete('/v1/admin/users/5')
+      .set(asUser(1))
+      .expect(204)
+      .expect(() => {
+        expect(remove).toHaveBeenCalledWith(5);
+      });
+  });
+
+  it('401s a deletion with no x-user-id at all', () => {
+    return request(app.getHttpServer())
+      .delete('/v1/admin/users/5')
+      .expect(401)
+      .expect(() => {
+        expect(remove).not.toHaveBeenCalled();
       });
   });
 
