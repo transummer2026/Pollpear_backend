@@ -40,6 +40,7 @@ export class UsersController {
   }
 
   @Get(':id/block')
+  @CheckAbilities(['read', 'Block'])
   getBlockStatus(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -48,6 +49,7 @@ export class UsersController {
   }
 
   @Get(':id/blocks')
+  @CheckAbilities(['read', 'Block'])
   getBlockedUsers(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -57,17 +59,20 @@ export class UsersController {
 
   @Post(':id/block')
   @HttpCode(201)
+  @CheckAbilities(['create', 'Block'])
   blockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
     return this.usersService.blockUser(userId, id);
   }
 
   @Delete(':id/block')
   @HttpCode(204)
+  @CheckAbilities(['delete', 'Block'])
   unblockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
     return this.usersService.unblockUser(userId, id);
   }
 
   @Get(':id/friendship')
+  @CheckAbilities(['read', 'Friendship'])
   async getFriendship(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -82,11 +87,13 @@ export class UsersController {
   }
 
   @Get(':id/friends')
+  @CheckAbilities(['read', 'Friendship'])
   getFriends(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
     return this.usersService.getFriends(userId, id);
   }
 
   @Get(':id/friend-requests')
+  @CheckAbilities(['read', 'Friendship'])
   getFriendRequests(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -96,6 +103,7 @@ export class UsersController {
 
   @Post(':id/friendship')
   @HttpCode(201)
+  @CheckAbilities(['create', 'Friendship'])
   createFriendRequest(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -106,6 +114,7 @@ export class UsersController {
   // respond to friend request to update the result of the friendship
   @Patch(':id/friendship')
   @HttpCode(202)
+  @CheckAbilities(['update', 'Friendship'])
   updateFriendRequest(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -117,6 +126,7 @@ export class UsersController {
 
   @Delete(':id/friendship')
   @HttpCode(204)
+  @CheckAbilities(['delete', 'Friendship'])
   removeFriendship(
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
