@@ -42,6 +42,7 @@ import { VaultService } from './vault/vault.service';
 async function bootstrap() {
   // Create the HTTP (Express) application so we can use middleware and CORS
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('query parser', 'extended');
   app.use(cookieParser());
   app.useGlobalFilters(new PrismaExceptionFilter(), new CaslExceptionFilter());
   app.useWebSocketAdapter(new WebsocketAdapter(app));

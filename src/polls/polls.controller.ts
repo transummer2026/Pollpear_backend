@@ -8,6 +8,7 @@ import {
   HttpCode,
   ParseIntPipe,
   Body,
+  Query,
 } from '@nestjs/common';
 import { PollsService } from './polls.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
@@ -26,12 +27,14 @@ import {
   VoteUpdateSchema,
 } from 'Pollpear_shared/src/schemas/vote.schema';
 import { VotesService } from 'src/votes/votes.service';
+import { Logger } from '@nestjs/common';
 
 @Controller('polls')
 export class PollsController {
   constructor(
     private readonly pollsService: PollsService,
     private readonly votesService: VotesService,
+    private logger: Logger,
   ) {}
 
   @Post('new')
@@ -54,7 +57,15 @@ export class PollsController {
 
   @Get()
   @CheckAbilities(['read', 'Poll'])
-  findMeManyPolls(@UserId() userId: number) {
+  findManyPolls(
+    @UserId() userId: number,
+    @Query('userId') targetUserId?: string,
+  ) {
+    if (targetUserId) {
+      this.logger.debug('targetId is captured in the url');
+      return this.pollsService.findUsersManyPolls(userId, +targetUserId);
+    }
+    this.logger.debug('Only userId is captured in the url');
     return this.pollsService.findMeManyPolls(userId);
   }
 
