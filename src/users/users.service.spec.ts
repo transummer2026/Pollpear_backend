@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { UsersService } from './users.service';
@@ -108,6 +109,7 @@ describe('UsersService', () => {
   let prisma: {
     user: {
       findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
+      findUniqueOrThrow: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
       findMany: jest.Mock<Promise<unknown[]>, [Record<string, unknown>]>;
       update: jest.Mock<Promise<unknown>, [UpdateArgs]>;
       updateMany: jest.Mock<Promise<unknown>, [UpdateManyArgs]>;
@@ -134,6 +136,9 @@ describe('UsersService', () => {
     prisma = {
       user: {
         findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>(),
+        findUniqueOrThrow: jest
+          .fn<Promise<unknown>, [FindFirstArgs]>()
+          .mockResolvedValue(makeUser({ id: 1 })),
         findMany: jest.fn<Promise<unknown[]>, [Record<string, unknown>]>(),
         update: jest.fn<Promise<unknown>, [UpdateArgs]>(),
         updateMany: jest.fn<Promise<unknown>, [UpdateManyArgs]>(),
@@ -159,7 +164,7 @@ describe('UsersService', () => {
     };
     service = new UsersService(
       prisma as unknown as PrismaService,
-      {} as unknown as CaslAbilityFactory,
+      new CaslAbilityFactory(),
     );
   });
 
@@ -321,7 +326,7 @@ describe('UsersService', () => {
   describe('getFriendRequests', () => {
     it("rejects viewing another user's pending requests", async () => {
       await expect(service.getFriendRequests(1, 2)).rejects.toBeInstanceOf(
-        ForbiddenException,
+        ForbiddenError,
       );
       expect(prisma.friendship.findMany).not.toHaveBeenCalled();
     });
@@ -502,7 +507,12 @@ describe('UsersService', () => {
     });
 
     it('updates the status when a pending request exists', async () => {
-      const pending = makeFriendship({ id: 10, status: 'pending' });
+      const pending = makeFriendship({
+        id: 10,
+        status: 'pending',
+        requesterId: 2,
+        addresseeId: 1,
+      });
       prisma.friendship.findFirst.mockResolvedValue(pending);
       prisma.friendship.update.mockResolvedValue({
         ...pending,
@@ -519,7 +529,12 @@ describe('UsersService', () => {
     });
 
     it('rejects the pending request when the addressee declines', async () => {
-      const pending = makeFriendship({ id: 10, status: 'pending' });
+      const pending = makeFriendship({
+        id: 10,
+        status: 'pending',
+        requesterId: 2,
+        addresseeId: 1,
+      });
       prisma.friendship.findFirst.mockResolvedValue(pending);
       prisma.friendship.update.mockResolvedValue({
         ...pending,
@@ -609,7 +624,7 @@ describe('UsersService', () => {
   describe('getBlockedUsers', () => {
     it("rejects viewing another user's blocked users", async () => {
       await expect(service.getBlockedUsers(1, 2)).rejects.toBeInstanceOf(
-        ForbiddenException,
+        ForbiddenError,
       );
       expect(prisma.block.findMany).not.toHaveBeenCalled();
     });
