@@ -1,4 +1,4 @@
-import { ApiPageQuerySchema } from './api-pagination.schema';
+import { ApiPageQuerySchema, LIMIT_BY_ROLE } from './api-pagination.schema';
 
 describe('ApiPageQuerySchema', () => {
   it('defaults to the first page', () => {
@@ -12,8 +12,18 @@ describe('ApiPageQuerySchema', () => {
     });
   });
 
-  it('caps limit so one call cannot ask for the whole table', () => {
-    expect(ApiPageQuerySchema.safeParse({ limit: '101' }).success).toBe(false);
+  it('caps limit at the highest ceiling any role can reach', () => {
+    const highest = String(LIMIT_BY_ROLE.admin);
+
+    expect(ApiPageQuerySchema.safeParse({ limit: highest }).success).toBe(true);
+    expect(
+      ApiPageQuerySchema.safeParse({ limit: String(LIMIT_BY_ROLE.admin + 1) })
+        .success,
+    ).toBe(false);
+  });
+
+  it('leaves the per role ceiling to the service, which knows the caller', () => {
+    expect(ApiPageQuerySchema.safeParse({ limit: '101' }).success).toBe(true);
   });
 
   it('refuses a page below one', () => {

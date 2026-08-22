@@ -28,6 +28,15 @@ export function toOpenApi(schema: z.ZodType): OpenApiSchema {
   }) as OpenApiSchema;
 }
 
+/**
+ * For a response whose shape depends on the caller (eg. an admin vs a
+ * moderator view of the same route): documents every possible schema
+ * instead of picking one and hiding the rest from Scalar.
+ */
+export function toOpenApiOneOf(...schemas: z.ZodType[]): OpenApiSchema {
+  return { oneOf: schemas.map((schema) => toOpenApi(schema)) };
+}
+
 export function describeApiV1(publicUrl: string) {
   return new DocumentBuilder()
     .addServer(publicUrl)
