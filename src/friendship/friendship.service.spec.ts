@@ -397,7 +397,7 @@ describe('FriendshipService', () => {
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
 
-    it('only matches a request where the caller is the addressee', async () => {
+    it('looks up the friendship between the two users regardless of direction', async () => {
       prisma.friendship.findFirst.mockResolvedValue(null);
 
       await service
@@ -406,12 +406,43 @@ describe('FriendshipService', () => {
 
       expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
         where: {
-          requesterId: 2,
-          addresseeId: 1,
-          status: 'pending',
           deletedAt: null,
+          OR: [
+            { requesterId: 1, addresseeId: 2 },
+            { requesterId: 2, addresseeId: 1 },
+          ],
         },
       });
+    });
+
+    it('rejects when the caller is the requester, not the addressee', async () => {
+      const pending = makeFriendship({
+        id: 10,
+        status: 'pending',
+        requesterId: 1,
+        addresseeId: 2,
+      });
+      prisma.friendship.findFirst.mockResolvedValue(pending);
+
+      await expect(
+        service.updateFriendRequest(1, 2, 'accepted'),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(prisma.friendship.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the friendship exists but is no longer pending', async () => {
+      const accepted = makeFriendship({
+        id: 10,
+        status: 'accepted',
+        requesterId: 2,
+        addresseeId: 1,
+      });
+      prisma.friendship.findFirst.mockResolvedValue(accepted);
+
+      await expect(
+        service.updateFriendRequest(1, 2, 'accepted'),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
 
     it('updates the status when a pending request exists', async () => {

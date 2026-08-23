@@ -165,14 +165,7 @@ export class FriendshipService {
     otherId: number,
     status: FriendshipStatusUpdateDTO['status'],
   ): Promise<FriendshipDTO> {
-    const friendship = await this.prisma.friendship.findFirst({
-      where: {
-        requesterId: otherId,
-        addresseeId: userId,
-        status: 'pending',
-        deletedAt: null,
-      },
-    });
+    const friendship = await this.findFriendshipBetween(userId, otherId);
     if (!friendship) {
       throw new NotFoundException('No pending friend request from this user.');
     }
