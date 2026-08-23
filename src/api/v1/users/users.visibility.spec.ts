@@ -1,9 +1,9 @@
 import { visibleTo, stateOf, presentUser } from './users.visibility';
-import type { Viewer } from '../common/viewer';
+import { viewerAs } from '../common/viewer.mock';
 
-const stranger: Viewer = { id: 1, canSeeBanned: false, canSeeDeleted: false };
-const moderator: Viewer = { id: 2, canSeeBanned: true, canSeeDeleted: false };
-const admin: Viewer = { id: 3, canSeeBanned: true, canSeeDeleted: true };
+const stranger = viewerAs(1, 'user');
+const moderator = viewerAs(2, 'moderator');
+const admin = viewerAs(3, 'admin');
 
 const noRows = { deletedAt: null, bansReceived: [], blocksReceived: [] };
 const banned = { ...noRows, bansReceived: [{ id: 1 }] };

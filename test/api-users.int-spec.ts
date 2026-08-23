@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { visibleTo } from '../src/api/v1/users/users.visibility';
-import type { Viewer } from '../src/api/v1/common/viewer';
+import { viewerAs } from '../src/api/v1/common/viewer.mock';
 
 /**
  * The one question the e2e suites cannot answer: they assert the where clause
@@ -38,9 +38,9 @@ const PREFIX = `iv${Date.now().toString(36)}_`;
 const FUTURE = new Date(Date.now() + 7 * 24 * 3600 * 1000);
 const PAST = new Date(Date.now() - 7 * 24 * 3600 * 1000);
 
-const stranger: Viewer = { id: 0, canSeeBanned: false, canSeeDeleted: false };
-const moderator: Viewer = { id: 0, canSeeBanned: true, canSeeDeleted: false };
-const admin: Viewer = { id: 0, canSeeBanned: true, canSeeDeleted: true };
+const stranger = viewerAs(0, 'user');
+const moderator = viewerAs(0, 'moderator');
+const admin = viewerAs(0, 'admin');
 
 describeWithDb('The visibility filter, against postgres', () => {
   const prisma = new PrismaClient({
@@ -85,7 +85,7 @@ describeWithDb('The visibility filter, against postgres', () => {
     });
 
   /** Only the accounts this suite created, so a populated database cannot skew the answer. */
-  const listedFor = async (viewer: Viewer) => {
+  const listedFor = async (viewer: ReturnType<typeof viewerAs>) => {
     const rows = await prisma.user.findMany({
       where: {
         AND: [visibleTo(viewer), { username: { startsWith: PREFIX } }],

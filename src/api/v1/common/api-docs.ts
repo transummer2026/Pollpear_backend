@@ -1,17 +1,14 @@
 // src/api/v1/common/api-docs.ts
 import { applyDecorators } from '@nestjs/common';
 import { ApiParam, ApiQuery } from '@nestjs/swagger';
+import type { z } from 'zod';
+import { toOpenApi } from './openapi';
 import {
   DEFAULT_LIMIT,
   DEFAULT_PAGE,
   LIMIT_BY_ROLE,
 } from './schemas/api-pagination.schema';
 
-/**
- * Documents the bounds every paginated route enforces, reading them from the
- * schema itself so the two cannot drift apart. Without them a reader sees a
- * plain integer field and only learns the ceiling by being refused.
- */
 export function ApiPageQueryDocs() {
   return applyDecorators(
     ApiQuery({
@@ -42,4 +39,16 @@ export function ApiIdParamDocs(description: string) {
     description,
     schema: { type: 'integer', minimum: 1 },
   });
+}
+
+export function ApiFilterDocs(schema: z.ZodObject<z.ZodRawShape>) {
+  const { properties } = toOpenApi(schema) as {
+    properties?: Record<string, Record<string, unknown>>;
+  };
+
+  return applyDecorators(
+    ...Object.entries(properties ?? {}).map(([name, property]) =>
+      ApiQuery({ name, required: false, schema: property }),
+    ),
+  );
 }

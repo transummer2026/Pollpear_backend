@@ -1,8 +1,12 @@
-// src/api/v1/users/users.visibility.ts
 import type { Prisma } from 'src/generated/prisma/client';
+import { Visibility } from 'src/generated/prisma/enums';
 import { activeBan } from '../common/bans';
 import { publicMedia } from '../common/media';
 import type { Viewer } from '../common/viewer';
+import {
+  canSeeBannedAccounts,
+  canSeeDeletedAccounts,
+} from '../common/abilities';
 import type { ApiUserStateDTO } from '../common/schemas/api-users.schema';
 
 /**
@@ -15,9 +19,11 @@ import type { ApiUserStateDTO } from '../common/schemas/api-users.schema';
  */
 export function visibleTo(viewer: Viewer): Prisma.UserWhereInput {
   return {
-    visibility: 'public',
-    ...(viewer.canSeeDeleted ? {} : { deletedAt: null }),
-    ...(viewer.canSeeBanned ? {} : { bansReceived: { none: activeBan() } }),
+    visibility: Visibility.public,
+    ...(canSeeDeletedAccounts(viewer.ability) ? {} : { deletedAt: null }),
+    ...(canSeeBannedAccounts(viewer.ability)
+      ? {}
+      : { bansReceived: { none: activeBan() } }),
   };
 }
 
@@ -44,8 +50,10 @@ export function stateOf(
   row: StateColumns,
   viewer: Viewer,
 ): ApiUserStateDTO | undefined {
-  if (viewer.canSeeDeleted && row.deletedAt !== null) return 'deleted';
-  if (viewer.canSeeBanned && row.bansReceived.length > 0) return 'banned';
+  if (canSeeDeletedAccounts(viewer.ability) && row.deletedAt !== null)
+    return 'deleted';
+  if (canSeeBannedAccounts(viewer.ability) && row.bansReceived.length > 0)
+    return 'banned';
   if (row.blocksReceived.length > 0) return 'blocked';
   return undefined;
 }

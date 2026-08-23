@@ -1,0 +1,16 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".bench-spec.ts$",
+  "testTimeout": 600000,
+  "maxWorkers": 1,
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^Pollpear_shared/(.*)$": "<rootDir>/../Pollpear_shared/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  }
+}
