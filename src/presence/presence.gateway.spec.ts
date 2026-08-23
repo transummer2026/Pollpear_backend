@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { UsersService } from 'src/users/users.service';
+import { FriendshipService } from 'src/friendship/friendship.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { PresenceGateway } from './presence.gateway';
 import { PresenceService } from './presence.service';
@@ -25,7 +25,7 @@ describe('PresenceGateway', () => {
     resetAll,
   } as unknown as PresenceService;
   const friendIds = jest.fn();
-  const users = { friendIds } as unknown as UsersService;
+  const friendship = { friendIds } as unknown as FriendshipService;
   const toUsers = jest.fn();
   const emitter = { toUsers } as unknown as WebsocketEmitter;
   const fetchSockets = jest.fn();
@@ -38,7 +38,7 @@ describe('PresenceGateway', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    gateway = new PresenceGateway(presence, users, emitter);
+    gateway = new PresenceGateway(presence, friendship, emitter);
     gateway.server = server;
     setOnline.mockResolvedValue(undefined);
     setOffline.mockResolvedValue(undefined);

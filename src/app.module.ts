@@ -24,7 +24,8 @@ import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { VaultModule } from './vault/vault.module';
 import { VaultService } from './vault/vault.service';
-import { BanGuard } from './users/userban.guard';
+import { BanGuard } from './ban/ban.guard';
+import { BanModule } from './ban/ban.module';
 import { CaslModule } from './casl/casl.module';
 import { AuthorizationGuard } from './casl/authorization.guard';
 import { WebsocketModule } from './websocket/websocket.module';
@@ -77,6 +78,7 @@ import { PresenceModule } from './presence/presence.module';
     CaslModule,
     WebsocketModule,
     PresenceModule,
+    BanModule,
   ],
   providers: [
     {

@@ -10,6 +10,7 @@ import { OauthProvider, type User } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
+import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { AuthService } from './auth.service';
 import { type OauthProfile } from './oauth-profile';
@@ -90,8 +91,10 @@ describe('OauthService', () => {
     user: { findUnique: userFindUnique, create: userCreate },
   } as unknown as PrismaService;
 
+  const users = {} as unknown as UsersService;
+
   const findByBanStatus = jest.fn();
-  const users = { findByBanStatus } as unknown as UsersService;
+  const ban = { findByBanStatus } as unknown as BanService;
 
   const setOauthPendingProfile = jest.fn();
   const getOauthPendingProfile = jest.fn();
@@ -109,7 +112,7 @@ describe('OauthService', () => {
     app: { frontend_url: 'https://front.test' },
   } as unknown as VaultService;
 
-  const service = new OauthService(prisma, users, redis, auth, vault);
+  const service = new OauthService(prisma, users, ban, redis, auth, vault);
 
   beforeEach(() => jest.clearAllMocks());
 

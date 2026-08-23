@@ -2,8 +2,8 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { VISIBLE_BY_BAN } from 'src/common/decorators/ban.decorator';
 import { IS_PUBLIC_KEY } from 'src/common/decorators/public.decorator';
-import { BanGuard } from './userban.guard';
-import { UsersService } from './users.service';
+import { BanGuard } from './ban.guard';
+import { BanService } from './ban.service';
 
 function httpContext(userId?: number): ExecutionContext {
   return {
@@ -18,7 +18,7 @@ describe('BanGuard', () => {
   const getAllAndOverride = jest.fn();
   const reflector = { getAllAndOverride } as unknown as Reflector;
   const guard = new BanGuard(
-    { findByBanStatus } as unknown as UsersService,
+    { findByBanStatus } as unknown as BanService,
     reflector,
   );
 

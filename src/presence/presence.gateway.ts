@@ -5,7 +5,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { UsersService } from 'src/users/users.service';
+import { FriendshipService } from 'src/friendship/friendship.service';
 import { AuthenticatedGateway } from 'src/websocket/authenticated-gateway.decorator';
 import { socketUserId, userChannel } from 'src/websocket/socket-user';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
@@ -22,7 +22,7 @@ export class PresenceGateway
 
   constructor(
     private presence: PresenceService,
-    private users: UsersService,
+    private friendship: FriendshipService,
     private emitter: WebsocketEmitter,
   ) {}
 
@@ -72,7 +72,7 @@ export class PresenceGateway
 
   private async notifyFriends(userId: number, event: string) {
     try {
-      const friends = await this.users.friendIds(userId);
+      const friends = await this.friendship.friendIds(userId);
       this.emitter.toUsers(friends, event, { userId });
     } catch (error) {
       this.logger.warn(
