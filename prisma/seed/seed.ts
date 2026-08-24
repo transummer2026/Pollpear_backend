@@ -15,6 +15,7 @@ import {
   PollType,
   PollStatus,
   FriendshipStatus,
+  NotificationType,
 } from '../../src/generated/prisma/client.js';
 
 dotenv.config({ path: '../.env' });
@@ -22,6 +23,7 @@ dotenv.config({ path: '../.env' });
 const USER_COUNT = 50;
 const ROOM_COUNT = 20;
 const DEFAULT_PASSWORD = 'Password123!';
+const JOJO_PENDING_REQUESTS = 30;
 
 const HASHTAG_NAMES = [
   'tech',
@@ -331,7 +333,7 @@ async function main() {
     vault.session.pepper,
   );
 
-  await prisma.user.create({ data: buildJojo(0, passwordHash) });
+  const jojo = await prisma.user.create({ data: buildJojo(0, passwordHash) });
   await prisma.user.create({ data: buildHygie(1, passwordHash) });
   await prisma.user.create({ data: buildPieric(2, passwordHash) });
   await prisma.user.create({ data: buildRaph(3, passwordHash) });
@@ -429,6 +431,46 @@ async function main() {
     });
   }
   await prisma.friendship.createMany({ data: friendshipRows });
+
+  const jojoRequesters = await prisma.user.findMany({
+    where: {
+      id: {
+        not: jojo.id,
+        in: userIds.filter(
+          (id) =>
+            id !== jojo.id &&
+            !usedPairs.has(
+              `${Math.min(id, jojo.id)}-${Math.max(id, jojo.id)}`,
+            ),
+        ),
+      },
+    },
+    select: { id: true, username: true },
+    take: JOJO_PENDING_REQUESTS,
+  });
+  await prisma.friendship.createMany({
+    data: jojoRequesters.map((requester) => ({
+      status: FriendshipStatus.pending,
+      requesterId: requester.id,
+      addresseeId: jojo.id,
+    })),
+  });
+  await prisma.notification.createMany({
+    data: jojoRequesters.map((requester) => ({
+      type: NotificationType.friend_request,
+      content: `${requester.username} sent you a friend request.`,
+      userId: jojo.id,
+      actorId: requester.id,
+    })),
+  });
+  for (const requester of jojoRequesters) {
+    usedPairs.add(
+      `${Math.min(requester.id, jojo.id)}-${Math.max(requester.id, jojo.id)}`,
+    );
+  }
+  console.log(
+    `Done — ${jojoRequesters.length} pending friend requests seeded for jojo0.`,
+  );
 
   const pollTypes = faker.helpers.shuffle(POLL_TYPE_PLAN);
   const pollStatuses = faker.helpers.shuffle(POLL_STATUS_PLAN);
