@@ -559,6 +559,17 @@ describe('FriendshipService', () => {
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
 
+    it('rejects the requester accepting an already accepted friendship', async () => {
+      prisma.friendship.findFirst.mockResolvedValue(
+        makeFriendship({ id: 10, status: 'accepted' }),
+      );
+
+      await expect(
+        service.updateFriendRequest(1, 2, 'accepted'),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(prisma.friendship.update).not.toHaveBeenCalled();
+    });
+
     it('is idempotent when accepting an already accepted friendship', async () => {
       const accepted = makeFriendship({
         id: 10,

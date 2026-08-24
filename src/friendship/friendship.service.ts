@@ -190,7 +190,11 @@ export class FriendshipService {
       throw new NotFoundException('No pending friend request from this user.');
     }
 
-    if (status === 'accepted' && friendship.status === 'accepted') {
+    if (
+      status === 'accepted' &&
+      friendship.status === 'accepted' &&
+      friendship.addresseeId === userId
+    ) {
       await this.notificationService.clearFriendRequest(userId, otherId);
       return FriendshipSchema.parse(friendship);
     }
