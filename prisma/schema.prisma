@@ -236,6 +236,7 @@ model Friendship {
   userB User @relation("FriendshipUserB", fields: [userBId], references: [id])
 
   @@unique([userAId, userBId], where: { deletedAt: null })
+  @@index([userAId])
   @@index([userBId])
   @@index([addresseeId])
   @@map("friendships")

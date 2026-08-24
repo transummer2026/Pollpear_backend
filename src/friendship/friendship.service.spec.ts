@@ -137,6 +137,17 @@ describe('FriendshipService', () => {
 
       expect(result).not.toHaveProperty('deletedAt');
       expect(result?.status).toBe('pending');
+      expect(result?.requesterId).toBe(1);
+    });
+
+    it('derives requesterId from the pair when the addressee is userA', async () => {
+      prisma.friendship.findFirst.mockResolvedValue(
+        makeFriendship({ addresseeId: 1 }),
+      );
+
+      const result = await service.getFriendshipWith(1, 2);
+
+      expect(result?.requesterId).toBe(2);
     });
   });
 
@@ -432,6 +443,9 @@ describe('FriendshipService', () => {
 
       await service.createFriendRequest(1, 2);
 
+      expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
+        where: { userAId: 1, userBId: 2, deletedAt: null },
+      });
       expect(prisma.friendship.create).toHaveBeenCalledWith({
         data: { userAId: 1, userBId: 2, addresseeId: 2, status: 'pending' },
       });
@@ -628,6 +642,18 @@ describe('FriendshipService', () => {
       const [args] = prisma.friendship.update.mock.calls[0];
       expect(args.where).toEqual({ id: 10 });
       expect(args.data.deletedAt).toBeInstanceOf(Date);
+      expect(notifications.clearFriendRequest).toHaveBeenCalledWith(2, 1);
+    });
+
+    it('clears the notification of the addressee sitting in the first slot', async () => {
+      prisma.friendship.findFirst.mockResolvedValue(
+        makeFriendship({ id: 10, addresseeId: 1 }),
+      );
+      prisma.friendship.update.mockResolvedValue(undefined);
+
+      await service.removeFriendship(1, 2);
+
+      expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
     });
   });
 

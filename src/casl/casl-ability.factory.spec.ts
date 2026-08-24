@@ -554,31 +554,60 @@ describe('CaslAbilityFactory', () => {
             userAId: 8,
             userBId: 9,
             addresseeId: 9,
-            requester: { visibility: 'public' },
-            addressee: { visibility: 'public' },
+            userA: { visibility: 'public' },
+            userB: { visibility: 'public' },
           }),
         ),
       ).toBe(true);
     });
 
     it('denies read on an accepted friendship where either side is private', () => {
-      const requesterPrivate = friendshipSubject({
+      const userAPrivate = friendshipSubject({
         status: 'accepted',
-        requesterId: 8,
+        userAId: 8,
+        userBId: 9,
         addresseeId: 9,
-        requester: { visibility: 'private' },
-        addressee: { visibility: 'public' },
+        userA: { visibility: 'private' },
+        userB: { visibility: 'public' },
       });
-      const addresseePrivate = friendshipSubject({
+      const userBPrivate = friendshipSubject({
         status: 'accepted',
-        requesterId: 8,
+        userAId: 8,
+        userBId: 9,
         addresseeId: 9,
-        requester: { visibility: 'public' },
-        addressee: { visibility: 'private' },
+        userA: { visibility: 'public' },
+        userB: { visibility: 'private' },
       });
 
-      expect(ability.can('read', requesterPrivate)).toBe(false);
-      expect(ability.can('read', addresseePrivate)).toBe(false);
+      expect(ability.can('read', userAPrivate)).toBe(false);
+      expect(ability.can('read', userBPrivate)).toBe(false);
+    });
+
+    it('grants read to the user sitting in the second slot of the pair', () => {
+      const abilityB = abilityFor(UserRole.user, 5);
+
+      expect(
+        abilityB.can(
+          'read',
+          friendshipSubject({
+            status: 'pending',
+            userAId: 3,
+            userBId: 5,
+            addresseeId: 3,
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    it('grants delete to the user sitting in the second slot of the pair', () => {
+      const abilityB = abilityFor(UserRole.user, 5);
+
+      expect(
+        abilityB.can(
+          'delete',
+          friendshipSubject({ userAId: 3, userBId: 5, addresseeId: 3 }),
+        ),
+      ).toBe(true);
     });
 
     it('grants read on a pending friendship only to its two sides', () => {

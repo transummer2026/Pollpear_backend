@@ -91,6 +91,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "friendships_user_a_id_user_b_id_key"
   ON "friendships" ("user_a_id", "user_b_id")
   WHERE "deleted_at" IS NULL;
 
+CREATE INDEX IF NOT EXISTS "friendships_user_a_id_idx" ON "friendships"("user_a_id");
 CREATE INDEX IF NOT EXISTS "friendships_user_b_id_idx" ON "friendships"("user_b_id");
 
 -- DropIndex
