@@ -79,6 +79,7 @@ enum ReportReason {
 
 enum NotificationType {
   friend_request
+  friend_accepted
   poll_update
   room_invitation
   room_message
@@ -294,8 +295,9 @@ model Notification {
   createdAt DateTime         @default(now()) @map("created_at")
   updatedAt DateTime         @updatedAt @map("updated_at")
 
-  userId Int  @map("user_id")
-  user   User @relation(fields: [userId], references: [id])
+  userId  Int  @map("user_id")
+  user    User @relation(fields: [userId], references: [id])
+  actorId Int? @map("actor_id")
 
   @@index([userId, isRead])
   @@index([isRead])
