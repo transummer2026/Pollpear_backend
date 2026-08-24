@@ -1,12 +1,11 @@
--- AlterEnum
-ALTER TYPE "NotificationType" ADD VALUE 'friend_accepted';
-
--- AlterTable
-ALTER TABLE "notifications" ADD COLUMN     "actor_id" INTEGER;
-
 BEGIN;
 
--- Collapse mutual pending requests into an accepted friendship
+-- AlterEnum
+ALTER TYPE "NotificationType" ADD VALUE IF NOT EXISTS 'friend_accepted';
+
+-- AlterTable
+ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "actor_id" INTEGER;
+
 UPDATE "friendships" AS f
 SET "status" = 'accepted',
     "updated_at" = CURRENT_TIMESTAMP
@@ -21,7 +20,6 @@ WHERE f."deleted_at" IS NULL
       AND r."addressee_id" = f."requester_id"
   );
 
--- SoftDelete duplicate unordered pairs
 UPDATE "friendships" AS f
 SET "deleted_at" = CURRENT_TIMESTAMP,
     "updated_at" = CURRENT_TIMESTAMP
@@ -42,7 +40,7 @@ WHERE f."deleted_at" IS NULL
   );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "friendships_unordered_pair_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "friendships_unordered_pair_key"
   ON "friendships" (
     LEAST("requester_id", "addressee_id"),
     GREATEST("requester_id", "addressee_id")
