@@ -159,5 +159,51 @@ describe('NotificationService', () => {
         where: { userId: 7, type: 'friend_request', actorId: 3 },
       });
     });
+
+    it('leaves the accepted friendship notification alone', async () => {
+      deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.clearFriendRequest(7, 3);
+
+      expect(deleteMany).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('clearFriendNotifications', () => {
+    it('removes both the request and the acceptance notifications', async () => {
+      deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.clearFriendNotifications(7, 3);
+
+      expect(deleteMany).toHaveBeenCalledWith({
+        where: { userId: 7, type: 'friend_request', actorId: 3 },
+      });
+      expect(deleteMany).toHaveBeenCalledWith({
+        where: { userId: 7, type: 'friend_accepted', actorId: 3 },
+      });
+    });
+
+    it('tells the recipient about each notification it removed', async () => {
+      deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.clearFriendNotifications(7, 3);
+
+      expect(toUser).toHaveBeenCalledWith(7, 'notification:removed', {
+        type: 'friend_request',
+        actorId: 3,
+      });
+      expect(toUser).toHaveBeenCalledWith(7, 'notification:removed', {
+        type: 'friend_accepted',
+        actorId: 3,
+      });
+    });
+
+    it('stays silent when nothing was removed', async () => {
+      deleteMany.mockResolvedValue({ count: 0 });
+
+      await service.clearFriendNotifications(7, 3);
+
+      expect(toUser).not.toHaveBeenCalled();
+    });
   });
 });

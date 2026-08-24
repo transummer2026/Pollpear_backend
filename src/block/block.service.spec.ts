@@ -46,7 +46,11 @@ type BlockDeleteArgs = { where: { id: number } };
 
 describe('BlockService', () => {
   let service: BlockService;
-  let notifications: { notify: jest.Mock; clearFriendRequest: jest.Mock };
+  let notifications: {
+    notify: jest.Mock;
+    clearFriendRequest: jest.Mock;
+    clearFriendNotifications: jest.Mock;
+  };
   let prisma: {
     user: {
       findUniqueOrThrow: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
@@ -83,7 +87,11 @@ describe('BlockService', () => {
         .fn<Promise<unknown[]>, [Promise<unknown>[]]>()
         .mockImplementation((ops) => Promise.all(ops)),
     };
-    notifications = { notify: jest.fn(), clearFriendRequest: jest.fn() };
+    notifications = {
+      notify: jest.fn(),
+      clearFriendRequest: jest.fn(),
+      clearFriendNotifications: jest.fn(),
+    };
     service = new BlockService(
       prisma as unknown as PrismaService,
       new CaslAbilityFactory(),
@@ -207,6 +215,8 @@ describe('BlockService', () => {
       expect(prisma.block.create).toHaveBeenCalledWith({
         data: { blockerId: 1, blockedId: 2 },
       });
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(2, 1);
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(1, 2);
       expect(prisma.friendship.updateMany).toHaveBeenCalledWith({
         where: { deletedAt: null, userAId: 1, userBId: 2 },
         data: { deletedAt: expect.any(Date) as Date },

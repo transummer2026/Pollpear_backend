@@ -104,8 +104,8 @@ export class BlockService {
       }),
     ]);
 
-    await this.notificationService.clearFriendRequest(targetId, userId);
-    await this.notificationService.clearFriendRequest(userId, targetId);
+    await this.notificationService.clearFriendNotifications(targetId, userId);
+    await this.notificationService.clearFriendNotifications(userId, targetId);
 
     return BlockSchema.parse(block);
   }

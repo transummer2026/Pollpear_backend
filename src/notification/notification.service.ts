@@ -64,23 +64,39 @@ export class NotificationService {
     addresseeId: number,
     requesterId: number,
   ): Promise<void> {
+    await this.clearFriendNotification(
+      addresseeId,
+      requesterId,
+      'friend_request',
+    );
+  }
+
+  async clearFriendNotifications(
+    recipientId: number,
+    actorId: number,
+  ): Promise<void> {
+    await this.clearFriendNotification(recipientId, actorId, 'friend_request');
+    await this.clearFriendNotification(recipientId, actorId, 'friend_accepted');
+  }
+
+  private async clearFriendNotification(
+    recipientId: number,
+    actorId: number,
+    type: 'friend_request' | 'friend_accepted',
+  ): Promise<void> {
     try {
       const { count } = await this.prisma.notification.deleteMany({
-        where: {
-          userId: addresseeId,
-          type: 'friend_request',
-          actorId: requesterId,
-        },
+        where: { userId: recipientId, type, actorId },
       });
       if (count > 0) {
-        this.emitter.toUser(addresseeId, 'notification:removed', {
-          type: 'friend_request',
-          actorId: requesterId,
+        this.emitter.toUser(recipientId, 'notification:removed', {
+          type,
+          actorId,
         });
       }
     } catch (error) {
       this.logger.warn(
-        `failed to clear friend_request notification for user ${addresseeId}: ${
+        `failed to clear ${type} notification for user ${recipientId}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
