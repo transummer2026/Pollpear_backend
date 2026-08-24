@@ -8,6 +8,7 @@ generator client {
   output              = "../src/generated/prisma"
   moduleFormat        = "cjs"
   importFileExtension = ""
+  previewFeatures     = ["partialIndexes"]
 }
 
 generator zod {
@@ -151,8 +152,8 @@ model User {
   roomMemberships      RoomMember[]
   invitationsSent      Invitation[]   @relation("Inviter")
   invitationsReceived  Invitation[]   @relation("Invitee")
-  friendshipsRequested Friendship[]   @relation("Requester")
-  friendshipsReceived  Friendship[]   @relation("Addressee")
+  friendshipsAsUserA   Friendship[]   @relation("FriendshipUserA")
+  friendshipsAsUserB   Friendship[]   @relation("FriendshipUserB")
   blocksReceived       Block[]        @relation("Blocked")
   blocksGiven          Block[]        @relation("Blocker")
   reportsReceived      Report[]       @relation("Reported")
@@ -227,13 +228,15 @@ model Friendship {
   updatedAt DateTime         @updatedAt @map("updated_at")
   deletedAt DateTime?        @map("deleted_at")
 
-  requesterId Int @map("requester_id")
+  userAId     Int @map("user_a_id")
+  userBId     Int @map("user_b_id")
   addresseeId Int @map("addressee_id")
 
-  requester User @relation("Requester", fields: [requesterId], references: [id])
-  addressee User @relation("Addressee", fields: [addresseeId], references: [id])
+  userA User @relation("FriendshipUserA", fields: [userAId], references: [id])
+  userB User @relation("FriendshipUserB", fields: [userBId], references: [id])
 
-  @@unique([requesterId, addresseeId])
+  @@unique([userAId, userBId], where: { deletedAt: null })
+  @@index([userBId])
   @@index([addresseeId])
   @@map("friendships")
 }

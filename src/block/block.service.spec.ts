@@ -208,13 +208,7 @@ describe('BlockService', () => {
         data: { blockerId: 1, blockedId: 2 },
       });
       expect(prisma.friendship.updateMany).toHaveBeenCalledWith({
-        where: {
-          deletedAt: null,
-          OR: [
-            { requesterId: 1, addresseeId: 2 },
-            { requesterId: 2, addresseeId: 1 },
-          ],
-        },
+        where: { deletedAt: null, userAId: 1, userBId: 2 },
         data: { deletedAt: expect.any(Date) as Date },
       });
       expect(result.blockerId).toBe(1);

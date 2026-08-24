@@ -82,7 +82,7 @@ export class ApiUsersService {
           where: {
             status: 'accepted',
             deletedAt: null,
-            OR: [{ requesterId: id }, { addresseeId: id }],
+            OR: [{ userAId: id }, { userBId: id }],
           },
         }),
         this.prisma.roomMember.count({

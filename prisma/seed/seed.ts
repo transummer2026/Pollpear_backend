@@ -4,6 +4,7 @@ import { hash, argon2id } from 'argon2';
 import dotenv from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { VaultService } from '../../src/vault/vault.service';
+import { canonicalPair } from '../../src/friendship/friendship.pair';
 import {
   PrismaClient,
   Prisma,
@@ -415,19 +416,20 @@ async function main() {
   const usedPairs = new Set<string>();
   const friendshipRows: {
     status: FriendshipStatus;
-    requesterId: number;
+    userAId: number;
+    userBId: number;
     addresseeId: number;
   }[] = [];
   while (friendshipRows.length < friendshipStatuses.length) {
     const [a, b] = faker.helpers.arrayElements(userIds, 2);
-    const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+    const pair = canonicalPair(a, b);
+    const key = `${pair.userAId}-${pair.userBId}`;
     if (usedPairs.has(key)) continue;
     usedPairs.add(key);
-    const requesterId = faker.datatype.boolean() ? a : b;
     friendshipRows.push({
       status: friendshipStatuses[friendshipRows.length],
-      requesterId,
-      addresseeId: requesterId === a ? b : a,
+      ...pair,
+      addresseeId: faker.datatype.boolean() ? pair.userAId : pair.userBId,
     });
   }
   await prisma.friendship.createMany({ data: friendshipRows });
@@ -451,7 +453,7 @@ async function main() {
   await prisma.friendship.createMany({
     data: jojoRequesters.map((requester) => ({
       status: FriendshipStatus.pending,
-      requesterId: requester.id,
+      ...canonicalPair(requester.id, jojo.id),
       addresseeId: jojo.id,
     })),
   });

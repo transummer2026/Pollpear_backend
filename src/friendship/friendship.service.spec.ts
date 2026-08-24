@@ -27,7 +27,8 @@ function makeFriendship(overrides: Partial<Record<string, unknown>> = {}) {
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
     deletedAt: null,
-    requesterId: 1,
+    userAId: 1,
+    userBId: 2,
     addresseeId: 2,
     ...overrides,
   };
@@ -124,13 +125,7 @@ describe('FriendshipService', () => {
       const result = await service.getFriendshipWith(1, 2);
 
       expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
-        where: {
-          deletedAt: null,
-          OR: [
-            { requesterId: 1, addresseeId: 2 },
-            { requesterId: 2, addresseeId: 1 },
-          ],
-        },
+        where: { userAId: 1, userBId: 2, deletedAt: null },
       });
       expect(result).toBeNull();
     });
@@ -147,13 +142,19 @@ describe('FriendshipService', () => {
 
   describe('getFriends', () => {
     it('maps each friendship to the other user, whichever side the viewer is on', async () => {
-      const friendAsAddressee = {
+      const viewer = {
         id: 2,
-        username: 'friend-2',
+        username: 'alice',
         avatarUrl: '/uploads/avatars/default.svg',
         isOnline: false,
       };
-      const friendAsRequester = {
+      const friendAsUserA = {
+        id: 1,
+        username: 'friend-1',
+        avatarUrl: '/uploads/avatars/default.svg',
+        isOnline: false,
+      };
+      const friendAsUserB = {
         id: 3,
         username: 'friend-3',
         avatarUrl: '/uploads/avatars/default.svg',
@@ -163,32 +164,24 @@ describe('FriendshipService', () => {
         makeFriendship({
           id: 10,
           status: 'accepted',
-          requesterId: 1,
+          userAId: 1,
+          userBId: 2,
           addresseeId: 2,
-          requester: {
-            id: 1,
-            username: 'alice',
-            avatarUrl: '/uploads/avatars/default.svg',
-            isOnline: false,
-          },
-          addressee: friendAsAddressee,
+          userA: friendAsUserA,
+          userB: viewer,
         }),
         makeFriendship({
           id: 11,
           status: 'accepted',
-          requesterId: 3,
-          addresseeId: 1,
-          requester: friendAsRequester,
-          addressee: {
-            id: 1,
-            username: 'alice',
-            avatarUrl: '/uploads/avatars/default.svg',
-            isOnline: false,
-          },
+          userAId: 2,
+          userBId: 3,
+          addresseeId: 3,
+          userA: viewer,
+          userB: friendAsUserB,
         }),
       ]);
 
-      const result = await service.getFriends(1, 1);
+      const result = await service.getFriends(2, 2);
 
       const friendUserSelect = {
         id: true,
@@ -200,11 +193,11 @@ describe('FriendshipService', () => {
         where: {
           deletedAt: null,
           status: 'accepted',
-          OR: [{ requesterId: 1 }, { addresseeId: 1 }],
+          OR: [{ userAId: 2 }, { userBId: 2 }],
         },
         include: {
-          requester: { select: friendUserSelect },
-          addressee: { select: friendUserSelect },
+          userA: { select: friendUserSelect },
+          userB: { select: friendUserSelect },
         },
       });
       expect(result).toEqual([
@@ -212,13 +205,13 @@ describe('FriendshipService', () => {
           friendshipId: 10,
           status: 'accepted',
           createdAt: new Date('2024-01-01'),
-          user: friendAsAddressee,
+          user: friendAsUserA,
         },
         {
           friendshipId: 11,
           status: 'accepted',
           createdAt: new Date('2024-01-01'),
-          user: friendAsRequester,
+          user: friendAsUserB,
         },
       ]);
     });
@@ -233,8 +226,8 @@ describe('FriendshipService', () => {
           where: {
             deletedAt: null,
             status: 'accepted',
-            OR: [{ requesterId: 2 }, { addresseeId: 2 }],
-            NOT: [{ requesterId: 1 }, { addresseeId: 1 }],
+            OR: [{ userAId: 2 }, { userBId: 2 }],
+            NOT: [{ userAId: 1 }, { userBId: 1 }],
           },
         }),
       );
@@ -269,25 +262,32 @@ describe('FriendshipService', () => {
         makeFriendship({
           id: 10,
           status: 'pending',
-          requesterId: 2,
+          userAId: 1,
+          userBId: 2,
           addresseeId: 1,
-          requester,
+          userA: {
+            id: 1,
+            username: 'alice',
+            avatarUrl: '/uploads/avatars/default.svg',
+            isOnline: false,
+          },
+          userB: requester,
         }),
       ]);
 
       const result = await service.getFriendRequests(1, 1);
 
+      const friendUserSelect = {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        isOnline: true,
+      };
       expect(prisma.friendship.findMany).toHaveBeenCalledWith({
         where: { addresseeId: 1, status: 'pending', deletedAt: null },
         include: {
-          requester: {
-            select: {
-              id: true,
-              username: true,
-              avatarUrl: true,
-              isOnline: true,
-            },
-          },
+          userA: { select: friendUserSelect },
+          userB: { select: friendUserSelect },
         },
       });
       expect(result).toEqual([
@@ -313,7 +313,7 @@ describe('FriendshipService', () => {
       await expect(service.createFriendRequest(1, 1)).rejects.toBeInstanceOf(
         BadRequestException,
       );
-      expect(prisma.friendship.findMany).not.toHaveBeenCalled();
+      expect(prisma.friendship.findFirst).not.toHaveBeenCalled();
       expect(prisma.friendship.create).not.toHaveBeenCalled();
     });
 
@@ -323,14 +323,14 @@ describe('FriendshipService', () => {
       await expect(service.createFriendRequest(1, 2)).rejects.toBeInstanceOf(
         ForbiddenException,
       );
-      expect(prisma.friendship.findMany).not.toHaveBeenCalled();
+      expect(prisma.friendship.findFirst).not.toHaveBeenCalled();
       expect(prisma.friendship.create).not.toHaveBeenCalled();
     });
 
     it('rejects when an accepted friendship already exists', async () => {
-      prisma.friendship.findMany.mockResolvedValue([
+      prisma.friendship.findFirst.mockResolvedValue(
         makeFriendship({ status: 'accepted' }),
-      ]);
+      );
 
       await expect(service.createFriendRequest(1, 2)).rejects.toBeInstanceOf(
         ConflictException,
@@ -338,21 +338,9 @@ describe('FriendshipService', () => {
       expect(prisma.friendship.create).not.toHaveBeenCalled();
     });
 
-    it('prefers an accepted row over another active row when both exist', async () => {
-      prisma.friendship.findMany.mockResolvedValue([
-        makeFriendship({ id: 11, status: 'rejected', requesterId: 2 }),
-        makeFriendship({ id: 10, status: 'accepted' }),
-      ]);
-
-      await expect(service.createFriendRequest(1, 2)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
-      expect(prisma.friendship.update).not.toHaveBeenCalled();
-    });
-
     it('returns the pending request unchanged when the caller already sent it', async () => {
       const pending = makeFriendship({ status: 'pending' });
-      prisma.friendship.findMany.mockResolvedValue([pending]);
+      prisma.friendship.findFirst.mockResolvedValue(pending);
 
       const result = await service.createFriendRequest(1, 2);
 
@@ -366,10 +354,11 @@ describe('FriendshipService', () => {
       const incoming = makeFriendship({
         id: 10,
         status: 'pending',
-        requesterId: 2,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 1,
       });
-      prisma.friendship.findMany.mockResolvedValue([incoming]);
+      prisma.friendship.findFirst.mockResolvedValue(incoming);
       prisma.friendship.update.mockResolvedValue({
         ...incoming,
         status: 'accepted',
@@ -393,14 +382,14 @@ describe('FriendshipService', () => {
 
     it('creates a fresh request and notifies the addressee when no relation exists', async () => {
       const created = makeFriendship({ status: 'pending' });
-      prisma.friendship.findMany.mockResolvedValue([]);
+      prisma.friendship.findFirst.mockResolvedValue(null);
       prisma.friendship.create.mockResolvedValue(created);
       prisma.friendship.findUnique.mockResolvedValue(created);
 
       const result = await service.createFriendRequest(1, 2);
 
       expect(prisma.friendship.create).toHaveBeenCalledWith({
-        data: { requesterId: 1, addresseeId: 2, status: 'pending' },
+        data: { userAId: 1, userBId: 2, addresseeId: 2, status: 'pending' },
       });
       expect(notifications.notify).toHaveBeenCalledWith(
         2,
@@ -411,16 +400,16 @@ describe('FriendshipService', () => {
       expect(result.status).toBe('pending');
     });
 
-    it('revives the same-direction row and refreshes its creation date', async () => {
-      const soft = makeFriendship({
+    it('reopens a rejected relation and points it at the new addressee', async () => {
+      const rejected = makeFriendship({
         id: 10,
         status: 'rejected',
-        deletedAt: new Date('2024-02-01'),
+        addresseeId: 1,
       });
-      const revived = makeFriendship({ id: 10, status: 'pending' });
-      prisma.friendship.findMany.mockResolvedValue([soft]);
-      prisma.friendship.update.mockResolvedValue(revived);
-      prisma.friendship.findUnique.mockResolvedValue(revived);
+      const reopened = makeFriendship({ id: 10, status: 'pending' });
+      prisma.friendship.findFirst.mockResolvedValue(rejected);
+      prisma.friendship.update.mockResolvedValue(reopened);
+      prisma.friendship.findUnique.mockResolvedValue(reopened);
 
       await service.createFriendRequest(1, 2);
 
@@ -428,47 +417,38 @@ describe('FriendshipService', () => {
         where: { id: 10 },
         data: {
           status: 'pending',
-          deletedAt: null,
+          addresseeId: 2,
           createdAt: expect.any(Date) as Date,
         },
       });
       expect(prisma.friendship.create).not.toHaveBeenCalled();
     });
 
-    it('soft-deletes an active reverse-direction row before creating its own', async () => {
-      const reverse = makeFriendship({
-        id: 11,
-        status: 'rejected',
-        requesterId: 2,
-        addresseeId: 1,
-      });
+    it('creates a new row instead of reviving a soft-deleted one', async () => {
       const created = makeFriendship({ id: 12, status: 'pending' });
-      prisma.friendship.findMany.mockResolvedValue([reverse]);
-      prisma.friendship.update.mockResolvedValue(reverse);
+      prisma.friendship.findFirst.mockResolvedValue(null);
       prisma.friendship.create.mockResolvedValue(created);
       prisma.friendship.findUnique.mockResolvedValue(created);
 
       await service.createFriendRequest(1, 2);
 
-      expect(prisma.friendship.update).toHaveBeenCalledWith({
-        where: { id: 11 },
-        data: { deletedAt: expect.any(Date) as Date },
-      });
       expect(prisma.friendship.create).toHaveBeenCalledWith({
-        data: { requesterId: 1, addresseeId: 2, status: 'pending' },
+        data: { userAId: 1, userBId: 2, addresseeId: 2, status: 'pending' },
       });
+      expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
 
     it('retries the resolution once when the unique index rejects the create', async () => {
       const mirror = makeFriendship({
         id: 13,
         status: 'pending',
-        requesterId: 2,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 1,
       });
-      prisma.friendship.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([mirror]);
+      prisma.friendship.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mirror);
       prisma.friendship.create.mockRejectedValue(uniqueViolation());
       prisma.friendship.update.mockResolvedValue({
         ...mirror,
@@ -487,33 +467,9 @@ describe('FriendshipService', () => {
       );
     });
 
-    it('retries the resolution once when the unique index rejects the revive', async () => {
-      const soft = makeFriendship({
-        id: 10,
-        status: 'rejected',
-        deletedAt: new Date('2024-02-01'),
-      });
-      const mirror = makeFriendship({
-        id: 13,
-        status: 'pending',
-        requesterId: 2,
-        addresseeId: 1,
-      });
-      prisma.friendship.findMany
-        .mockResolvedValueOnce([soft])
-        .mockResolvedValueOnce([mirror]);
-      prisma.friendship.update
-        .mockRejectedValueOnce(uniqueViolation())
-        .mockResolvedValue({ ...mirror, status: 'accepted' });
-
-      const result = await service.createFriendRequest(1, 2);
-
-      expect(result.status).toBe('accepted');
-    });
-
     it('reports the accepted state when a concurrent request accepted first', async () => {
       const created = makeFriendship({ id: 12, status: 'pending' });
-      prisma.friendship.findMany.mockResolvedValue([]);
+      prisma.friendship.findFirst.mockResolvedValue(null);
       prisma.friendship.create.mockResolvedValue(created);
       prisma.friendship.findUnique.mockResolvedValue({
         ...created,
@@ -528,11 +484,11 @@ describe('FriendshipService', () => {
     });
 
     it('propagates errors that are not unique violations', async () => {
-      prisma.friendship.findMany.mockResolvedValue([]);
+      prisma.friendship.findFirst.mockResolvedValue(null);
       prisma.friendship.create.mockRejectedValue(new Error('boom'));
 
       await expect(service.createFriendRequest(1, 2)).rejects.toThrow('boom');
-      expect(prisma.friendship.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.friendship.findFirst).toHaveBeenCalledTimes(1);
     });
   });
   describe('updateFriendRequest', () => {
@@ -553,13 +509,7 @@ describe('FriendshipService', () => {
         .catch(() => undefined);
 
       expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
-        where: {
-          deletedAt: null,
-          OR: [
-            { requesterId: 1, addresseeId: 2 },
-            { requesterId: 2, addresseeId: 1 },
-          ],
-        },
+        where: { userAId: 1, userBId: 2, deletedAt: null },
       });
     });
 
@@ -567,7 +517,8 @@ describe('FriendshipService', () => {
       const pending = makeFriendship({
         id: 10,
         status: 'pending',
-        requesterId: 1,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 2,
       });
       prisma.friendship.findFirst.mockResolvedValue(pending);
@@ -582,7 +533,8 @@ describe('FriendshipService', () => {
       const accepted = makeFriendship({
         id: 10,
         status: 'accepted',
-        requesterId: 2,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 1,
       });
       prisma.friendship.findFirst.mockResolvedValue(accepted);
@@ -597,7 +549,8 @@ describe('FriendshipService', () => {
       const accepted = makeFriendship({
         id: 10,
         status: 'accepted',
-        requesterId: 2,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 1,
       });
       prisma.friendship.findFirst.mockResolvedValue(accepted);
@@ -613,7 +566,8 @@ describe('FriendshipService', () => {
       const pending = makeFriendship({
         id: 10,
         status: 'pending',
-        requesterId: 2,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 1,
       });
       prisma.friendship.findFirst.mockResolvedValue(pending);
@@ -635,7 +589,8 @@ describe('FriendshipService', () => {
       const pending = makeFriendship({
         id: 10,
         status: 'pending',
-        requesterId: 2,
+        userAId: 1,
+        userBId: 2,
         addresseeId: 1,
       });
       prisma.friendship.findFirst.mockResolvedValue(pending);
@@ -679,8 +634,8 @@ describe('FriendshipService', () => {
   describe('friendIds', () => {
     it('maps each accepted friendship to the other user id', async () => {
       prisma.friendship.findMany.mockResolvedValue([
-        makeFriendship({ requesterId: 1, addresseeId: 2 }),
-        makeFriendship({ requesterId: 3, addresseeId: 1 }),
+        makeFriendship({ userAId: 1, userBId: 2, addresseeId: 2 }),
+        makeFriendship({ userAId: 1, userBId: 3, addresseeId: 1 }),
       ]);
 
       const ids = await service.friendIds(1);
@@ -689,9 +644,9 @@ describe('FriendshipService', () => {
         where: {
           deletedAt: null,
           status: 'accepted',
-          OR: [{ requesterId: 1 }, { addresseeId: 1 }],
+          OR: [{ userAId: 1 }, { userBId: 1 }],
         },
-        select: { requesterId: true, addresseeId: true },
+        select: { userAId: true, userBId: true },
       });
       expect(ids).toEqual([2, 3]);
     });
