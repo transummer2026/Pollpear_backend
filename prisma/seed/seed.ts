@@ -465,11 +465,6 @@ async function main() {
       actorId: requester.id,
     })),
   });
-  for (const requester of jojoRequesters) {
-    usedPairs.add(
-      `${Math.min(requester.id, jojo.id)}-${Math.max(requester.id, jojo.id)}`,
-    );
-  }
   console.log(
     `Done — ${jojoRequesters.length} pending friend requests seeded for jojo0.`,
   );
