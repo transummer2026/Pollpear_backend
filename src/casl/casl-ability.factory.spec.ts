@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import {
   Block,
   Friendship,
+  Hashtag,
   Poll,
   Room,
   User,
@@ -31,6 +32,10 @@ function friendshipSubject(attrs: Partial<Friendship>) {
 
 function blockSubject(attrs: Partial<Block>) {
   return subject('Block', attrs as Block);
+}
+
+function hashtagSubject(attrs: Partial<Hashtag>) {
+  return subject('Hashtag', attrs as Hashtag);
 }
 
 describe('CaslAbilityFactory', () => {
@@ -453,6 +458,75 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('read', blockSubject({ blockerId: 2 }))).toBe(false);
       expect(ability.can('delete', blockSubject({ blockerId: 1 }))).toBe(true);
       expect(ability.can('delete', blockSubject({ blockerId: 2 }))).toBe(false);
+    });
+  });
+
+  describe('Hashtag', () => {
+    const live = { name: 'raph', deletedAt: null };
+    const deleted = { name: 'bla', deletedAt: new Date() };
+
+    describe('user role', () => {
+      const ability = abilityFor(UserRole.user);
+
+      it('grants create to everyone', () => {
+        expect(ability.can('create', 'Hashtag')).toBe(true);
+      });
+
+      it('grants read and report on a live Hashtag', () => {
+        expect(ability.can('read', hashtagSubject(live))).toBe(true);
+        expect(ability.can('report', hashtagSubject(live))).toBe(true);
+      });
+
+      it('denies read and report on a deleted Hashtag', () => {
+        expect(ability.can('read', hashtagSubject(deleted))).toBe(false);
+        expect(ability.can('report', hashtagSubject(deleted))).toBe(false);
+      });
+
+      it('denies update and delete on a live Hashtag', () => {
+        expect(ability.can('update', hashtagSubject(live))).toBe(false);
+        expect(ability.can('delete', hashtagSubject(live))).toBe(false);
+      });
+    });
+
+    describe('moderator role', () => {
+      const ability = abilityFor(UserRole.moderator);
+
+      it('gains update on a live Hashtag', () => {
+        expect(ability.can('update', hashtagSubject(live))).toBe(true);
+      });
+
+      it('cannot revive a deleted Hashtag', () => {
+        expect(ability.can('update', hashtagSubject(deleted))).toBe(false);
+      });
+
+      it('still cannot delete a Hashtag', () => {
+        expect(ability.can('delete', hashtagSubject(live))).toBe(false);
+      });
+
+      it('still cannot read a deleted Hashtag', () => {
+        expect(ability.can('read', hashtagSubject(deleted))).toBe(false);
+      });
+    });
+
+    describe('admin role', () => {
+      const ability = abilityFor(UserRole.admin);
+
+      it('gains delete on a Hashtag', () => {
+        expect(ability.can('delete', hashtagSubject(live))).toBe(true);
+      });
+
+      it('gains read on a deleted Hashtag', () => {
+        expect(ability.can('read', hashtagSubject(deleted))).toBe(true);
+      });
+
+      it('is the only role that may revive a deleted Hashtag', () => {
+        expect(ability.can('update', hashtagSubject(deleted))).toBe(true);
+      });
+
+      it('gains no action that was never granted', () => {
+        expect(ability.can('moderate', hashtagSubject(live))).toBe(false);
+        expect(ability.can('ban', hashtagSubject(live))).toBe(false);
+      });
     });
   });
 });

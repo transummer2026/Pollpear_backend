@@ -2,6 +2,7 @@ import { ForbiddenError, subject } from '@casl/ability';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { AppAbility } from 'src/casl/casl-prisma';
 import { OptionsService } from 'src/options/options.service';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import {
@@ -48,7 +49,12 @@ export class PollsService {
    * @returns the created Poll (raw Prisma record)
    */
   async create(userId: number, body: PollCreateDTO) {
-    return await this.createPoll(userId, body);
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const ability = this.abilityFactory.createForUser(user);
+
+    return await this.createPoll(userId, body, ability);
   }
 
   /**
@@ -73,7 +79,7 @@ export class PollsService {
       subject('Poll', poll),
     );
 
-    return await this.updatePoll(id, body);
+    return await this.updatePoll(id, body, ability);
   }
 
   /**
@@ -114,8 +120,6 @@ export class PollsService {
     return `remove option #${optionId} for Poll #${id} works`;
   }
 
-  // Prisma Helpers — no authorization here, callers above already checked it.
-
   /**
    * Inserts a new poll. New polls always start `visibility: 'private'` and
    * `status: 'pending'`. Hashtags are connected-or-created before linking.
@@ -123,16 +127,18 @@ export class PollsService {
    * @param options - options to create with the poll
    * @param hashtags - hashtags to attach (created if they don't exist)
    * @param body - remaining poll fields
+   * @param ability - the caller's rules, consulted before each hashtag write
    * @returns the created Poll
    */
   async createPoll(
     userId: number,
     { options, hashtags, ...body }: PollCreateDTO,
+    ability: AppAbility,
   ): Promise<Poll> {
     const pollHashtags = hashtags
       ? await Promise.all(
           hashtags.map((hashtag) =>
-            this.hashtagsService.connectOrCreateHashtag(hashtag.name),
+            this.hashtagsService.resolveHashtag(hashtag.name, ability),
           ),
         )
       : undefined;
@@ -163,12 +169,14 @@ export class PollsService {
    * @param options - new option set, or `undefined`/`[]`
    * @param hashtags - new hashtag set, or `undefined`/`[]`
    * @param body - remaining poll fields
+   * @param ability - the caller's rules, consulted before each hashtag write
    * @returns the updated Poll
    * @throws if the poll doesn't exist or has already ended
    */
   async updatePoll(
     id: number,
     { options, hashtags, type, ...body }: PollUpdateDTO,
+    ability: AppAbility,
   ): Promise<Poll> {
     void type;
     return this.prisma.poll.update({
@@ -179,6 +187,7 @@ export class PollsService {
         pollHashtags: await this.hashtagsService.buildHashtagsNestedWrite(
           id,
           hashtags,
+          ability,
         ),
       },
     });
