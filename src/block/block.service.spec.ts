@@ -6,6 +6,7 @@ import {
 import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { NotificationService } from 'src/notification/notification.service';
 import { BlockService } from './block.service';
 
 function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
@@ -45,6 +46,7 @@ type BlockDeleteArgs = { where: { id: number } };
 
 describe('BlockService', () => {
   let service: BlockService;
+  let notifications: { notify: jest.Mock; clearFriendRequest: jest.Mock };
   let prisma: {
     user: {
       findUniqueOrThrow: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
@@ -81,9 +83,11 @@ describe('BlockService', () => {
         .fn<Promise<unknown[]>, [Promise<unknown>[]]>()
         .mockImplementation((ops) => Promise.all(ops)),
     };
+    notifications = { notify: jest.fn(), clearFriendRequest: jest.fn() };
     service = new BlockService(
       prisma as unknown as PrismaService,
       new CaslAbilityFactory(),
+      notifications as unknown as NotificationService,
     );
   });
 
