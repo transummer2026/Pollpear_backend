@@ -25,6 +25,7 @@ import { MailModule } from './mail/mail.module';
 import { VaultModule } from './vault/vault.module';
 import { VaultService } from './vault/vault.service';
 import { BanGuard } from './ban/ban.guard';
+import { NotificationModule } from './notification/notification.module';
 import { BanModule } from './ban/ban.module';
 import { CaslModule } from './casl/casl.module';
 import { AuthorizationGuard } from './casl/authorization.guard';
@@ -79,6 +80,7 @@ import { PresenceModule } from './presence/presence.module';
     WebsocketModule,
     PresenceModule,
     BanModule,
+    NotificationModule,
   ],
   providers: [
     {
