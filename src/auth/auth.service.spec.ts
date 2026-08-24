@@ -10,6 +10,7 @@ import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
+import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { AuthService } from './auth.service';
@@ -58,17 +59,18 @@ describe('AuthService', () => {
   const verifyMock = verify as jest.MockedFunction<typeof verify>;
 
   const findByEmail = jest.fn();
-  const findByBanStatus = jest.fn();
   const generateSessionId = jest.fn();
   const updatePassword = jest.fn();
   const markEmailVerified = jest.fn();
   const users = {
     findByEmail,
-    findByBanStatus,
     generateSessionId,
     updatePassword,
     verifyEmail: markEmailVerified,
   } as unknown as UsersService;
+
+  const findByBanStatus = jest.fn();
+  const ban = { findByBanStatus } as unknown as BanService;
 
   const setRedisCache = jest.fn();
   const setPasswordResetToken = jest.fn();
@@ -103,7 +105,15 @@ describe('AuthService', () => {
     app: { frontend_url: 'https://front.test' },
   } as unknown as VaultService;
 
-  const service = new AuthService(prisma, users, redis, mail, vault, emitter);
+  const service = new AuthService(
+    prisma,
+    users,
+    ban,
+    redis,
+    mail,
+    vault,
+    emitter,
+  );
 
   beforeAll(() => {
     Logger.overrideLogger(false);
@@ -115,7 +125,8 @@ describe('AuthService', () => {
       const emptyVault = { session: {} } as unknown as VaultService;
 
       expect(
-        () => new AuthService(prisma, users, redis, mail, emptyVault, emitter),
+        () =>
+          new AuthService(prisma, users, ban, redis, mail, emptyVault, emitter),
       ).toThrow('Vault pepper secret is not defined');
     });
   });

@@ -4,7 +4,7 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
-import { UsersService } from 'src/users/users.service';
+import { BanService } from './ban.service';
 import { Reflector } from '@nestjs/core';
 import { type Request } from 'express';
 import { VISIBLE_BY_BAN } from '../common/decorators/ban.decorator';
@@ -17,7 +17,7 @@ import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 @Injectable()
 export class BanGuard implements CanActivate {
   constructor(
-    private readonly userService: UsersService,
+    private readonly banService: BanService,
     private reflector: Reflector,
   ) {}
 
@@ -43,7 +43,7 @@ export class BanGuard implements CanActivate {
     const userId = request.userId;
     if (!userId) throw new ForbiddenException('No user id.');
 
-    const userisBanned = await this.userService.findByBanStatus(userId);
+    const userisBanned = await this.banService.findByBanStatus(userId);
     if (userisBanned) {
       throw new ForbiddenException('User is banned.');
     }

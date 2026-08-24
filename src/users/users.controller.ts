@@ -23,10 +23,18 @@ import {
   FriendshipStatusUpdateSchema,
 } from 'Pollpear_shared/src/schemas/friendship.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import { FriendshipService } from 'src/friendship/friendship.service';
+import { BlockService } from 'src/block/block.service';
+import { BanService } from 'src/ban/ban.service';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly friendshipService: FriendshipService,
+    private readonly blockService: BlockService,
+    private readonly banService: BanService,
+  ) {}
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -45,7 +53,7 @@ export class UsersController {
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.usersService.getBlockStatus(userId, id);
+    return this.blockService.getBlockStatus(userId, id);
   }
 
   @Get(':id/blocks')
@@ -54,21 +62,21 @@ export class UsersController {
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.usersService.getBlockedUsers(userId, id);
+    return this.blockService.getBlockedUsers(userId, id);
   }
 
   @Post(':id/block')
   @HttpCode(201)
   @CheckAbilities(['create', 'Block'])
   blockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.usersService.blockUser(userId, id);
+    return this.blockService.blockUser(userId, id);
   }
 
   @Delete(':id/block')
   @HttpCode(204)
   @CheckAbilities(['delete', 'Block'])
   unblockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.usersService.unblockUser(userId, id);
+    return this.blockService.unblockUser(userId, id);
   }
 
   @Get(':id/friendship')
@@ -78,7 +86,10 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const friendship = await this.usersService.getFriendshipWith(userId, id);
+    const friendship = await this.friendshipService.getFriendshipWith(
+      userId,
+      id,
+    );
     if (!friendship) {
       res.status(204);
       return;
@@ -89,7 +100,7 @@ export class UsersController {
   @Get(':id/friends')
   @CheckAbilities(['read', 'Friendship'])
   getFriends(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.usersService.getFriends(userId, id);
+    return this.friendshipService.getFriends(userId, id);
   }
 
   @Get(':id/friend-requests')
@@ -98,7 +109,7 @@ export class UsersController {
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.usersService.getFriendRequests(userId, id);
+    return this.friendshipService.getFriendRequests(userId, id);
   }
 
   @Post(':id/friendship')
@@ -108,7 +119,7 @@ export class UsersController {
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.usersService.createFriendRequest(userId, id);
+    return this.friendshipService.createFriendRequest(userId, id);
   }
 
   // respond to friend request to update the result of the friendship
@@ -121,7 +132,7 @@ export class UsersController {
     @Body(new ZodValidationPipe(FriendshipStatusUpdateSchema))
     body: FriendshipStatusUpdateDTO,
   ) {
-    return this.usersService.updateFriendRequest(userId, id, body.status);
+    return this.friendshipService.updateFriendRequest(userId, id, body.status);
   }
 
   @Delete(':id/friendship')
@@ -131,21 +142,21 @@ export class UsersController {
     @UserId() userId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.usersService.removeFriendship(userId, id);
+    return this.friendshipService.removeFriendship(userId, id);
   }
 
   // add Guard for moderator from here on (green arrows on sequence diagram)
   @Post(':id/ban')
   @HttpCode(503)
   ban(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.ban(+id);
+    return this.banService.ban(+id);
   }
 
   @Patch(':id/ban')
   @HttpCode(503)
   @CheckAbilities(['ban', 'User'])
   updateBan(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.updateBan(+id);
+    return this.banService.updateBan(+id);
   }
 
   // add Guard for admin from here on (red arrows on sequence diagram)

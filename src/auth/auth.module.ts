@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from 'src/users/users.module';
 import { MailModule } from 'src/mail/mail.module';
+import { BanModule } from 'src/ban/ban.module';
 import { OauthService } from './oauth.service';
 import { OauthStateStore } from './oauth-state.store';
 import { OauthGuard } from './oauth.guard';
@@ -14,7 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './auth.guard';
 
 @Module({
-  imports: [UsersModule, MailModule, PassportModule],
+  imports: [UsersModule, MailModule, PassportModule, BanModule],
   exports: [AuthService],
   controllers: [AuthController],
   providers: [
