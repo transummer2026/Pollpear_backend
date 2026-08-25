@@ -1,8 +1,8 @@
 import { ZodError } from 'zod';
-import { PollsService } from 'src/polls/polls.service';
 import { RoomsService } from 'src/rooms/rooms.service';
 import { UsersService } from 'src/users/users.service';
 import { SearchService } from './search.service';
+import type { SearchQueryDTO } from 'Pollpear_shared/src/schemas/search.schema';
 
 const users = [
   {
@@ -13,67 +13,100 @@ const users = [
     avatarUrl: '/uploads/avatars/default.svg',
   },
 ];
-const polls = [{ id: 2, title: 'Best pear variety?' }];
 const rooms = [{ id: 3, name: 'orchard' }];
+const REQUESTER_ID = 42;
+
+function query(overrides: Partial<SearchQueryDTO> = {}): SearchQueryDTO {
+  return {
+    q: 'pear',
+    type: 'all',
+    page: 1,
+    limit: 10,
+    sortBy: 'relevance',
+    ...overrides,
+  };
+}
 
 describe('SearchService', () => {
   const searchUsers = jest.fn();
-  const searchPolls = jest.fn();
   const searchRooms = jest.fn();
   const service = new SearchService(
     { search: searchUsers } as unknown as UsersService,
-    { search: searchPolls } as unknown as PollsService,
     { search: searchRooms } as unknown as RoomsService,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    searchUsers.mockResolvedValue(users);
-    searchPolls.mockResolvedValue(polls);
-    searchRooms.mockResolvedValue(rooms);
+    searchUsers.mockResolvedValue({ items: users, total: users.length });
+    searchRooms.mockResolvedValue({ items: rooms, total: rooms.length });
   });
 
-  it('fans out to the three services for a global search', async () => {
-    await expect(service.search({ q: 'pear', type: 'all' })).resolves.toEqual({
+  it('fans out to both services for a global search, capped to a preview page', async () => {
+    await expect(
+      service.search(query({ type: 'all' }), REQUESTER_ID),
+    ).resolves.toEqual({
       users,
-      polls,
+      usersTotal: users.length,
       rooms,
+      roomsTotal: rooms.length,
     });
 
-    expect(searchUsers).toHaveBeenCalledWith('pear');
-    expect(searchPolls).toHaveBeenCalledWith('pear');
-    expect(searchRooms).toHaveBeenCalledWith('pear');
+    expect(searchUsers).toHaveBeenCalledWith('pear', REQUESTER_ID, {
+      page: 1,
+      limit: 5,
+      sortBy: 'relevance',
+    });
+    expect(searchRooms).toHaveBeenCalledWith('pear', REQUESTER_ID, {
+      page: 1,
+      limit: 5,
+      sortBy: 'relevance',
+    });
   });
 
-  it('queries only the users service for a user search', async () => {
-    await expect(service.search({ q: 'pear', type: 'user' })).resolves.toEqual({
+  it('queries only the users service for a user search, forwarding page/limit/sortBy', async () => {
+    await expect(
+      service.search(
+        query({ type: 'user', page: 2, limit: 20, sortBy: 'alphabetical' }),
+        REQUESTER_ID,
+      ),
+    ).resolves.toEqual({
       users,
-      polls: [],
+      usersTotal: users.length,
       rooms: [],
+      roomsTotal: 0,
     });
 
-    expect(searchUsers).toHaveBeenCalledWith('pear');
-    expect(searchPolls).not.toHaveBeenCalled();
+    expect(searchUsers).toHaveBeenCalledWith('pear', REQUESTER_ID, {
+      page: 2,
+      limit: 20,
+      sortBy: 'alphabetical',
+    });
     expect(searchRooms).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { type: 'poll' as const, expected: { users: [], polls, rooms: [] } },
-    { type: 'room' as const, expected: { users: [], polls: [], rooms } },
-  ])(
-    'empties the other collections for a $type search',
-    async ({ type, expected }) => {
-      await expect(service.search({ q: 'pear', type })).resolves.toEqual(
-        expected,
-      );
-    },
-  );
+  it('empties the users collection for a room search', async () => {
+    await expect(
+      service.search(query({ type: 'room' }), REQUESTER_ID),
+    ).resolves.toEqual({
+      users: [],
+      usersTotal: 0,
+      rooms,
+      roomsTotal: rooms.length,
+    });
+
+    expect(searchUsers).not.toHaveBeenCalled();
+    expect(searchRooms).toHaveBeenCalledWith('pear', REQUESTER_ID, {
+      page: 1,
+      limit: 10,
+      sortBy: 'relevance',
+    });
+  });
 
   it('rejects a result row that breaks the shared schema', async () => {
-    searchUsers.mockResolvedValue([{ id: 1 }]);
+    searchUsers.mockResolvedValue({ items: [{ id: 1 }], total: 1 });
 
-    await expect(service.search({ q: 'pear', type: 'user' })).rejects.toThrow(
-      ZodError,
-    );
+    await expect(
+      service.search(query({ type: 'user' }), REQUESTER_ID),
+    ).rejects.toThrow(ZodError);
   });
 });

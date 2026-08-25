@@ -37,8 +37,8 @@ export class UsersController {
   ) {}
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
+    return this.usersService.findOne(id, userId);
   }
 
   @Post(':id/report')

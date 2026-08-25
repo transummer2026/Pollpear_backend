@@ -13,9 +13,14 @@ import {
   type UserUpdateDTO,
 } from 'Pollpear_shared/src/schemas/users.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
 import { ForbiddenError, subject } from '@casl/ability';
+import {
+  SEARCH_RESULTS_LIMIT,
+  type SearchOptions,
+} from 'src/search/search-options';
+import type { Prisma } from 'src/generated/prisma/client';
 
-const SEARCH_RESULTS_LIMIT = 5;
 const SEARCH_SELECT = {
   id: true,
   username: true,
@@ -23,6 +28,14 @@ const SEARCH_SELECT = {
   surname: true,
   avatarUrl: true,
 } as const;
+
+type UserSearchRow = {
+  id: number;
+  username: string;
+  name: string | null;
+  surname: string | null;
+  avatarUrl: string;
+};
 
 @Injectable()
 export class UsersService {
@@ -34,58 +47,111 @@ export class UsersService {
   /**
    * Prefix matches on username rank first (the "find that exact friend"
    * case), then contains matches on username/name/surname fill the rest:
-   * Prisma has no relevance-ordered ORDER BY without raw SQL.
+   * Prisma has no relevance-ordered ORDER BY without raw SQL. Pagination
+   * walks the two phases with `skip`/`take` so page N stays consistent
+   * with page N-1 instead of re-deriving the ranking from scratch. The
+   * readable scope is derived from the CASL User-read policy via
+   * `accessibleBy` instead of re-encoding it, so search stays in sync
+   * with whatever that policy allows (public users, plus the requester's
+   * own profile).
    */
-  async search(q: string) {
-    const startsWith = await this.prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        visibility: { not: 'private' },
-        username: { startsWith: q, mode: 'insensitive' },
-      },
-      select: SEARCH_SELECT,
-      orderBy: { username: 'asc' },
-      take: SEARCH_RESULTS_LIMIT,
+  async search(
+    q: string,
+    userId: number,
+    {
+      page = 1,
+      limit = SEARCH_RESULTS_LIMIT,
+      sortBy = 'relevance',
+    }: SearchOptions = {},
+  ) {
+    const ability = await this.abilityFor(userId);
+    // `readableBy` and the search-term filter each need their own `OR`;
+    // composing them with `AND` (rather than spreading both into the same
+    // object) keeps the two from colliding and silently dropping one.
+    const readableBy: Prisma.UserWhereInput = accessibleBy(
+      ability,
+      'read',
+    ).ofType('User');
+    const baseWhere: Prisma.UserWhereInput = {
+      deletedAt: null,
+      AND: [readableBy],
+    };
+    const matchWhere: Prisma.UserWhereInput = {
+      deletedAt: null,
+      AND: [
+        readableBy,
+        {
+          OR: [
+            { username: { contains: q, mode: 'insensitive' } },
+            { name: { contains: q, mode: 'insensitive' } },
+            { surname: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      ],
+    };
+
+    const total = await this.prisma.user.count({ where: matchWhere });
+    const skip = (page - 1) * limit;
+
+    if (sortBy === 'alphabetical') {
+      const items = await this.prisma.user.findMany({
+        where: matchWhere,
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        skip,
+        take: limit,
+      });
+      return { items, total };
+    }
+
+    const startsWithFilter: Prisma.UserWhereInput = {
+      username: { startsWith: q, mode: 'insensitive' },
+    };
+    const startsWithWhere: Prisma.UserWhereInput = {
+      ...baseWhere,
+      ...startsWithFilter,
+    };
+    const startsWithTotal = await this.prisma.user.count({
+      where: startsWithWhere,
     });
 
-    const remaining = SEARCH_RESULTS_LIMIT - startsWith.length;
-    if (remaining <= 0) return startsWith;
+    let items: UserSearchRow[] = [];
+    if (skip < startsWithTotal) {
+      items = await this.prisma.user.findMany({
+        where: startsWithWhere,
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        skip,
+        take: limit,
+      });
+    }
 
-    const contains = await this.prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        visibility: { not: 'private' },
-        id: { notIn: startsWith.map((user) => user.id) },
-        OR: [
-          { username: { contains: q, mode: 'insensitive' } },
-          { name: { contains: q, mode: 'insensitive' } },
-          { surname: { contains: q, mode: 'insensitive' } },
-        ],
-      },
-      select: SEARCH_SELECT,
-      orderBy: { username: 'asc' },
-      take: remaining,
-    });
+    const remaining = limit - items.length;
+    if (remaining > 0) {
+      const contains = await this.prisma.user.findMany({
+        where: {
+          ...matchWhere,
+          NOT: startsWithFilter,
+        },
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        skip: Math.max(0, skip - startsWithTotal),
+        take: remaining,
+      });
+      items = [...items, ...contains];
+    }
 
-    return [...startsWith, ...contains];
+    return { items, total };
   }
 
-  async findOne(id: number): Promise<UserPublicProfileDTO> {
+  async findOne(id: number, userId: number): Promise<UserPublicProfileDTO> {
     const user = await this.findByUserId(id);
     if (!user) throw new NotFoundException('User not found');
+
+    const ability = await this.abilityFor(userId);
+    ForbiddenError.from(ability).throwUnlessCan('read', subject('User', user));
+
     return UserPublicProfileSchema.parse(user);
-  }
-
-  report(id: number) {
-    return `report user #${id} works`;
-  }
-
-  private async abilityFor(userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
-    return this.abilityFactory.createForUser(user);
   }
 
   async update(
@@ -107,6 +173,10 @@ export class UsersService {
 
   remove(id: number) {
     return `remove user #${id} works`;
+  }
+
+  report(id: number) {
+    return `report user #${id} works`;
   }
 
   // PRISMA REQUESTS
@@ -171,5 +241,13 @@ export class UsersService {
       },
       data: data,
     });
+  }
+
+  private async abilityFor(userId: number) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+    return this.abilityFactory.createForUser(user);
   }
 }

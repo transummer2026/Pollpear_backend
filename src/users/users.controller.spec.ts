@@ -47,10 +47,10 @@ describe('UsersController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('findOne delegates to usersService.findOne with the target id', () => {
-    void controller.findOne(2);
+  it('findOne delegates to usersService.findOne with the target id and requester id', () => {
+    void controller.findOne(2, 1);
 
-    expect(usersService.findOne).toHaveBeenCalledWith(2);
+    expect(usersService.findOne).toHaveBeenCalledWith(2, 1);
   });
 
   it('getFriendship delegates with (viewer, target)', () => {

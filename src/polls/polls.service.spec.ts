@@ -189,25 +189,6 @@ describe('PollsService', () => {
     });
   });
 
-  describe('search', () => {
-    it('returns only live public polls capped at five', async () => {
-      const found = [{ id: 7, title: 'Best pear variety?' }];
-      pollFindMany.mockResolvedValue(found);
-
-      await expect(service.search('pear')).resolves.toBe(found);
-
-      expect(pollFindMany).toHaveBeenCalledWith({
-        where: {
-          deletedAt: null,
-          visibility: 'public',
-          title: { contains: 'pear', mode: 'insensitive' },
-        },
-        select: { id: true, title: true },
-        take: 5,
-      });
-    });
-  });
-
   describe('update', () => {
     it('refuses an update from anyone but the author', async () => {
       userFindUniqueOrThrow.mockResolvedValue(author({ id: 43 }));

@@ -42,8 +42,22 @@ describe('CaslAbilityFactory', () => {
   describe('user role', () => {
     const ability = abilityFor(UserRole.user);
 
-    it('grants read on any User', () => {
-      expect(ability.can('read', userSubject({ id: 99 }))).toBe(true);
+    it('grants read on a public User', () => {
+      expect(
+        ability.can('read', userSubject({ id: 99, visibility: 'public' })),
+      ).toBe(true);
+    });
+
+    it('denies read on a private User that is not the requester', () => {
+      expect(
+        ability.can('read', userSubject({ id: 99, visibility: 'private' })),
+      ).toBe(false);
+    });
+
+    it('grants read on the requester own private User', () => {
+      expect(
+        ability.can('read', userSubject({ id: 1, visibility: 'private' })),
+      ).toBe(true);
     });
 
     it('grants update on the requesting user own User only', () => {
