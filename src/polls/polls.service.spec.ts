@@ -99,13 +99,13 @@ describe('PollsService', () => {
   } as unknown as PrismaService;
   const buildOptionsNestedWrite = jest.fn();
   const buildHashtagsNestedWrite = jest.fn();
-  const connectOrCreateHashtag = jest.fn();
+  const resolveHashtag = jest.fn();
   const service = new PollsService(
     prisma,
     new CaslAbilityFactory(),
     { buildOptionsNestedWrite } as unknown as OptionsService,
     {
-      connectOrCreateHashtag,
+      resolveHashtag,
       buildHashtagsNestedWrite,
     } as unknown as HashtagsService,
     {
@@ -133,6 +133,7 @@ describe('PollsService', () => {
 
   describe('create', () => {
     it('forces private visibility, pending status and the caller as owner', async () => {
+      userFindUniqueOrThrow.mockResolvedValue(author());
       const body = createBody({
         visibility: 'public',
         status: 'active',
@@ -151,7 +152,8 @@ describe('PollsService', () => {
     });
 
     it('nests option rows and resolved hashtag ids', async () => {
-      connectOrCreateHashtag
+      userFindUniqueOrThrow.mockResolvedValue(author());
+      resolveHashtag
         .mockResolvedValueOnce({ hashtagId: 1 })
         .mockResolvedValueOnce({ hashtagId: 2 });
       const body = createBody({
@@ -160,8 +162,16 @@ describe('PollsService', () => {
 
       await service.create(42, body);
 
-      expect(connectOrCreateHashtag).toHaveBeenNthCalledWith(1, 'dev');
-      expect(connectOrCreateHashtag).toHaveBeenNthCalledWith(2, 'life');
+      expect(resolveHashtag).toHaveBeenNthCalledWith(
+        1,
+        'dev',
+        expect.anything(),
+      );
+      expect(resolveHashtag).toHaveBeenNthCalledWith(
+        2,
+        'life',
+        expect.anything(),
+      );
       expect(pollCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({
           options: { create: body.options },
@@ -171,9 +181,11 @@ describe('PollsService', () => {
     });
 
     it('skips hashtag resolution when the body carries none', async () => {
+      userFindUniqueOrThrow.mockResolvedValue(author());
+
       await service.create(42, createBody());
 
-      expect(connectOrCreateHashtag).not.toHaveBeenCalled();
+      expect(resolveHashtag).not.toHaveBeenCalled();
     });
   });
 
@@ -228,7 +240,11 @@ describe('PollsService', () => {
       await service.update(7, 42, body);
 
       expect(buildOptionsNestedWrite).toHaveBeenCalledWith(7, body.options);
-      expect(buildHashtagsNestedWrite).toHaveBeenCalledWith(7, body.hashtags);
+      expect(buildHashtagsNestedWrite).toHaveBeenCalledWith(
+        7,
+        body.hashtags,
+        expect.anything(),
+      );
       expect(pollUpdate).toHaveBeenCalledWith({
         where: { id: 7, endsAt: { gte: expect.any(Date) as Date } },
         data: {

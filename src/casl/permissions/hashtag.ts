@@ -1,0 +1,24 @@
+import { AbilityBuilder } from '@casl/ability';
+import { AuthorizationUser } from './role';
+import { CrudAction } from './crud';
+import { AppAbility } from '../casl-prisma';
+
+export type HashtagActions = CrudAction | 'report';
+
+export type HashtagAbilities = [HashtagActions, 'Hashtag'];
+
+export function defineHashtagPermissions(
+  { can: allow }: AbilityBuilder<AppAbility>,
+  user: AuthorizationUser,
+) {
+  if (user.isAdmin()) {
+    allow(['read', 'update', 'delete'], 'Hashtag');
+  }
+
+  if (user.isModerator()) {
+    allow('update', 'Hashtag', { deletedAt: null });
+  }
+
+  allow('create', 'Hashtag');
+  allow(['read', 'report'], 'Hashtag', { deletedAt: null });
+}
