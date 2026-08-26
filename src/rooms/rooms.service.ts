@@ -1,26 +1,107 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import type { Prisma } from 'src/generated/prisma/client';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
+import {
+  SEARCH_RESULTS_LIMIT,
+  type SearchOptions,
+} from 'src/search/search-options';
 
-const SEARCH_RESULTS_LIMIT = 5;
+type RoomSearchRow = { id: number; name: string };
 
 @Injectable()
 export class RoomsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private abilityFactory: CaslAbilityFactory,
+  ) {}
+
+  /**
+   * Prefix matches on name rank first, then contains matches fill the
+   * rest, mirroring UsersService#search. Pagination walks both phases with
+   * `skip`/`take` so page N stays consistent with page N-1. The readable
+   * scope is derived from the CASL room-read policy via `accessibleBy`
+   * instead of re-encoding it, so search never surfaces a room the
+   * requester couldn't otherwise read (and, unlike the old hand-rolled
+   * `visibility: 'public'` filter, correctly includes the requester's
+   * own non-public rooms).
+   */
+  async search(
+    q: string,
+    userId: number,
+    {
+      page = 1,
+      limit = SEARCH_RESULTS_LIMIT,
+      sortBy = 'relevance',
+    }: SearchOptions = {},
+  ) {
+    const ability = await this.abilityFor(userId);
+    const baseWhere: Prisma.RoomWhereInput = {
+      deletedAt: null,
+      ...accessibleBy(ability, 'read').ofType('Room'),
+    };
+    const matchWhere: Prisma.RoomWhereInput = {
+      ...baseWhere,
+      name: { contains: q, mode: 'insensitive' },
+    };
+
+    const total = await this.prisma.room.count({ where: matchWhere });
+    const skip = (page - 1) * limit;
+
+    if (sortBy === 'alphabetical') {
+      const items = await this.prisma.room.findMany({
+        where: matchWhere,
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      });
+      return { items, total };
+    }
+
+    const startsWithFilter: Prisma.RoomWhereInput = {
+      name: { startsWith: q, mode: 'insensitive' },
+    };
+    const startsWithWhere: Prisma.RoomWhereInput = {
+      ...baseWhere,
+      ...startsWithFilter,
+    };
+    const startsWithTotal = await this.prisma.room.count({
+      where: startsWithWhere,
+    });
+
+    let items: RoomSearchRow[] = [];
+    if (skip < startsWithTotal) {
+      items = await this.prisma.room.findMany({
+        where: startsWithWhere,
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      });
+    }
+
+    const remaining = limit - items.length;
+    if (remaining > 0) {
+      const contains = await this.prisma.room.findMany({
+        where: {
+          ...matchWhere,
+          NOT: startsWithFilter,
+        },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        skip: Math.max(0, skip - startsWithTotal),
+        take: remaining,
+      });
+      items = [...items, ...contains];
+    }
+
+    return { items, total };
+  }
 
   create() {
     return 'add a new room works';
-  }
-
-  search(q: string) {
-    return this.prisma.room.findMany({
-      where: {
-        deletedAt: null,
-        visibility: 'public',
-        name: { contains: q, mode: 'insensitive' },
-      },
-      select: { id: true, name: true },
-      take: SEARCH_RESULTS_LIMIT,
-    });
   }
 
   update(id: number) {
@@ -49,5 +130,13 @@ export class RoomsService {
 
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
+  }
+
+  private async abilityFor(userId: number) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+    return this.abilityFactory.createForUser(user);
   }
 }

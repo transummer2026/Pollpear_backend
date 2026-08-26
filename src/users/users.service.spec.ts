@@ -1,4 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { UsersService } from './users.service';
@@ -67,6 +68,7 @@ describe('UsersService', () => {
       findFirst: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
       findUniqueOrThrow: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
       findMany: jest.Mock<Promise<unknown[]>, [Record<string, unknown>]>;
+      count: jest.Mock<Promise<number>, [Record<string, unknown>]>;
       update: jest.Mock<Promise<unknown>, [UpdateArgs]>;
       updateMany: jest.Mock<Promise<unknown>, [UpdateManyArgs]>;
     };
@@ -80,6 +82,7 @@ describe('UsersService', () => {
           .fn<Promise<unknown>, [FindFirstArgs]>()
           .mockResolvedValue(makeUser({ id: 1 })),
         findMany: jest.fn<Promise<unknown[]>, [Record<string, unknown>]>(),
+        count: jest.fn<Promise<number>, [Record<string, unknown>]>(),
         update: jest.fn<Promise<unknown>, [UpdateArgs]>(),
         updateMany: jest.fn<Promise<unknown>, [UpdateManyArgs]>(),
       },
@@ -98,7 +101,7 @@ describe('UsersService', () => {
     it('returns only the public profile fields when found', async () => {
       prisma.user.findFirst.mockResolvedValue(makeUser());
 
-      const result = await service.findOne(1);
+      const result = await service.findOne(1, 1);
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { id: 1, deletedAt: null },
@@ -116,59 +119,179 @@ describe('UsersService', () => {
     it('throws NotFoundException when the user does not exist', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toBeInstanceOf(
+      await expect(service.findOne(999, 1)).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+
+    it('denies read on a private profile that is not the requester', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        makeUser({ id: 2, visibility: 'private' }),
+      );
+
+      await expect(service.findOne(2, 1)).rejects.toThrow(ForbiddenError);
+    });
+
+    it('allows the requester to read their own private profile', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        makeUser({ id: 1, visibility: 'private' }),
+      );
+
+      const result = await service.findOne(1, 1);
+      expect(result.username).toBe('alice');
     });
   });
 
   describe('search', () => {
+    const REQUESTER_ID = 1;
+    // Derived from the CASL User-read policy for a plain 'user' role:
+    // public users, or the requester's own profile. This has its own `OR`,
+    // same as the multi-field search term below, so the two are composed
+    // with `AND` rather than spread into one object — spreading two `OR`
+    // keys into the same where-clause silently drops one of them.
+    const readableBy = {
+      OR: [{ id: REQUESTER_ID }, { visibility: { not: 'private' } }],
+    };
+    const baseWhere = { deletedAt: null, AND: [readableBy] };
+    const matchWhere = (q: string) => ({
+      deletedAt: null,
+      AND: [
+        readableBy,
+        {
+          OR: [
+            { username: { contains: q, mode: 'insensitive' } },
+            { name: { contains: q, mode: 'insensitive' } },
+            { surname: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      ],
+    });
+    const startsWithWhere = (q: string) => ({
+      ...baseWhere,
+      username: { startsWith: q, mode: 'insensitive' },
+    });
+
+    it('keeps the CASL visibility scope on a name/surname match instead of letting it get overwritten by the search-term OR', async () => {
+      prisma.user.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      prisma.user.findMany.mockResolvedValueOnce([]);
+
+      await service.search('surname-match', REQUESTER_ID);
+
+      const countWhere = prisma.user.count.mock.calls[0][0].where as Record<
+        string,
+        unknown
+      >;
+      expect(countWhere.OR).toBeUndefined();
+      expect(countWhere.AND).toContainEqual(readableBy);
+    });
+
     it('ranks username prefixes first and fills the rest with contains matches', async () => {
       const prefixed = [searchRow(1, 'ali'), searchRow(2, 'alice')];
       const contained = [searchRow(3, 'magali')];
+      prisma.user.count.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
       prisma.user.findMany
         .mockResolvedValueOnce(prefixed)
         .mockResolvedValueOnce(contained);
 
-      await expect(service.search('ali')).resolves.toEqual([
-        ...prefixed,
-        ...contained,
-      ]);
+      await expect(service.search('ali', REQUESTER_ID)).resolves.toEqual({
+        items: [...prefixed, ...contained],
+        total: 3,
+      });
 
+      expect(prisma.user.count).toHaveBeenNthCalledWith(1, {
+        where: matchWhere('ali'),
+      });
+      expect(prisma.user.count).toHaveBeenNthCalledWith(2, {
+        where: startsWithWhere('ali'),
+      });
       expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
-        where: {
-          deletedAt: null,
-          visibility: { not: 'private' },
-          username: { startsWith: 'ali', mode: 'insensitive' },
-        },
+        where: startsWithWhere('ali'),
         select: SEARCH_SELECT,
         orderBy: { username: 'asc' },
+        skip: 0,
         take: 5,
       });
       expect(prisma.user.findMany).toHaveBeenNthCalledWith(2, {
         where: {
-          deletedAt: null,
-          visibility: { not: 'private' },
-          id: { notIn: [1, 2] },
-          OR: [
-            { username: { contains: 'ali', mode: 'insensitive' } },
-            { name: { contains: 'ali', mode: 'insensitive' } },
-            { surname: { contains: 'ali', mode: 'insensitive' } },
-          ],
+          ...matchWhere('ali'),
+          NOT: { username: { startsWith: 'ali', mode: 'insensitive' } },
         },
         select: SEARCH_SELECT,
         orderBy: { username: 'asc' },
+        skip: 0,
         take: 3,
       });
     });
 
     it('skips the contains query when prefixes already fill the limit', async () => {
       const prefixed = [1, 2, 3, 4, 5].map((id) => searchRow(id));
+      prisma.user.count.mockResolvedValueOnce(5).mockResolvedValueOnce(5);
       prisma.user.findMany.mockResolvedValueOnce(prefixed);
 
-      await expect(service.search('user')).resolves.toEqual(prefixed);
+      await expect(service.search('user', REQUESTER_ID)).resolves.toEqual({
+        items: prefixed,
+        total: 5,
+      });
 
       expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('walks skip/take across the prefix/contains boundary on later pages', async () => {
+      // 6 prefix matches, page 2 at limit 5 starts 1 item into the prefix
+      // phase's tail and needs 4 more from the contains phase.
+      const prefixTail = [searchRow(6)];
+      const contained = [
+        searchRow(7),
+        searchRow(8),
+        searchRow(9),
+        searchRow(10),
+      ];
+      prisma.user.count.mockResolvedValueOnce(10).mockResolvedValueOnce(6);
+      prisma.user.findMany
+        .mockResolvedValueOnce(prefixTail)
+        .mockResolvedValueOnce(contained);
+
+      await expect(
+        service.search('user', REQUESTER_ID, { page: 2, limit: 5 }),
+      ).resolves.toEqual({ items: [...prefixTail, ...contained], total: 10 });
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+        where: startsWithWhere('user'),
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        skip: 5,
+        take: 5,
+      });
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          ...matchWhere('user'),
+          NOT: { username: { startsWith: 'user', mode: 'insensitive' } },
+        },
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        skip: 0,
+        take: 4,
+      });
+    });
+
+    it('orders alphabetically without the prefix phase when sortBy is alphabetical', async () => {
+      const alphabetical = [searchRow(1, 'alice'), searchRow(2, 'bob')];
+      prisma.user.count.mockResolvedValueOnce(2);
+      prisma.user.findMany.mockResolvedValueOnce(alphabetical);
+
+      await expect(
+        service.search('a', REQUESTER_ID, { sortBy: 'alphabetical' }),
+      ).resolves.toEqual({ items: alphabetical, total: 2 });
+
+      expect(prisma.user.count).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: matchWhere('a'),
+        select: SEARCH_SELECT,
+        orderBy: { username: 'asc' },
+        skip: 0,
+        take: 5,
+      });
     });
   });
 

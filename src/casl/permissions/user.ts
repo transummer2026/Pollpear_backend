@@ -23,6 +23,7 @@ export function defineUserPermissions(
     allow('ban', 'User');
   }
 
-  allow('read', 'User');
+  allow('read', 'User', { visibility: { not: 'private' } });
+  allow('read', 'User', { id: user.id });
   allow('update', 'User', { id: user.id });
 }

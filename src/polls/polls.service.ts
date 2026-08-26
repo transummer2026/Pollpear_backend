@@ -13,8 +13,6 @@ import {
 import { Poll } from 'src/generated/prisma/client';
 import { Logger } from '@nestjs/common';
 
-const SEARCH_RESULTS_LIMIT = 5;
-
 @Injectable()
 export class PollsService {
   constructor(
@@ -24,23 +22,6 @@ export class PollsService {
     private hashtagsService: HashtagsService,
     private logger: Logger,
   ) {}
-
-  /**
-   * Case-insensitive title search over public, non-deleted polls.
-   * @param q - search string
-   * @returns up to `SEARCH_RESULTS_LIMIT` results, each `{ id, title }`
-   */
-  search(q: string) {
-    return this.prisma.poll.findMany({
-      where: {
-        deletedAt: null,
-        visibility: 'public',
-        title: { contains: q, mode: 'insensitive' },
-      },
-      select: { id: true, title: true },
-      take: SEARCH_RESULTS_LIMIT,
-    });
-  }
 
   /**
    * Creates a poll. Thin wrapper around {@link createPoll}.
