@@ -12,13 +12,15 @@ export function defineHashtagPermissions(
   user: AuthorizationUser,
 ) {
   if (user.isAdmin()) {
-    allow(['read', 'update', 'delete'], 'Hashtag');
+    allow('read', 'Hashtag');
   }
 
   if (user.isModerator()) {
-    allow('update', 'Hashtag', { deletedAt: null });
+    allow('delete', 'Hashtag');
   }
 
   allow('create', 'Hashtag');
-  allow(['read', 'report'], 'Hashtag', { deletedAt: null });
+  allow(['read', 'report'], 'Hashtag', {
+    deletedAt: null,
+  });
 }

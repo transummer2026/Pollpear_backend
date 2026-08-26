@@ -115,13 +115,13 @@ export class PollsController {
 
   //routes will dissapear because later we will use wbesockets
   @Get(':id/vote:id')
-  @CheckAbilities(['read', 'PollVote'])
+  @CheckAbilities(['read', 'Vote'])
   findOneVote(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
     return this.votesService.findOneVote(id, userId);
   }
 
   @Post(':id/vote')
-  @CheckAbilities(['create', 'PollVote'])
+  @CheckAbilities(['create', 'Vote'])
   createVote(
     @Param('id', ParseIntPipe) pollId: number,
     @UserId() userId: number,
@@ -131,7 +131,7 @@ export class PollsController {
   }
 
   @Patch(':id/vote')
-  @CheckAbilities(['update', 'PollVote'])
+  @CheckAbilities(['update', 'Vote'])
   updateVote(
     @Param('id', ParseIntPipe) pollId: number,
     @UserId() userId: number,
@@ -141,7 +141,7 @@ export class PollsController {
   }
 
   @Delete(':id/vote')
-  @CheckAbilities(['delete', 'PollVote'])
+  @CheckAbilities(['delete', 'Vote'])
   removeVote(
     @Param('id', ParseIntPipe) pollId: number,
     @UserId() userId: number,
@@ -150,7 +150,7 @@ export class PollsController {
   }
 
   @Post(':id/vote/report')
-  @CheckAbilities(['report', 'PollVote'])
+  @CheckAbilities(['report', 'Vote'])
   @HttpCode(503)
   reportVote(@Param('id', ParseIntPipe) id: number) {
     return this.votesService.reportVote(id);
