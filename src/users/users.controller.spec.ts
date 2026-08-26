@@ -76,8 +76,10 @@ describe('UsersController', () => {
       status: 'accepted' as const,
       createdAt: new Date(),
       updatedAt: new Date(),
-      requesterId: 1,
+      userAId: 1,
+      userBId: 2,
       addresseeId: 2,
+      requesterId: 1,
     };
     friendshipService.getFriendshipWith.mockResolvedValue(friendship);
     const { res, status } = mockResponse();

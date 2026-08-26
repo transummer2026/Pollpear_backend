@@ -14,31 +14,38 @@ export function defineFriendshipPermissions(
   user: AuthorizationUser,
 ) {
   allow('create', 'Friendship');
+
   allow('read', 'Friendship', {
     deletedAt: null,
     status: 'accepted',
-    requester: { is: { visibility: { not: 'private' } } },
-    addressee: { is: { visibility: { not: 'private' } } },
+    userA: { is: { visibility: { not: 'private' } } },
+    userB: { is: { visibility: { not: 'private' } } },
   });
   allow('read', 'Friendship', {
     deletedAt: null,
-    requesterId: user.id,
+    userAId: user.id,
+  });
+  allow('read', 'Friendship', {
+    deletedAt: null,
+    userBId: user.id,
   });
   allow('read', 'Friendship', {
     deletedAt: null,
     addresseeId: user.id,
   });
+
   allow('update', 'Friendship', {
     deletedAt: null,
     status: 'pending',
     addresseeId: user.id,
   });
+
   allow('delete', 'Friendship', {
     deletedAt: null,
-    requesterId: user.id,
+    userAId: user.id,
   });
   allow('delete', 'Friendship', {
     deletedAt: null,
-    addresseeId: user.id,
+    userBId: user.id,
   });
 }

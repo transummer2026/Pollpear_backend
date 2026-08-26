@@ -14,8 +14,11 @@ import {
   type FriendshipStatusUpdateDTO,
 } from 'Pollpear_shared/src/schemas/friendship.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { NotificationService } from 'src/notification/notification.service';
 import { ForbiddenError, subject } from '@casl/ability';
+import { Prisma } from 'src/generated/prisma/client';
 import type { Friendship } from 'src/generated/prisma/client';
+import { canonicalPair } from './friendship.pair';
 
 const FRIEND_USER_SELECT = {
   id: true,
@@ -24,11 +27,17 @@ const FRIEND_USER_SELECT = {
   isOnline: true,
 } as const;
 
+type FriendRequestOutcome = {
+  friendship: Friendship;
+  kind: 'created' | 'accepted' | 'unchanged';
+};
+
 @Injectable()
 export class FriendshipService {
   constructor(
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
+    private notificationService: NotificationService,
   ) {}
 
   async getFriendshipWith(
@@ -55,14 +64,14 @@ export class FriendshipService {
       where: {
         deletedAt: null,
         status: 'accepted',
-        OR: [{ requesterId: targetId }, { addresseeId: targetId }],
+        OR: [{ userAId: targetId }, { userBId: targetId }],
         ...(callerId !== targetId
-          ? { NOT: [{ requesterId: callerId }, { addresseeId: callerId }] }
+          ? { NOT: [{ userAId: callerId }, { userBId: callerId }] }
           : {}),
       },
       include: {
-        requester: { select: FRIEND_USER_SELECT },
-        addressee: { select: FRIEND_USER_SELECT },
+        userA: { select: FRIEND_USER_SELECT },
+        userB: { select: FRIEND_USER_SELECT },
       },
     });
 
@@ -72,9 +81,7 @@ export class FriendshipService {
         status: friendship.status,
         createdAt: friendship.createdAt,
         user:
-          friendship.requesterId === targetId
-            ? friendship.addressee
-            : friendship.requester,
+          friendship.userAId === targetId ? friendship.userB : friendship.userA,
       }),
     );
   }
@@ -94,7 +101,10 @@ export class FriendshipService {
 
     const friendships = await this.prisma.friendship.findMany({
       where: { addresseeId: targetId, status: 'pending', deletedAt: null },
-      include: { requester: { select: FRIEND_USER_SELECT } },
+      include: {
+        userA: { select: FRIEND_USER_SELECT },
+        userB: { select: FRIEND_USER_SELECT },
+      },
     });
 
     return friendships.map((friendship) =>
@@ -102,7 +112,10 @@ export class FriendshipService {
         friendshipId: friendship.id,
         status: friendship.status,
         createdAt: friendship.createdAt,
-        user: friendship.requester,
+        user:
+          friendship.addresseeId === friendship.userAId
+            ? friendship.userB
+            : friendship.userA,
       }),
     );
   }
@@ -131,33 +144,37 @@ export class FriendshipService {
       );
     }
 
-    const existing = await this.findFriendshipBetween(userId, targetId);
-    if (existing) {
-      if (existing.status !== 'rejected') {
-        throw new ConflictException(
-          'A friendship already exists with this user.',
-        );
-      }
-
-      const revived = await this.prisma.friendship.update({
-        where: { id: existing.id },
-        data: { requesterId: userId, addresseeId: targetId, status: 'pending' },
-      });
-      return FriendshipSchema.parse(revived);
+    let outcome: FriendRequestOutcome;
+    try {
+      outcome = await this.resolveFriendRequest(userId, targetId);
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+      outcome = await this.resolveFriendRequest(userId, targetId);
     }
 
-    const friendship = await this.prisma.friendship.upsert({
-      where: {
-        requesterId_addresseeId: {
-          requesterId: userId,
-          addresseeId: targetId,
-        },
-      },
-      create: { requesterId: userId, addresseeId: targetId, status: 'pending' },
-      update: { status: 'pending', deletedAt: null },
-    });
+    if (outcome.kind === 'accepted') {
+      await this.notificationService.clearFriendRequest(userId, targetId);
+      await this.notificationService.notifyFriendAccepted(targetId, userId);
+      return FriendshipSchema.parse(outcome.friendship);
+    }
 
-    return FriendshipSchema.parse(friendship);
+    if (outcome.kind === 'unchanged') {
+      return FriendshipSchema.parse(outcome.friendship);
+    }
+
+    const fresh = await this.prisma.friendship.findUnique({
+      where: { id: outcome.friendship.id },
+    });
+    if (!fresh || fresh.deletedAt !== null) {
+      return FriendshipSchema.parse(outcome.friendship);
+    }
+    if (fresh.status === 'accepted') {
+      await this.notificationService.clearFriendRequest(targetId, userId);
+    } else if (fresh.status === 'pending') {
+      await this.notificationService.notifyFriendRequest(targetId, userId);
+    }
+
+    return FriendshipSchema.parse(fresh);
   }
 
   async updateFriendRequest(
@@ -170,6 +187,15 @@ export class FriendshipService {
       throw new NotFoundException('No pending friend request from this user.');
     }
 
+    if (
+      status === 'accepted' &&
+      friendship.status === 'accepted' &&
+      friendship.addresseeId === userId
+    ) {
+      await this.notificationService.clearFriendRequest(userId, otherId);
+      return FriendshipSchema.parse(friendship);
+    }
+
     const ability = await this.abilityFor(userId);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
@@ -180,6 +206,11 @@ export class FriendshipService {
       where: { id: friendship.id },
       data: { status },
     });
+
+    await this.notificationService.clearFriendRequest(userId, otherId);
+    if (status === 'accepted') {
+      await this.notificationService.notifyFriendAccepted(otherId, userId);
+    }
 
     return FriendshipSchema.parse(updated);
   }
@@ -200,6 +231,13 @@ export class FriendshipService {
       where: { id: friendship.id },
       data: { deletedAt: new Date() },
     });
+
+    await this.notificationService.clearFriendRequest(
+      friendship.addresseeId,
+      friendship.addresseeId === friendship.userAId
+        ? friendship.userBId
+        : friendship.userAId,
+    );
   }
 
   async friendIds(userId: number): Promise<number[]> {
@@ -207,15 +245,63 @@ export class FriendshipService {
       where: {
         deletedAt: null,
         status: 'accepted',
-        OR: [{ requesterId: userId }, { addresseeId: userId }],
+        OR: [{ userAId: userId }, { userBId: userId }],
       },
-      select: { requesterId: true, addresseeId: true },
+      select: { userAId: true, userBId: true },
     });
 
     return friendships.map((friendship) =>
-      friendship.requesterId === userId
-        ? friendship.addresseeId
-        : friendship.requesterId,
+      friendship.userAId === userId ? friendship.userBId : friendship.userAId,
+    );
+  }
+
+  private async resolveFriendRequest(
+    userId: number,
+    targetId: number,
+  ): Promise<FriendRequestOutcome> {
+    const pair = canonicalPair(userId, targetId);
+    const existing = await this.prisma.friendship.findUnique({
+      where: { userAId_userBId: pair },
+    });
+
+    if (existing && existing.deletedAt === null) {
+      if (existing.status === 'accepted') {
+        throw new ConflictException(
+          'A friendship already exists with this user.',
+        );
+      }
+
+      if (existing.status === 'pending' && existing.addresseeId === userId) {
+        const accepted = await this.prisma.friendship.update({
+          where: { id: existing.id },
+          data: { status: 'accepted' },
+        });
+        return { friendship: accepted, kind: 'accepted' };
+      }
+
+      if (existing.status === 'pending') {
+        return { friendship: existing, kind: 'unchanged' };
+      }
+    }
+
+    const friendship = await this.prisma.friendship.upsert({
+      where: { userAId_userBId: pair },
+      create: { ...pair, addresseeId: targetId, status: 'pending' },
+      update: {
+        status: 'pending',
+        addresseeId: targetId,
+        deletedAt: null,
+        createdAt: new Date(),
+      },
+    });
+
+    return { friendship, kind: 'created' };
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
     );
   }
 
@@ -229,13 +315,7 @@ export class FriendshipService {
 
   private findFriendshipBetween(userId: number, otherId: number) {
     return this.prisma.friendship.findFirst({
-      where: {
-        deletedAt: null,
-        OR: [
-          { requesterId: userId, addresseeId: otherId },
-          { requesterId: otherId, addresseeId: userId },
-        ],
-      },
+      where: { ...canonicalPair(userId, otherId), deletedAt: null },
     });
   }
 }

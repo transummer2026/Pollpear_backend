@@ -6,6 +6,7 @@ import {
 import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { NotificationService } from 'src/notification/notification.service';
 import { BlockService } from './block.service';
 
 function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
@@ -45,6 +46,11 @@ type BlockDeleteArgs = { where: { id: number } };
 
 describe('BlockService', () => {
   let service: BlockService;
+  let notifications: {
+    notify: jest.Mock;
+    clearFriendRequest: jest.Mock;
+    clearFriendNotifications: jest.Mock;
+  };
   let prisma: {
     user: {
       findUniqueOrThrow: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
@@ -81,9 +87,15 @@ describe('BlockService', () => {
         .fn<Promise<unknown[]>, [Promise<unknown>[]]>()
         .mockImplementation((ops) => Promise.all(ops)),
     };
+    notifications = {
+      notify: jest.fn(),
+      clearFriendRequest: jest.fn(),
+      clearFriendNotifications: jest.fn(),
+    };
     service = new BlockService(
       prisma as unknown as PrismaService,
       new CaslAbilityFactory(),
+      notifications as unknown as NotificationService,
     );
   });
 
@@ -203,14 +215,10 @@ describe('BlockService', () => {
       expect(prisma.block.create).toHaveBeenCalledWith({
         data: { blockerId: 1, blockedId: 2 },
       });
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(2, 1);
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(1, 2);
       expect(prisma.friendship.updateMany).toHaveBeenCalledWith({
-        where: {
-          deletedAt: null,
-          OR: [
-            { requesterId: 1, addresseeId: 2 },
-            { requesterId: 2, addresseeId: 1 },
-          ],
-        },
+        where: { deletedAt: null, userAId: 1, userBId: 2 },
         data: { deletedAt: expect.any(Date) as Date },
       });
       expect(result.blockerId).toBe(1);

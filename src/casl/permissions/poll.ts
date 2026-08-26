@@ -94,6 +94,9 @@ export function definePollPermissions(
     allow('delete', 'PollOption');
   }
 
+  allow(['create'], 'Poll', { roomId: null });
+  allow(['create'], 'Poll', { room: { is: { status: 'active' } } });
+
   for (const condition of pollReadConditions(user)) {
     allow(['read', 'report'], 'Poll', condition);
     allow(['report'], 'PollOption', {
@@ -102,8 +105,6 @@ export function definePollPermissions(
     });
   }
 
-  allow(['create'], 'Poll', { roomId: null });
-  allow(['create'], 'Poll', { room: { is: { status: 'active' } } });
   allow(['update', 'delete'], 'Poll', {
     deletedAt: null,
     status: 'pending',

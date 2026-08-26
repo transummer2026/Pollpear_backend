@@ -20,6 +20,7 @@ export function defineHashtagPermissions(
   }
 
   allow('create', 'Hashtag');
+
   allow(['read', 'report'], 'Hashtag', {
     deletedAt: null,
   });

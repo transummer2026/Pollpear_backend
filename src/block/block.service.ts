@@ -14,6 +14,8 @@ import {
   BlockStatusSchema,
 } from 'Pollpear_shared/src/schemas/block.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { NotificationService } from 'src/notification/notification.service';
+import { canonicalPair } from 'src/friendship/friendship.pair';
 import { ForbiddenError, subject } from '@casl/ability';
 import type { Block } from 'src/generated/prisma/client';
 
@@ -28,6 +30,7 @@ export class BlockService {
   constructor(
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
+    private notificationService: NotificationService,
   ) {}
 
   async getBlockStatus(
@@ -96,16 +99,13 @@ export class BlockService {
         data: { blockerId: userId, blockedId: targetId },
       }),
       this.prisma.friendship.updateMany({
-        where: {
-          deletedAt: null,
-          OR: [
-            { requesterId: userId, addresseeId: targetId },
-            { requesterId: targetId, addresseeId: userId },
-          ],
-        },
+        where: { deletedAt: null, ...canonicalPair(userId, targetId) },
         data: { deletedAt: new Date() },
       }),
     ]);
+
+    await this.notificationService.clearFriendNotifications(targetId, userId);
+    await this.notificationService.clearFriendNotifications(userId, targetId);
 
     return BlockSchema.parse(block);
   }

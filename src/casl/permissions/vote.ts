@@ -29,13 +29,6 @@ export function defineVotePermissions(
     });
   }
 
-  for (const condition of pollReadConditions(user)) {
-    allow(['report'], 'Vote', {
-      deletedAt: null,
-      poll: { is: condition },
-    });
-  }
-
   allow(['read'], 'Vote', {
     deletedAt: null,
     createdById: user.id,
@@ -46,4 +39,11 @@ export function defineVotePermissions(
     createdById: user.id,
     poll: { is: { status: { not: 'closed' } } },
   });
+
+  for (const condition of pollReadConditions(user)) {
+    allow(['report'], 'Vote', {
+      deletedAt: null,
+      poll: { is: condition },
+    });
+  }
 }

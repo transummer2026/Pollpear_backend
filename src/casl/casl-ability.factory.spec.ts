@@ -551,33 +551,63 @@ describe('CaslAbilityFactory', () => {
           'read',
           friendshipSubject({
             status: 'accepted',
-            requesterId: 8,
+            userAId: 8,
+            userBId: 9,
             addresseeId: 9,
-            requester: { visibility: 'public' },
-            addressee: { visibility: 'public' },
+            userA: { visibility: 'public' },
+            userB: { visibility: 'public' },
           }),
         ),
       ).toBe(true);
     });
 
     it('denies read on an accepted friendship where either side is private', () => {
-      const requesterPrivate = friendshipSubject({
+      const userAPrivate = friendshipSubject({
         status: 'accepted',
-        requesterId: 8,
+        userAId: 8,
+        userBId: 9,
         addresseeId: 9,
-        requester: { visibility: 'private' },
-        addressee: { visibility: 'public' },
+        userA: { visibility: 'private' },
+        userB: { visibility: 'public' },
       });
-      const addresseePrivate = friendshipSubject({
+      const userBPrivate = friendshipSubject({
         status: 'accepted',
-        requesterId: 8,
+        userAId: 8,
+        userBId: 9,
         addresseeId: 9,
-        requester: { visibility: 'public' },
-        addressee: { visibility: 'private' },
+        userA: { visibility: 'public' },
+        userB: { visibility: 'private' },
       });
 
-      expect(ability.can('read', requesterPrivate)).toBe(false);
-      expect(ability.can('read', addresseePrivate)).toBe(false);
+      expect(ability.can('read', userAPrivate)).toBe(false);
+      expect(ability.can('read', userBPrivate)).toBe(false);
+    });
+
+    it('grants read to the user sitting in the second slot of the pair', () => {
+      const abilityB = abilityFor(UserRole.user, 5);
+
+      expect(
+        abilityB.can(
+          'read',
+          friendshipSubject({
+            status: 'pending',
+            userAId: 3,
+            userBId: 5,
+            addresseeId: 3,
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    it('grants delete to the user sitting in the second slot of the pair', () => {
+      const abilityB = abilityFor(UserRole.user, 5);
+
+      expect(
+        abilityB.can(
+          'delete',
+          friendshipSubject({ userAId: 3, userBId: 5, addresseeId: 3 }),
+        ),
+      ).toBe(true);
     });
 
     it('grants read on a pending friendship only to its two sides', () => {
@@ -586,7 +616,8 @@ describe('CaslAbilityFactory', () => {
           'read',
           friendshipSubject({
             status: 'pending',
-            requesterId: 1,
+            userAId: 1,
+            userBId: 2,
             addresseeId: 2,
           }),
         ),
@@ -596,7 +627,8 @@ describe('CaslAbilityFactory', () => {
           'read',
           friendshipSubject({
             status: 'pending',
-            requesterId: 2,
+            userAId: 1,
+            userBId: 2,
             addresseeId: 1,
           }),
         ),
@@ -606,7 +638,8 @@ describe('CaslAbilityFactory', () => {
           'read',
           friendshipSubject({
             status: 'pending',
-            requesterId: 8,
+            userAId: 8,
+            userBId: 9,
             addresseeId: 9,
           }),
         ),
@@ -619,7 +652,8 @@ describe('CaslAbilityFactory', () => {
           'update',
           friendshipSubject({
             status: 'pending',
-            requesterId: 2,
+            userAId: 1,
+            userBId: 2,
             addresseeId: 1,
           }),
         ),
@@ -629,7 +663,8 @@ describe('CaslAbilityFactory', () => {
           'update',
           friendshipSubject({
             status: 'pending',
-            requesterId: 1,
+            userAId: 1,
+            userBId: 2,
             addresseeId: 2,
           }),
         ),
@@ -639,7 +674,8 @@ describe('CaslAbilityFactory', () => {
           'update',
           friendshipSubject({
             status: 'accepted',
-            requesterId: 2,
+            userAId: 1,
+            userBId: 2,
             addresseeId: 1,
           }),
         ),
@@ -650,19 +686,19 @@ describe('CaslAbilityFactory', () => {
       expect(
         ability.can(
           'delete',
-          friendshipSubject({ requesterId: 1, addresseeId: 2 }),
+          friendshipSubject({ userAId: 1, userBId: 2, addresseeId: 2 }),
         ),
       ).toBe(true);
       expect(
         ability.can(
           'delete',
-          friendshipSubject({ requesterId: 2, addresseeId: 1 }),
+          friendshipSubject({ userAId: 1, userBId: 2, addresseeId: 1 }),
         ),
       ).toBe(true);
       expect(
         ability.can(
           'delete',
-          friendshipSubject({ requesterId: 8, addresseeId: 9 }),
+          friendshipSubject({ userAId: 8, userBId: 9, addresseeId: 9 }),
         ),
       ).toBe(false);
     });

@@ -57,6 +57,8 @@ export function defineRoomPermissions(
     allow('kick', 'Room');
   }
 
+  allow('create', 'Room');
+
   for (const condition of roomReadConditions(user)) {
     allow(['read', 'report'], 'Room', condition);
   }
@@ -65,10 +67,22 @@ export function defineRoomPermissions(
     allow(['join'], 'Room', condition);
   }
 
-  allow('create', 'Room');
+  allow('update', 'Room', {
+    deletedAt: null,
+    status: 'active',
+    createdById: user.id,
+  });
+  allow('update', 'Room', ['status'], {
+    deletedAt: null,
+    status: 'closed',
+    createdById: user.id,
+  });
 
-  // public room: any active member can invite; private room: owner only
-  // (kept in sync with invitation.ts's create rule)
+  allow('delete', 'Room', {
+    deletedAt: null,
+    createdById: user.id,
+  });
+
   allow('invite', 'Room', {
     deletedAt: null,
     status: 'active',
@@ -87,22 +101,6 @@ export function defineRoomPermissions(
     roomMembers: { some: { userId: user.id, deletedAt: null } },
   });
 
-  // room owner
-
-  allow('update', 'Room', {
-    deletedAt: null,
-    status: 'active',
-    createdById: user.id,
-  });
-  allow('update', 'Room', ['status'], {
-    deletedAt: null,
-    status: 'closed',
-    createdById: user.id,
-  });
-  allow('delete', 'Room', {
-    deletedAt: null,
-    createdById: user.id,
-  });
   allow('kick', 'Room', {
     deletedAt: null,
     status: 'active',
