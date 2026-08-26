@@ -381,17 +381,17 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('join', room)).toBe(false);
       });
 
-      it('grants invite on an active Room the user is a member of', () => {
+      it('grants invite on an active public Room the user is a member of', () => {
         const room = roomSubject({
           status: 'active',
-          visibility: 'private',
+          visibility: 'public',
           roomMembers: [{ userId: 1 }],
         });
 
         expect(ability.can('invite', room)).toBe(true);
       });
 
-      it('denies invite on a Room the user is not a member of', () => {
+      it('denies invite on a public Room the user is not a member of', () => {
         const room = roomSubject({
           status: 'active',
           visibility: 'public',
@@ -399,6 +399,24 @@ describe('CaslAbilityFactory', () => {
         });
 
         expect(ability.can('invite', room)).toBe(false);
+      });
+
+      it('grants invite on a private Room only to its owner, not a regular member', () => {
+        const owner = roomSubject({
+          status: 'active',
+          visibility: 'private',
+          createdById: 1,
+          roomMembers: [{ userId: 1 }],
+        });
+        const member = roomSubject({
+          status: 'active',
+          visibility: 'private',
+          createdById: 99,
+          roomMembers: [{ userId: 1 }],
+        });
+
+        expect(ability.can('invite', owner)).toBe(true);
+        expect(ability.can('invite', member)).toBe(false);
       });
 
       it('grants leave on a Room the user is a member of, even if closed', () => {

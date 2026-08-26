@@ -15,16 +15,16 @@ export function defineBanPermissions(
   { can: allow }: AbilityBuilder<AppAbility>,
   user: AuthorizationUser,
 ) {
+  if (user.isAdmin()) {
+    allow(['create', 'update', 'delete'], 'Ban', {
+      user: { is: { role: 'moderator' } },
+    });
+  }
+
   if (user.isModerator()) {
     allow('read', 'Ban');
     allow(['create', 'update', 'delete'], 'Ban', {
       user: { is: { role: 'user' } },
-    });
-  }
-
-  if (user.isAdmin()) {
-    allow(['create', 'update', 'delete'], 'Ban', {
-      user: { is: { role: 'moderator' } },
     });
   }
 

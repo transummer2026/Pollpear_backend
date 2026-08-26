@@ -67,13 +67,21 @@ export function defineRoomPermissions(
 
   allow('create', 'Room');
 
+  // public room: any active member can invite; private room: owner only
+  // (kept in sync with invitation.ts's create rule)
   allow('invite', 'Room', {
     deletedAt: null,
     status: 'active',
+    visibility: 'public',
     roomMembers: { some: { userId: user.id, deletedAt: null } },
   });
+  allow('invite', 'Room', {
+    deletedAt: null,
+    status: 'active',
+    visibility: 'private',
+    createdById: user.id,
+  });
 
-  // UC_QUIT_ROOM: any current member can leave on their own
   allow('leave', 'Room', {
     deletedAt: null,
     roomMembers: { some: { userId: user.id, deletedAt: null } },
