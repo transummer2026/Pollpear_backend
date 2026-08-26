@@ -3,7 +3,6 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -35,8 +34,6 @@ type FriendRequestOutcome = {
 
 @Injectable()
 export class FriendshipService {
-  private readonly logger = new Logger(FriendshipService.name);
-
   constructor(
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
@@ -157,7 +154,7 @@ export class FriendshipService {
 
     if (outcome.kind === 'accepted') {
       await this.notificationService.clearFriendRequest(userId, targetId);
-      await this.notifyFriendAccepted(userId, targetId);
+      await this.notificationService.notifyFriendAccepted(targetId, userId);
       return FriendshipSchema.parse(outcome.friendship);
     }
 
@@ -174,7 +171,7 @@ export class FriendshipService {
     if (fresh.status === 'accepted') {
       await this.notificationService.clearFriendRequest(targetId, userId);
     } else if (fresh.status === 'pending') {
-      await this.notifyFriendRequest(userId, targetId);
+      await this.notificationService.notifyFriendRequest(targetId, userId);
     }
 
     return FriendshipSchema.parse(fresh);
@@ -212,7 +209,7 @@ export class FriendshipService {
 
     await this.notificationService.clearFriendRequest(userId, otherId);
     if (status === 'accepted') {
-      await this.notifyFriendAccepted(userId, otherId);
+      await this.notificationService.notifyFriendAccepted(otherId, userId);
     }
 
     return FriendshipSchema.parse(updated);
@@ -306,51 +303,6 @@ export class FriendshipService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     );
-  }
-
-  private async notifyFriendRequest(fromId: number, toId: number) {
-    await this.sendFriendNotification(
-      fromId,
-      toId,
-      'friend_request',
-      (name) => `${name} sent you a friend request.`,
-    );
-  }
-
-  private async notifyFriendAccepted(fromId: number, toId: number) {
-    await this.sendFriendNotification(
-      fromId,
-      toId,
-      'friend_accepted',
-      (name) => `${name} accepted your friend request.`,
-    );
-  }
-
-  private async sendFriendNotification(
-    fromId: number,
-    toId: number,
-    type: 'friend_request' | 'friend_accepted',
-    message: (username: string) => string,
-  ) {
-    try {
-      const sender = await this.prisma.user.findUnique({
-        where: { id: fromId },
-        select: { username: true },
-      });
-      if (!sender) return;
-      await this.notificationService.notify(
-        toId,
-        type,
-        message(sender.username),
-        fromId,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `failed to send ${type} notification to user ${toId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
   }
 
   private async abilityFor(userId: number) {

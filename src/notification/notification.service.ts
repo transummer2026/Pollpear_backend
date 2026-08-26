@@ -60,6 +60,30 @@ export class NotificationService {
     await this.prisma.notification.deleteMany({ where: { id, userId } });
   }
 
+  async notifyFriendRequest(
+    recipientId: number,
+    actorId: number,
+  ): Promise<void> {
+    await this.notifyFriendEvent(
+      recipientId,
+      actorId,
+      'friend_request',
+      (username) => `${username} sent you a friend request.`,
+    );
+  }
+
+  async notifyFriendAccepted(
+    recipientId: number,
+    actorId: number,
+  ): Promise<void> {
+    await this.notifyFriendEvent(
+      recipientId,
+      actorId,
+      'friend_accepted',
+      (username) => `${username} accepted your friend request.`,
+    );
+  }
+
   async clearFriendRequest(
     addresseeId: number,
     requesterId: number,
@@ -77,6 +101,28 @@ export class NotificationService {
   ): Promise<void> {
     await this.clearFriendNotification(recipientId, actorId, 'friend_request');
     await this.clearFriendNotification(recipientId, actorId, 'friend_accepted');
+  }
+
+  private async notifyFriendEvent(
+    recipientId: number,
+    actorId: number,
+    type: 'friend_request' | 'friend_accepted',
+    message: (username: string) => string,
+  ): Promise<void> {
+    try {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { username: true },
+      });
+      if (!actor) return;
+      await this.notify(recipientId, type, message(actor.username), actorId);
+    } catch (error) {
+      this.logger.warn(
+        `failed to build ${type} notification for user ${recipientId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private async clearFriendNotification(

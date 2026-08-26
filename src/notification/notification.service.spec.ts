@@ -22,8 +22,10 @@ describe('NotificationService', () => {
   const findMany = jest.fn();
   const updateMany = jest.fn();
   const deleteMany = jest.fn();
+  const findUniqueUser = jest.fn();
   const prisma = {
     notification: { create, findMany, updateMany, deleteMany },
+    user: { findUnique: findUniqueUser },
   } as unknown as PrismaService;
   const toUser = jest.fn<void, [number, string, Record<string, unknown>]>();
   const emitter = { toUser } as unknown as WebsocketEmitter;
@@ -146,6 +148,63 @@ describe('NotificationService', () => {
       await service.dismiss(7, 42);
 
       expect(deleteMany).toHaveBeenCalledWith({ where: { id: 42, userId: 7 } });
+    });
+  });
+
+  describe('notifyFriendRequest', () => {
+    it('builds the message from the actor username and notifies the recipient', async () => {
+      findUniqueUser.mockResolvedValue({ username: 'alice' });
+      create.mockResolvedValue(makeNotification());
+      findMany.mockResolvedValue([]);
+
+      await service.notifyFriendRequest(7, 3);
+
+      expect(findUniqueUser).toHaveBeenCalledWith({
+        where: { id: 3 },
+        select: { username: true },
+      });
+      expect(create).toHaveBeenCalledWith({
+        data: {
+          userId: 7,
+          type: 'friend_request',
+          content: 'alice sent you a friend request.',
+          actorId: 3,
+        },
+      });
+    });
+
+    it('does nothing when the actor no longer exists', async () => {
+      findUniqueUser.mockResolvedValue(null);
+
+      await service.notifyFriendRequest(7, 3);
+
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it('swallows a lookup failure instead of throwing', async () => {
+      findUniqueUser.mockRejectedValue(new Error('db down'));
+
+      await expect(service.notifyFriendRequest(7, 3)).resolves.toBeUndefined();
+      expect(create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('notifyFriendAccepted', () => {
+    it('builds the message from the actor username and notifies the recipient', async () => {
+      findUniqueUser.mockResolvedValue({ username: 'bob' });
+      create.mockResolvedValue(makeNotification({ type: 'friend_accepted' }));
+      findMany.mockResolvedValue([]);
+
+      await service.notifyFriendAccepted(7, 3);
+
+      expect(create).toHaveBeenCalledWith({
+        data: {
+          userId: 7,
+          type: 'friend_accepted',
+          content: 'bob accepted your friend request.',
+          actorId: 3,
+        },
+      });
     });
   });
 

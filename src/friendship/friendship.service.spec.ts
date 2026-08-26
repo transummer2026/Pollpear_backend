@@ -62,6 +62,8 @@ describe('FriendshipService', () => {
   let notifications: {
     notify: jest.Mock;
     clearFriendRequest: jest.Mock;
+    notifyFriendRequest: jest.Mock;
+    notifyFriendAccepted: jest.Mock;
   };
   let prisma: {
     user: {
@@ -106,7 +108,12 @@ describe('FriendshipService', () => {
         findFirst: jest.fn<Promise<unknown>, [FindFirstArgs]>(),
       },
     };
-    notifications = { notify: jest.fn(), clearFriendRequest: jest.fn() };
+    notifications = {
+      notify: jest.fn(),
+      clearFriendRequest: jest.fn(),
+      notifyFriendRequest: jest.fn(),
+      notifyFriendAccepted: jest.fn(),
+    };
     service = new FriendshipService(
       prisma as unknown as PrismaService,
       new CaslAbilityFactory(),
@@ -374,7 +381,8 @@ describe('FriendshipService', () => {
       expect(result.status).toBe('pending');
       expect(prisma.friendship.upsert).not.toHaveBeenCalled();
       expect(prisma.friendship.update).not.toHaveBeenCalled();
-      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(notifications.notifyFriendRequest).not.toHaveBeenCalled();
+      expect(notifications.notifyFriendAccepted).not.toHaveBeenCalled();
     });
 
     it('accepts directly when the target already sent a pending request', async () => {
@@ -396,12 +404,7 @@ describe('FriendshipService', () => {
         data: { status: 'accepted' },
       });
       expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
-      expect(notifications.notify).toHaveBeenCalledWith(
-        2,
-        'friend_accepted',
-        'alice accepted your friend request.',
-        1,
-      );
+      expect(notifications.notifyFriendAccepted).toHaveBeenCalledWith(2, 1);
       expect(result.status).toBe('accepted');
     });
 
@@ -427,12 +430,7 @@ describe('FriendshipService', () => {
           createdAt: expect.any(Date) as Date,
         },
       });
-      expect(notifications.notify).toHaveBeenCalledWith(
-        2,
-        'friend_request',
-        'alice sent you a friend request.',
-        1,
-      );
+      expect(notifications.notifyFriendRequest).toHaveBeenCalledWith(2, 1);
       expect(result.status).toBe('pending');
     });
 
@@ -505,7 +503,8 @@ describe('FriendshipService', () => {
       const result = await service.createFriendRequest(1, 2);
 
       expect(result.status).toBe('accepted');
-      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(notifications.notifyFriendRequest).not.toHaveBeenCalled();
+      expect(notifications.notifyFriendAccepted).not.toHaveBeenCalled();
       expect(notifications.clearFriendRequest).toHaveBeenCalledWith(2, 1);
     });
 
