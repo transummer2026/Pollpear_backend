@@ -25,13 +25,6 @@ export function defineMessagePermissions(
     allow('delete', 'Message');
   }
 
-  allow(['read', 'report'], 'Message', {
-    deletedAt: null,
-    room: {
-      is: { roomMembers: { some: { userId: user.id, deletedAt: null } } },
-    },
-  });
-
   allow('create', 'Message', {
     room: {
       is: {
@@ -39,6 +32,13 @@ export function defineMessagePermissions(
         status: 'active',
         roomMembers: { some: { userId: user.id, deletedAt: null } },
       },
+    },
+  });
+
+  allow(['read', 'report'], 'Message', {
+    deletedAt: null,
+    room: {
+      is: { roomMembers: { some: { userId: user.id, deletedAt: null } } },
     },
   });
 }

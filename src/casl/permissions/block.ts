@@ -14,9 +14,11 @@ export function defineBlockPermissions(
   user: AuthorizationUser,
 ) {
   allow('create', 'Block');
+
   allow('read', 'Block', {
     blockerId: user.id,
   });
+
   allow('delete', 'Block', {
     blockerId: user.id,
   });
