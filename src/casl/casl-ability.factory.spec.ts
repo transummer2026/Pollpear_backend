@@ -3,10 +3,13 @@ import {
   Block,
   Friendship,
   Hashtag,
+  Message,
+  Option,
   Poll,
   Room,
   User,
   UserRole,
+  Vote,
 } from 'src/generated/prisma/client';
 import { CaslAbilityFactory } from './casl-ability.factory';
 
@@ -18,7 +21,7 @@ function userSubject(attrs: Partial<User>) {
   return subject('User', attrs as User);
 }
 
-function pollSubject(attrs: Partial<Poll>) {
+function pollSubject(attrs: Partial<Poll> & Record<string, unknown>) {
   return subject('Poll', attrs as Poll);
 }
 
@@ -26,7 +29,9 @@ function roomSubject(attrs: Partial<Room> & Record<string, unknown>) {
   return subject('Room', attrs as Room);
 }
 
-function friendshipSubject(attrs: Partial<Friendship>) {
+function friendshipSubject(
+  attrs: Partial<Friendship> & Record<string, unknown>,
+) {
   return subject('Friendship', attrs as Friendship);
 }
 
@@ -36,6 +41,18 @@ function blockSubject(attrs: Partial<Block>) {
 
 function hashtagSubject(attrs: Partial<Hashtag>) {
   return subject('Hashtag', attrs as Hashtag);
+}
+
+function voteSubject(attrs: Partial<Vote> & Record<string, unknown>) {
+  return subject('Vote', attrs as Vote);
+}
+
+function pollOptionSubject(attrs: Partial<Option> & Record<string, unknown>) {
+  return subject('PollOption', attrs as Option);
+}
+
+function messageSubject(attrs: Partial<Message> & Record<string, unknown>) {
+  return subject('Message', attrs as Message);
 }
 
 describe('CaslAbilityFactory', () => {
@@ -65,13 +82,9 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('update', userSubject({ id: 2 }))).toBe(false);
     });
 
-    it('denies delete and ban on User', () => {
-      expect(ability.can('delete', userSubject({ id: 1 }))).toBe(false);
+    it('denies delete and ban on a User other than themselves', () => {
+      expect(ability.can('delete', userSubject({ id: 2 }))).toBe(false);
       expect(ability.can('ban', userSubject({ id: 2 }))).toBe(false);
-    });
-
-    it('denies moderate on Poll', () => {
-      expect(ability.can('moderate', 'Poll')).toBe(false);
     });
 
     it('grants read and create on Poll', () => {
@@ -103,32 +116,109 @@ describe('CaslAbilityFactory', () => {
       },
     );
 
-    it('grants create, update and delete on PollVote', () => {
-      expect(ability.can('create', 'PollVote')).toBe(true);
-      expect(ability.can('update', 'PollVote')).toBe(true);
-      expect(ability.can('delete', 'PollVote')).toBe(true);
+    it('grants create and update on Vote, but not delete', () => {
+      expect(ability.can('create', 'Vote')).toBe(true);
+      expect(ability.can('update', 'Vote')).toBe(true);
+      expect(ability.can('delete', 'Vote')).toBe(false);
+    });
+
+    it('grants create on a Poll with no room, or attached to an active room', () => {
+      expect(ability.can('create', pollSubject({ roomId: null }))).toBe(true);
+      expect(
+        ability.can(
+          'create',
+          pollSubject({ roomId: 1, room: { status: 'active' } }),
+        ),
+      ).toBe(true);
+    });
+
+    it('denies create on a Poll attached to a closed room', () => {
+      const poll = pollSubject({ roomId: 1, room: { status: 'closed' } });
+
+      expect(ability.can('create', poll)).toBe(false);
+    });
+
+    it('grants create on a Vote for a public Poll with no room, or attached to an active room', () => {
+      const noRoom = voteSubject({
+        poll: { visibility: 'public', deletedAt: null, roomId: null },
+      });
+      const activeRoom = voteSubject({
+        poll: {
+          visibility: 'public',
+          deletedAt: null,
+          roomId: 1,
+          room: { status: 'active' },
+        },
+      });
+
+      expect(ability.can('create', noRoom)).toBe(true);
+      expect(ability.can('create', activeRoom)).toBe(true);
+    });
+
+    it('denies create on a Vote for a public Poll attached to a closed room', () => {
+      const vote = voteSubject({
+        poll: {
+          visibility: 'public',
+          deletedAt: null,
+          roomId: 1,
+          room: { status: 'closed' },
+        },
+      });
+
+      expect(ability.can('create', vote)).toBe(false);
     });
   });
 
   describe('moderator role', () => {
     const ability = abilityFor(UserRole.moderator);
 
-    it('gains ban on any User', () => {
-      expect(ability.can('ban', userSubject({ id: 99 }))).toBe(true);
-    });
-
-    it('gains moderate on Poll', () => {
-      expect(ability.can('moderate', 'Poll')).toBe(true);
+    it('gains ban on a plain User, but not on a moderator or an admin', () => {
+      expect(ability.can('ban', userSubject({ id: 99, role: 'user' }))).toBe(
+        true,
+      );
+      expect(
+        ability.can('ban', userSubject({ id: 99, role: 'moderator' })),
+      ).toBe(false);
+      expect(ability.can('ban', userSubject({ id: 99, role: 'admin' }))).toBe(
+        false,
+      );
     });
 
     it('still cannot delete a User', () => {
       expect(ability.can('delete', userSubject({ id: 99 }))).toBe(false);
     });
 
-    it('still cannot delete a pending Poll authored by someone else', () => {
+    it('gains delete on any Poll, for moderation off a report', () => {
       const poll = pollSubject({ status: 'pending', createdById: 99 });
 
-      expect(ability.can('delete', poll)).toBe(false);
+      expect(ability.can('delete', poll)).toBe(true);
+    });
+
+    it('gains read on any live Poll/PollOption/Vote, but not a deleted one', () => {
+      const livePoll = pollSubject({
+        deletedAt: null,
+        visibility: 'private',
+        createdById: 99,
+      });
+      const deletedPoll = pollSubject({
+        deletedAt: new Date(),
+        visibility: 'private',
+        createdById: 99,
+      });
+      const liveOption = pollOptionSubject({ deletedAt: null });
+      const deletedOption = pollOptionSubject({ deletedAt: new Date() });
+      const liveVote = voteSubject({ deletedAt: null, createdById: 99 });
+      const deletedVote = voteSubject({
+        deletedAt: new Date(),
+        createdById: 99,
+      });
+
+      expect(ability.can('read', livePoll)).toBe(true);
+      expect(ability.can('read', deletedPoll)).toBe(false);
+      expect(ability.can('read', liveOption)).toBe(true);
+      expect(ability.can('read', deletedOption)).toBe(false);
+      expect(ability.can('read', liveVote)).toBe(true);
+      expect(ability.can('read', deletedVote)).toBe(false);
     });
   });
 
@@ -139,25 +229,56 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('delete', userSubject({ id: 99 }))).toBe(true);
     });
 
-    it('keeps the moderator grants: ban on User and moderate on Poll', () => {
-      expect(ability.can('ban', userSubject({ id: 99 }))).toBe(true);
-      expect(ability.can('moderate', 'Poll')).toBe(true);
+    it('gains ban on a plain User or a moderator, but not another admin', () => {
+      expect(ability.can('ban', userSubject({ id: 99, role: 'user' }))).toBe(
+        true,
+      );
+      expect(
+        ability.can('ban', userSubject({ id: 99, role: 'moderator' })),
+      ).toBe(true);
+      expect(ability.can('ban', userSubject({ id: 99, role: 'admin' }))).toBe(
+        false,
+      );
     });
 
-    it('gains delete on a pending Poll authored by someone else', () => {
-      const poll = pollSubject({ status: 'pending', createdById: 99 });
+    it('grants grading/degrading (updating only the role field) of another User', () => {
+      const other = userSubject({ id: 99, deletedAt: null });
 
-      expect(ability.can('delete', poll)).toBe(true);
+      expect(ability.can('update', other, 'role')).toBe(true);
+      expect(ability.can('update', other, 'name')).toBe(false);
     });
 
-    it.each(['active', 'closed'] as const)(
-      'denies delete on a %s Poll authored by someone else',
+    it('denies grading/degrading their own role', () => {
+      const self = userSubject({ id: 1, deletedAt: null });
+
+      expect(ability.can('update', self, 'role')).toBe(false);
+    });
+
+    it.each(['pending', 'active', 'closed'] as const)(
+      'gains delete on a %s Poll authored by someone else, for moderation off a report',
       (status) => {
         const poll = pollSubject({ status, createdById: 99 });
 
-        expect(ability.can('delete', poll)).toBe(false);
+        expect(ability.can('delete', poll)).toBe(true);
       },
     );
+
+    it('gains read on a deleted Poll/PollOption/Vote too', () => {
+      const deletedPoll = pollSubject({
+        deletedAt: new Date(),
+        visibility: 'private',
+        createdById: 99,
+      });
+      const deletedOption = pollOptionSubject({ deletedAt: new Date() });
+      const deletedVote = voteSubject({
+        deletedAt: new Date(),
+        createdById: 99,
+      });
+
+      expect(ability.can('read', deletedPoll)).toBe(true);
+      expect(ability.can('read', deletedOption)).toBe(true);
+      expect(ability.can('read', deletedVote)).toBe(true);
+    });
   });
 
   describe('Room', () => {
@@ -168,29 +289,20 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('create', 'Room')).toBe(true);
       });
 
-      it('grants moderate on the user own Room only', () => {
-        expect(ability.can('moderate', roomSubject({ createdById: 1 }))).toBe(
-          true,
-        );
-        expect(ability.can('moderate', roomSubject({ createdById: 99 }))).toBe(
-          false,
-        );
-      });
-
       it('grants read on an active public Room', () => {
         const room = roomSubject({ status: 'active', visibility: 'public' });
 
         expect(ability.can('read', room)).toBe(true);
       });
 
-      it('denies read on a closed public Room for a non-member', () => {
+      it('still grants read on a closed public Room for a non-member', () => {
         const room = roomSubject({
           status: 'closed',
           visibility: 'public',
           roomMembers: [],
         });
 
-        expect(ability.can('read', room)).toBe(false);
+        expect(ability.can('read', room)).toBe(true);
       });
 
       it('denies read on a private Room for a non-member', () => {
@@ -213,14 +325,14 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('read', room)).toBe(true);
       });
 
-      it('denies read on a closed Room even for a member', () => {
+      it('still grants read on a closed Room for a member', () => {
         const room = roomSubject({
           status: 'closed',
           visibility: 'public',
           roomMembers: [{ userId: 1 }],
         });
 
-        expect(ability.can('read', room)).toBe(false);
+        expect(ability.can('read', room)).toBe(true);
       });
 
       it('grants join on an active public Room', () => {
@@ -269,17 +381,17 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('join', room)).toBe(false);
       });
 
-      it('grants invite on an active Room the user is a member of', () => {
+      it('grants invite on an active public Room the user is a member of', () => {
         const room = roomSubject({
           status: 'active',
-          visibility: 'private',
+          visibility: 'public',
           roomMembers: [{ userId: 1 }],
         });
 
         expect(ability.can('invite', room)).toBe(true);
       });
 
-      it('denies invite on a Room the user is not a member of', () => {
+      it('denies invite on a public Room the user is not a member of', () => {
         const room = roomSubject({
           status: 'active',
           visibility: 'public',
@@ -289,11 +401,60 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('invite', room)).toBe(false);
       });
 
-      it('grants update and delete on the user own Room', () => {
-        const room = roomSubject({ createdById: 1 });
+      it('grants invite on a private Room only to its owner, not a regular member', () => {
+        const owner = roomSubject({
+          status: 'active',
+          visibility: 'private',
+          createdById: 1,
+          roomMembers: [{ userId: 1 }],
+        });
+        const member = roomSubject({
+          status: 'active',
+          visibility: 'private',
+          createdById: 99,
+          roomMembers: [{ userId: 1 }],
+        });
+
+        expect(ability.can('invite', owner)).toBe(true);
+        expect(ability.can('invite', member)).toBe(false);
+      });
+
+      it('grants leave on a Room the user is a member of, even if closed', () => {
+        const room = roomSubject({
+          status: 'closed',
+          roomMembers: [{ userId: 1, deletedAt: null }],
+        });
+
+        expect(ability.can('leave', room)).toBe(true);
+      });
+
+      it('denies leave on a Room the user is not a member of', () => {
+        const room = roomSubject({ status: 'active', roomMembers: [] });
+
+        expect(ability.can('leave', room)).toBe(false);
+      });
+
+      it('grants update on any field of the user own active Room', () => {
+        const room = roomSubject({ status: 'active', createdById: 1 });
 
         expect(ability.can('update', room)).toBe(true);
-        expect(ability.can('delete', room)).toBe(true);
+        expect(ability.can('update', room, 'name')).toBe(true);
+        expect(ability.can('update', room, 'status')).toBe(true);
+      });
+
+      it('restricts update on the user own closed Room to the status field, to allow reopening', () => {
+        const room = roomSubject({ status: 'closed', createdById: 1 });
+
+        expect(ability.can('update', room, 'status')).toBe(true);
+        expect(ability.can('update', room, 'name')).toBe(false);
+      });
+
+      it('grants delete on the user own Room regardless of status', () => {
+        const active = roomSubject({ status: 'active', createdById: 1 });
+        const closed = roomSubject({ status: 'closed', createdById: 1 });
+
+        expect(ability.can('delete', active)).toBe(true);
+        expect(ability.can('delete', closed)).toBe(true);
       });
 
       it('denies update and delete on a Room created by someone else, even when the Room id matches the user id', () => {
@@ -325,20 +486,34 @@ describe('CaslAbilityFactory', () => {
     describe('moderator role', () => {
       const ability = abilityFor(UserRole.moderator);
 
-      it('gains moderate on Room', () => {
-        expect(ability.can('moderate', 'Room')).toBe(true);
-      });
-
       it('gains kick on any Room', () => {
         const room = roomSubject({ status: 'active', createdById: 99 });
 
         expect(ability.can('kick', room)).toBe(true);
       });
 
-      it('still cannot delete a Room created by someone else', () => {
+      it('gains delete on any Room, for moderation off a report', () => {
         const room = roomSubject({ createdById: 99 });
 
-        expect(ability.can('delete', room)).toBe(false);
+        expect(ability.can('delete', room)).toBe(true);
+      });
+
+      it('gains read on any live Room, but not a deleted one', () => {
+        const live = roomSubject({
+          deletedAt: null,
+          visibility: 'private',
+          createdById: 99,
+          roomMembers: [],
+        });
+        const deleted = roomSubject({
+          deletedAt: new Date(),
+          visibility: 'private',
+          createdById: 99,
+          roomMembers: [],
+        });
+
+        expect(ability.can('read', live)).toBe(true);
+        expect(ability.can('read', deleted)).toBe(false);
       });
     });
 
@@ -350,6 +525,17 @@ describe('CaslAbilityFactory', () => {
 
         expect(ability.can('delete', room)).toBe(true);
       });
+
+      it('gains read on a deleted Room too', () => {
+        const deleted = roomSubject({
+          deletedAt: new Date(),
+          visibility: 'private',
+          createdById: 99,
+          roomMembers: [],
+        });
+
+        expect(ability.can('read', deleted)).toBe(true);
+      });
     });
   });
   describe('Friendship', () => {
@@ -359,7 +545,7 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('create', 'Friendship')).toBe(true);
     });
 
-    it('grants read on any accepted friendship', () => {
+    it('grants read on any accepted friendship between two public profiles', () => {
       expect(
         ability.can(
           'read',
@@ -367,9 +553,31 @@ describe('CaslAbilityFactory', () => {
             status: 'accepted',
             requesterId: 8,
             addresseeId: 9,
+            requester: { visibility: 'public' },
+            addressee: { visibility: 'public' },
           }),
         ),
       ).toBe(true);
+    });
+
+    it('denies read on an accepted friendship where either side is private', () => {
+      const requesterPrivate = friendshipSubject({
+        status: 'accepted',
+        requesterId: 8,
+        addresseeId: 9,
+        requester: { visibility: 'private' },
+        addressee: { visibility: 'public' },
+      });
+      const addresseePrivate = friendshipSubject({
+        status: 'accepted',
+        requesterId: 8,
+        addresseeId: 9,
+        requester: { visibility: 'public' },
+        addressee: { visibility: 'private' },
+      });
+
+      expect(ability.can('read', requesterPrivate)).toBe(false);
+      expect(ability.can('read', addresseePrivate)).toBe(false);
     });
 
     it('grants read on a pending friendship only to its two sides', () => {
@@ -505,16 +713,14 @@ describe('CaslAbilityFactory', () => {
     describe('moderator role', () => {
       const ability = abilityFor(UserRole.moderator);
 
-      it('gains update on a live Hashtag', () => {
-        expect(ability.can('update', hashtagSubject(live))).toBe(true);
+      it('gains delete on a Hashtag, live or deleted', () => {
+        expect(ability.can('delete', hashtagSubject(live))).toBe(true);
+        expect(ability.can('delete', hashtagSubject(deleted))).toBe(true);
       });
 
-      it('cannot revive a deleted Hashtag', () => {
+      it('never gains update — Hashtags cannot be revived by anyone', () => {
+        expect(ability.can('update', hashtagSubject(live))).toBe(false);
         expect(ability.can('update', hashtagSubject(deleted))).toBe(false);
-      });
-
-      it('still cannot delete a Hashtag', () => {
-        expect(ability.can('delete', hashtagSubject(live))).toBe(false);
       });
 
       it('still cannot read a deleted Hashtag', () => {
@@ -533,13 +739,92 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('read', hashtagSubject(deleted))).toBe(true);
       });
 
-      it('is the only role that may revive a deleted Hashtag', () => {
-        expect(ability.can('update', hashtagSubject(deleted))).toBe(true);
+      it('never gains update — Hashtags cannot be revived, not even by an admin', () => {
+        expect(ability.can('update', hashtagSubject(deleted))).toBe(false);
       });
 
       it('gains no action that was never granted', () => {
-        expect(ability.can('moderate', hashtagSubject(live))).toBe(false);
         expect(ability.can('ban', hashtagSubject(live))).toBe(false);
+      });
+    });
+  });
+
+  describe('Message', () => {
+    describe('user role', () => {
+      const ability = abilityFor(UserRole.user);
+
+      it('grants create/read/report on a Message in the user own Room', () => {
+        const message = messageSubject({
+          deletedAt: null,
+          roomId: 1,
+          room: {
+            deletedAt: null,
+            status: 'active',
+            roomMembers: [{ userId: 1, deletedAt: null }],
+          },
+        });
+
+        expect(ability.can('create', message)).toBe(true);
+        expect(ability.can('read', message)).toBe(true);
+        expect(ability.can('report', message)).toBe(true);
+      });
+
+      it('denies create/read/report on a Message in a Room the user is not a member of', () => {
+        const message = messageSubject({
+          deletedAt: null,
+          roomId: 1,
+          room: { roomMembers: [] },
+        });
+
+        expect(ability.can('create', message)).toBe(false);
+        expect(ability.can('read', message)).toBe(false);
+        expect(ability.can('report', message)).toBe(false);
+      });
+
+      it('never gains update or delete, even on the user own Message', () => {
+        const message = messageSubject({
+          deletedAt: null,
+          authorId: 1,
+          roomId: 1,
+          room: { roomMembers: [{ userId: 1, deletedAt: null }] },
+        });
+
+        expect(ability.can('update', message)).toBe(false);
+        expect(ability.can('delete', message)).toBe(false);
+      });
+    });
+
+    describe('moderator role', () => {
+      const ability = abilityFor(UserRole.moderator);
+
+      it('gains delete on any Message, for moderation off a report', () => {
+        const message = messageSubject({ deletedAt: null, authorId: 99 });
+
+        expect(ability.can('delete', message)).toBe(true);
+      });
+
+      it('gains read on any live Message, but not a deleted one', () => {
+        const live = messageSubject({ deletedAt: null, authorId: 99 });
+        const deleted = messageSubject({
+          deletedAt: new Date(),
+          authorId: 99,
+        });
+
+        expect(ability.can('read', live)).toBe(true);
+        expect(ability.can('read', deleted)).toBe(false);
+      });
+    });
+
+    describe('admin role', () => {
+      const ability = abilityFor(UserRole.admin);
+
+      it('gains read on a deleted Message too', () => {
+        const deleted = messageSubject({
+          deletedAt: new Date(),
+          authorId: 99,
+        });
+
+        expect(ability.can('read', deleted)).toBe(true);
       });
     });
   });

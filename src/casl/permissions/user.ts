@@ -12,18 +12,49 @@ export type UserActions = CrudAction | 'ban' | 'report';
 export type UserAbilities = [UserActions, 'User'];
 
 export function defineUserPermissions(
-  { can: allow }: AbilityBuilder<AppAbility>,
+  { can: allow, cannot: forbid }: AbilityBuilder<AppAbility>,
   user: AuthorizationUser,
 ) {
   if (user.isAdmin()) {
     allow('delete', 'User');
+    allow('ban', 'User', { role: 'moderator' });
+    // grade/degrade a user/moderator/admin — role transition validity
+    // (user->moderator, moderator->admin, etc.) is business logic, not CASL
+    allow('update', 'User', ['role'], {
+      deletedAt: null,
+      id: { not: user.id },
+    });
   }
 
   if (user.isModerator()) {
-    allow('ban', 'User');
+    allow('ban', 'User', { role: 'user' });
   }
 
-  allow('read', 'User', { visibility: { not: 'private' } });
-  allow('read', 'User', { id: user.id });
-  allow('update', 'User', { id: user.id });
+  allow(['read', 'report'], 'User', {
+    deletedAt: null,
+    visibility: { not: 'private' },
+    blocksGiven: { none: { blockedId: user.id } },
+  });
+
+  allow(['read'], 'User', {
+    deletedAt: null,
+    id: user.id,
+  });
+
+  allow(['update'], 'User', {
+    deletedAt: null,
+    id: user.id,
+  });
+  // the self-update rule above has no field restriction — carve out `role`
+  // so nobody can grade/degrade themselves through their own profile edit,
+  // even an admin (their role change goes through the admin-only rule above,
+  // which explicitly excludes their own id)
+  forbid('update', 'User', ['role'], {
+    id: user.id,
+  });
+
+  allow(['delete'], 'User', {
+    deletedAt: null,
+    id: user.id,
+  });
 }
