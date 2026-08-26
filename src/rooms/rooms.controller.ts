@@ -7,33 +7,72 @@ import {
   Delete,
   ParseIntPipe,
   HttpCode,
+  Body,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
+import type {
+  RoomCreateDTO,
+  RoomUpdateDTO,
+} from 'Pollpear_shared/src/schemas/rooms.schema';
+import {
+  RoomCreateSchema,
+  RoomUpdateSchema,
+} from 'Pollpear_shared/src/schemas/rooms.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { UserId } from 'src/common/decorators/user-id.decorator';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 
 @Controller('rooms')
 export class RoomsController {
-  constructor(private readonly roomsService: RoomsService) {}
+  constructor(
+    private readonly roomsService: RoomsService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  @Get()
+  @CheckAbilities(['read', 'Room'])
+  findMeManyRooms(@UserId() userId: number) {
+    return this.roomsService.findMeManyRooms(userId);
+  }
+
+  @Get('feed')
+  @CheckAbilities(['read', 'Room'])
+  findManyRooms(@UserId() userId: number) {
+    return this.roomsService.findManyRooms(userId);
+  }
+
+  @Get(':id')
+  @CheckAbilities(['read', 'Room'])
+  findMeOneRoom(
+    @Param('id', ParseIntPipe) id: number,
+    @UserId() userId: number,
+  ) {
+    return this.roomsService.findMeOneRoom(id, userId);
+  }
 
   @Post('new')
-  @HttpCode(503)
   @CheckAbilities(['create', 'Room'])
-  create() {
-    return this.roomsService.create();
+  create(
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(RoomCreateSchema)) body: RoomCreateDTO,
+  ) {
+    return this.roomsService.create(userId, body);
   }
 
   @Patch(':id')
-  @HttpCode(503)
   @CheckAbilities(['update', 'Room'])
-  update(@Param('id', ParseIntPipe) id: number) {
-    return this.roomsService.update(+id);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @UserId() userId: number,
+    @Body(new ZodValidationPipe(RoomUpdateSchema)) body: RoomUpdateDTO,
+  ) {
+    return this.roomsService.update(id, userId, body);
   }
 
   @Delete(':id')
-  @HttpCode(503)
-  @CheckAbilities(['delete', 'Room'])
-  remove(@Param('id') id: string) {
-    return this.roomsService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
+    return this.roomsService.remove(id, userId);
   }
 
   @Post(':id/participants/:userId')

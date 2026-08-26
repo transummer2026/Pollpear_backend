@@ -447,8 +447,8 @@ model Room {
   id          Int       @id @default(autoincrement())
   name        String    @db.VarChar(255)
   description String?   @db.Text
-  bannerUrl   String    @map("banner_url") @db.VarChar(255)
-  publishedAt DateTime? @map("published_at")
+  bannerUrl   String    @default("/uploads/banners/default.svg") @map("banner_url") @db.VarChar(255)
+  endsAt      DateTime? @map("ends_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")

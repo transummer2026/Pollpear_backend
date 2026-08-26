@@ -1,0 +1,80 @@
+### create a room to read (run first, then replace :id below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "readable room",
+	"visibility": "public"
+}
+
+### owner reads their own room -> 200
+GET http://localhost:3000/rooms/34 HTTP/1.1
+x-user-id: 2
+
+### non-owner, non-member reads a private room they have no relation to -> 403 Forbidden
+### findMeOneRoom now does an explicit CASL instance check via
+### subject('Room', room) before returning, matching the pattern
+### update()/remove() already used. Previously this was a 200: the
+### @CheckAbilities(['read', 'Room']) guard only checked
+### `ability.can('read', 'Room')` with no instance -- a class-level check
+### ("can this user read *some* Room?"), not per-room -- so any authenticated
+### user could read any room's full detail (messages, polls, members)
+### regardless of ownership/membership/visibility. Room 24 above is public,
+### so it still 200s for non-owners; a private room a user has no relation
+### to now correctly 403s. NOTE: this same class-level-only CheckAbilities
+### pattern is still present, unfixed, in polls.controller.ts and
+### users.controller.ts.
+GET http://localhost:3000/rooms/18 HTTP/1.1
+x-user-id: 3
+
+### non-owner reads a public room -> 200 (public visibility rule still applies)
+GET http://localhost:3000/rooms/24 HTTP/1.1
+x-user-id: 6
+
+### room that doesn't exist -> 404 Not Found
+GET http://localhost:3000/rooms/999999 HTTP/1.1
+x-user-id: 2
+
+### missing x-user-id header -> 401 Unauthorized
+GET http://localhost:3000/rooms/:id HTTP/1.1
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+GET http://localhost:3000/rooms/:id HTTP/1.1
+x-user-id: 999999
+
+### non-integer room id -> 400 Bad Request (ParseIntPipe)
+GET http://localhost:3000/rooms/abc HTTP/1.1
+x-user-id: 2
+
+### owner lists their own rooms -> 200, includes the room created above
+GET http://localhost:3000/rooms HTTP/1.1
+x-user-id: 2
+
+### a different user lists their own rooms -> 200, does NOT include user 1's room
+GET http://localhost:3000/rooms HTTP/1.1
+x-user-id: 6
+
+### missing x-user-id header -> 401 Unauthorized
+GET http://localhost:3000/rooms HTTP/1.1
+
+### feed: user sees their own rooms + public rooms + rooms they're a member of -> 200
+### NOTE: this route used to be unreachable because `@Get(':id')` was declared
+### before `@Get('feed')` on the controller, so "feed" was parsed as an :id and
+### always 400'd. Also, the public-room branch used deletedAt: 'null' (string)
+### instead of deletedAt: null, which made Prisma throw a 500 on every hit
+### once the route was reachable. Both are fixed in rooms.controller.ts /
+### rooms.service.ts.
+GET http://localhost:3000/rooms/feed HTTP/1.1
+x-user-id: 2
+
+### feed as a different user -> 200, includes public rooms + rooms they're a member of, not other users' private rooms
+GET http://localhost:3000/rooms/feed HTTP/1.1
+x-user-id: 6
+
+### missing x-user-id header -> 401 Unauthorized
+GET http://localhost:3000/rooms/feed HTTP/1.1
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+GET http://localhost:3000/rooms/feed HTTP/1.1
+x-user-id: 999999

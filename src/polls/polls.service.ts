@@ -10,7 +10,7 @@ import {
   PollReadSchema,
   PollUpdateDTO,
 } from 'Pollpear_shared/src/schemas/polls.schema';
-import { Poll, User } from 'src/generated/prisma/client';
+import { Poll, Prisma, User } from 'src/generated/prisma/client';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
@@ -204,28 +204,7 @@ export class PollsService {
             { id, deletedAt: null },
           ],
         },
-        include: {
-          options: {
-            where: { deletedAt: null },
-            include: {
-              _count: {
-                select: {
-                  voteOptions: true,
-                },
-              },
-            },
-          },
-          createdBy: true,
-          room: { where: { deletedAt: null } },
-          pollHashtags: {
-            include: {
-              hashtag: true,
-            },
-          },
-          votes: {
-            where: { deletedAt: null },
-          },
-        },
+        include: getPollIncludeArgs(),
       }),
       this.prisma.vote.findUnique({
         where: {
@@ -270,35 +249,7 @@ export class PollsService {
             },
           ],
         },
-        include: {
-          options: {
-            where: { deletedAt: null },
-            include: {
-              _count: {
-                select: {
-                  voteOptions: true,
-                },
-              },
-            },
-          },
-          createdBy: true,
-          room: { where: { deletedAt: null } },
-          pollHashtags: {
-            include: {
-              hashtag: true,
-            },
-          },
-          votes: {
-            where: { deletedAt: null },
-            include: {
-              _count: {
-                select: {
-                  voteOptions: true,
-                },
-              },
-            },
-          },
-        },
+        include: getPollIncludeArgs(),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -308,10 +259,7 @@ export class PollsService {
       }),
     ]);
 
-    return polls.map((poll) => {
-      const hasVoted = votesMadeByUser.some((v) => v.pollId === poll.id);
-      return this.shapePollForUser(poll, hasVoted);
-    });
+    return this.shapeManyPollsForUser(polls, votesMadeByUser);
   }
 
   // differences with me many polls.
@@ -326,35 +274,7 @@ export class PollsService {
             { createdById: targetId, isAnonymous: false, deletedAt: null },
           ],
         },
-        include: {
-          options: {
-            where: { deletedAt: null },
-            include: {
-              _count: {
-                select: {
-                  voteOptions: true,
-                },
-              },
-            },
-          },
-          createdBy: true,
-          room: { where: { deletedAt: null } },
-          pollHashtags: {
-            include: {
-              hashtag: true,
-            },
-          },
-          votes: {
-            where: { deletedAt: null },
-            include: {
-              _count: {
-                select: {
-                  voteOptions: true,
-                },
-              },
-            },
-          },
-        },
+        include: getPollIncludeArgs(),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -364,6 +284,29 @@ export class PollsService {
       }),
     ]);
 
+    return this.shapeManyPollsForUser(polls, votesMadeByUser);
+  }
+
+  /**
+   * Bulk version of {@link shapePollForUser}: matches each poll to whether
+   * `votesMadeByUser` contains a vote for it, then shapes it. Shared by
+   * {@link findMeManyPolls}, {@link findUsersManyPolls}, and `RoomsService`
+   * (for the polls nested inside a room) so this matching logic — and the
+   * shaping it feeds into — is written once.
+   *
+   * @param polls - polls to shape, relations already `include`d
+   * @param votesMadeByUser - the requesting user's votes, used to test each poll for `hasVoted`
+   * @returns each poll parsed against `PollReadSchema`
+   */
+  shapeManyPollsForUser<
+    T extends {
+      id: number;
+      type: string;
+      isAnonymous: boolean;
+      createdBy: unknown;
+      votes: { freeField: string | null }[];
+    },
+  >(polls: T[], votesMadeByUser: { pollId: number }[]) {
     return polls.map((poll) => {
       const hasVoted = votesMadeByUser.some((v) => v.pollId === poll.id);
       return this.shapePollForUser(poll, hasVoted);
@@ -377,14 +320,14 @@ export class PollsService {
    * `PollReadSchema`. `hasVoted` is passed in since computing it differs
    * between a single-poll lookup and a bulk one.
    *
-   * Shared by {@link findMeOnePoll} and {@link findMeManyPolls} so this
+   * Shared by {@link findMeOnePoll} and {@link shapeManyPollsForUser} so this
    * logic — the slider math in particular — is written, and fixed, once.
    *
    * @param poll - poll with `type`, `isAnonymous`, `createdBy`, `votes` at least
    * @param hasVoted - whether the requesting user has voted on this poll
    * @returns the poll parsed against `PollReadSchema`
    */
-  private shapePollForUser<
+  shapePollForUser<
     T extends {
       type: string;
       isAnonymous: boolean;
@@ -414,4 +357,36 @@ export class PollsService {
       sliderResult,
     });
   }
+}
+
+/**
+ * The relations a poll needs loaded to satisfy `PollReadSchema`: option vote
+ * counts, the joined hashtag on each `pollHashtag`, the parent room, and
+ * votes. Shared so `PollsService` and `RoomsService` (whose rooms nest
+ * `PollReadSchema`-shaped polls) fetch this identically instead of each
+ * hand-rolling their own `include`.
+ */
+export function getPollIncludeArgs(): Prisma.PollInclude {
+  return {
+    options: {
+      where: { deletedAt: null },
+      include: {
+        _count: {
+          select: {
+            voteOptions: true,
+          },
+        },
+      },
+    },
+    createdBy: true,
+    room: { where: { deletedAt: null } },
+    pollHashtags: {
+      include: {
+        hashtag: true,
+      },
+    },
+    votes: {
+      where: { deletedAt: null },
+    },
+  };
 }
