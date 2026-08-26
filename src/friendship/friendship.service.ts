@@ -263,42 +263,39 @@ export class FriendshipService {
     targetId: number,
   ): Promise<FriendRequestOutcome> {
     const pair = canonicalPair(userId, targetId);
-    const active = await this.prisma.friendship.findFirst({
-      where: { ...pair, deletedAt: null },
+    const existing = await this.prisma.friendship.findUnique({
+      where: { userAId_userBId: pair },
     });
 
-    if (active?.status === 'accepted') {
-      throw new ConflictException(
-        'A friendship already exists with this user.',
-      );
+    if (existing && existing.deletedAt === null) {
+      if (existing.status === 'accepted') {
+        throw new ConflictException(
+          'A friendship already exists with this user.',
+        );
+      }
+
+      if (existing.status === 'pending' && existing.addresseeId === userId) {
+        const accepted = await this.prisma.friendship.update({
+          where: { id: existing.id },
+          data: { status: 'accepted' },
+        });
+        return { friendship: accepted, kind: 'accepted' };
+      }
+
+      if (existing.status === 'pending') {
+        return { friendship: existing, kind: 'unchanged' };
+      }
     }
 
-    if (active?.status === 'pending' && active.addresseeId === userId) {
-      const accepted = await this.prisma.friendship.update({
-        where: { id: active.id },
-        data: { status: 'accepted' },
-      });
-      return { friendship: accepted, kind: 'accepted' };
-    }
-
-    if (active?.status === 'pending') {
-      return { friendship: active, kind: 'unchanged' };
-    }
-
-    if (active) {
-      const reopened = await this.prisma.friendship.update({
-        where: { id: active.id },
-        data: {
-          status: 'pending',
-          addresseeId: targetId,
-          createdAt: new Date(),
-        },
-      });
-      return { friendship: reopened, kind: 'created' };
-    }
-
-    const friendship = await this.prisma.friendship.create({
-      data: { ...pair, addresseeId: targetId, status: 'pending' },
+    const friendship = await this.prisma.friendship.upsert({
+      where: { userAId_userBId: pair },
+      create: { ...pair, addresseeId: targetId, status: 'pending' },
+      update: {
+        status: 'pending',
+        addresseeId: targetId,
+        deletedAt: null,
+        createdAt: new Date(),
+      },
     });
 
     return { friendship, kind: 'created' };

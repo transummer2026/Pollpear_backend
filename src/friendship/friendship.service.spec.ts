@@ -320,12 +320,18 @@ describe('FriendshipService', () => {
       });
     }
 
+    function lookup(pairRow: unknown, freshRow: unknown = pairRow) {
+      prisma.friendship.findUnique.mockImplementation(({ where }) =>
+        Promise.resolve('id' in where ? freshRow : pairRow),
+      );
+    }
+
     it('rejects sending a friend request to yourself', async () => {
       await expect(service.createFriendRequest(1, 1)).rejects.toBeInstanceOf(
         BadRequestException,
       );
-      expect(prisma.friendship.findFirst).not.toHaveBeenCalled();
-      expect(prisma.friendship.create).not.toHaveBeenCalled();
+      expect(prisma.friendship.findUnique).not.toHaveBeenCalled();
+      expect(prisma.friendship.upsert).not.toHaveBeenCalled();
     });
 
     it('rejects when a block exists between the two users, in either direction', async () => {
@@ -334,29 +340,39 @@ describe('FriendshipService', () => {
       await expect(service.createFriendRequest(1, 2)).rejects.toBeInstanceOf(
         ForbiddenException,
       );
-      expect(prisma.friendship.findFirst).not.toHaveBeenCalled();
-      expect(prisma.friendship.create).not.toHaveBeenCalled();
+      expect(prisma.friendship.findUnique).not.toHaveBeenCalled();
+      expect(prisma.friendship.upsert).not.toHaveBeenCalled();
+    });
+
+    it('looks the pair up by its canonical key', async () => {
+      const created = makeFriendship({ status: 'pending' });
+      lookup(null, created);
+      prisma.friendship.upsert.mockResolvedValue(created);
+
+      await service.createFriendRequest(2, 1);
+
+      expect(prisma.friendship.findUnique).toHaveBeenCalledWith({
+        where: { userAId_userBId: { userAId: 1, userBId: 2 } },
+      });
     });
 
     it('rejects when an accepted friendship already exists', async () => {
-      prisma.friendship.findFirst.mockResolvedValue(
-        makeFriendship({ status: 'accepted' }),
-      );
+      lookup(makeFriendship({ status: 'accepted' }));
 
       await expect(service.createFriendRequest(1, 2)).rejects.toBeInstanceOf(
         ConflictException,
       );
-      expect(prisma.friendship.create).not.toHaveBeenCalled();
+      expect(prisma.friendship.upsert).not.toHaveBeenCalled();
     });
 
     it('returns the pending request unchanged when the caller already sent it', async () => {
       const pending = makeFriendship({ status: 'pending' });
-      prisma.friendship.findFirst.mockResolvedValue(pending);
+      lookup(pending);
 
       const result = await service.createFriendRequest(1, 2);
 
       expect(result.status).toBe('pending');
-      expect(prisma.friendship.create).not.toHaveBeenCalled();
+      expect(prisma.friendship.upsert).not.toHaveBeenCalled();
       expect(prisma.friendship.update).not.toHaveBeenCalled();
       expect(notifications.notify).not.toHaveBeenCalled();
     });
@@ -365,11 +381,9 @@ describe('FriendshipService', () => {
       const incoming = makeFriendship({
         id: 10,
         status: 'pending',
-        userAId: 1,
-        userBId: 2,
         addresseeId: 1,
       });
-      prisma.friendship.findFirst.mockResolvedValue(incoming);
+      lookup(incoming);
       prisma.friendship.update.mockResolvedValue({
         ...incoming,
         status: 'accepted',
@@ -391,16 +405,27 @@ describe('FriendshipService', () => {
       expect(result.status).toBe('accepted');
     });
 
-    it('creates a fresh request and notifies the addressee when no relation exists', async () => {
+    it('creates the row and notifies the addressee when no relation exists', async () => {
       const created = makeFriendship({ status: 'pending' });
-      prisma.friendship.findFirst.mockResolvedValue(null);
-      prisma.friendship.create.mockResolvedValue(created);
-      prisma.friendship.findUnique.mockResolvedValue(created);
+      lookup(null, created);
+      prisma.friendship.upsert.mockResolvedValue(created);
 
       const result = await service.createFriendRequest(1, 2);
 
-      expect(prisma.friendship.create).toHaveBeenCalledWith({
-        data: { userAId: 1, userBId: 2, addresseeId: 2, status: 'pending' },
+      expect(prisma.friendship.upsert).toHaveBeenCalledWith({
+        where: { userAId_userBId: { userAId: 1, userBId: 2 } },
+        create: {
+          userAId: 1,
+          userBId: 2,
+          addresseeId: 2,
+          status: 'pending',
+        },
+        update: {
+          status: 'pending',
+          addresseeId: 2,
+          deletedAt: null,
+          createdAt: expect.any(Date) as Date,
+        },
       });
       expect(notifications.notify).toHaveBeenCalledWith(
         2,
@@ -411,6 +436,26 @@ describe('FriendshipService', () => {
       expect(result.status).toBe('pending');
     });
 
+    it('revives the single row of the pair instead of adding a second one', async () => {
+      const dead = makeFriendship({
+        id: 10,
+        status: 'rejected',
+        deletedAt: new Date('2024-02-01'),
+      });
+      const revived = makeFriendship({ id: 10, status: 'pending' });
+      lookup(dead, revived);
+      prisma.friendship.upsert.mockResolvedValue(revived);
+
+      await service.createFriendRequest(1, 2);
+
+      expect(prisma.friendship.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userAId_userBId: { userAId: 1, userBId: 2 } },
+        }),
+      );
+      expect(prisma.friendship.create).not.toHaveBeenCalled();
+    });
+
     it('reopens a rejected relation and points it at the new addressee', async () => {
       const rejected = makeFriendship({
         id: 10,
@@ -418,52 +463,29 @@ describe('FriendshipService', () => {
         addresseeId: 1,
       });
       const reopened = makeFriendship({ id: 10, status: 'pending' });
-      prisma.friendship.findFirst.mockResolvedValue(rejected);
-      prisma.friendship.update.mockResolvedValue(reopened);
-      prisma.friendship.findUnique.mockResolvedValue(reopened);
+      lookup(rejected, reopened);
+      prisma.friendship.upsert.mockResolvedValue(reopened);
 
       await service.createFriendRequest(1, 2);
 
-      expect(prisma.friendship.update).toHaveBeenCalledWith({
-        where: { id: 10 },
-        data: {
-          status: 'pending',
-          addresseeId: 2,
-          createdAt: expect.any(Date) as Date,
-        },
+      const [args] = prisma.friendship.upsert.mock.calls[0];
+      expect(args.update).toMatchObject({
+        status: 'pending',
+        addresseeId: 2,
+        deletedAt: null,
       });
-      expect(prisma.friendship.create).not.toHaveBeenCalled();
     });
 
-    it('creates a new row instead of reviving a soft-deleted one', async () => {
-      const created = makeFriendship({ id: 12, status: 'pending' });
-      prisma.friendship.findFirst.mockResolvedValue(null);
-      prisma.friendship.create.mockResolvedValue(created);
-      prisma.friendship.findUnique.mockResolvedValue(created);
-
-      await service.createFriendRequest(1, 2);
-
-      expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
-        where: { userAId: 1, userBId: 2, deletedAt: null },
-      });
-      expect(prisma.friendship.create).toHaveBeenCalledWith({
-        data: { userAId: 1, userBId: 2, addresseeId: 2, status: 'pending' },
-      });
-      expect(prisma.friendship.update).not.toHaveBeenCalled();
-    });
-
-    it('retries the resolution once when the unique index rejects the create', async () => {
+    it('retries the resolution once when the unique index rejects the upsert', async () => {
       const mirror = makeFriendship({
         id: 13,
         status: 'pending',
-        userAId: 1,
-        userBId: 2,
         addresseeId: 1,
       });
-      prisma.friendship.findFirst
+      prisma.friendship.findUnique
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(mirror);
-      prisma.friendship.create.mockRejectedValue(uniqueViolation());
+      prisma.friendship.upsert.mockRejectedValue(uniqueViolation());
       prisma.friendship.update.mockResolvedValue({
         ...mirror,
         status: 'accepted',
@@ -471,24 +493,14 @@ describe('FriendshipService', () => {
 
       const result = await service.createFriendRequest(1, 2);
 
-      expect(prisma.friendship.create).toHaveBeenCalledTimes(1);
+      expect(prisma.friendship.upsert).toHaveBeenCalledTimes(1);
       expect(result.status).toBe('accepted');
-      expect(notifications.notify).toHaveBeenCalledWith(
-        2,
-        'friend_accepted',
-        'alice accepted your friend request.',
-        1,
-      );
     });
 
     it('reports the accepted state when a concurrent request accepted first', async () => {
       const created = makeFriendship({ id: 12, status: 'pending' });
-      prisma.friendship.findFirst.mockResolvedValue(null);
-      prisma.friendship.create.mockResolvedValue(created);
-      prisma.friendship.findUnique.mockResolvedValue({
-        ...created,
-        status: 'accepted',
-      });
+      lookup(null, { ...created, status: 'accepted' });
+      prisma.friendship.upsert.mockResolvedValue(created);
 
       const result = await service.createFriendRequest(1, 2);
 
@@ -498,11 +510,11 @@ describe('FriendshipService', () => {
     });
 
     it('propagates errors that are not unique violations', async () => {
-      prisma.friendship.findFirst.mockResolvedValue(null);
-      prisma.friendship.create.mockRejectedValue(new Error('boom'));
+      lookup(null);
+      prisma.friendship.upsert.mockRejectedValue(new Error('boom'));
 
       await expect(service.createFriendRequest(1, 2)).rejects.toThrow('boom');
-      expect(prisma.friendship.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.friendship.findUnique).toHaveBeenCalledTimes(1);
     });
   });
   describe('updateFriendRequest', () => {

@@ -8,7 +8,6 @@ generator client {
   output              = "../src/generated/prisma"
   moduleFormat        = "cjs"
   importFileExtension = ""
-  previewFeatures     = ["partialIndexes"]
 }
 
 generator zod {
@@ -235,7 +234,7 @@ model Friendship {
   userA User @relation("FriendshipUserA", fields: [userAId], references: [id])
   userB User @relation("FriendshipUserB", fields: [userBId], references: [id])
 
-  @@unique([userAId, userBId], where: { deletedAt: null })
+  @@unique([userAId, userBId])
   @@index([userAId])
   @@index([userBId])
   @@index([addresseeId])
