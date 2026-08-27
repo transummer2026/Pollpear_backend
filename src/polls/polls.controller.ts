@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Body,
   Query,
+  Logger,
 } from '@nestjs/common';
 import { PollsService } from './polls.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
@@ -28,7 +29,6 @@ import {
   VoteUpdateSchema,
 } from 'Pollpear_shared/src/schemas/vote.schema';
 import { VotesService } from 'src/votes/votes.service';
-import { Logger } from '@nestjs/common';
 
 @Controller('polls')
 export class PollsController {

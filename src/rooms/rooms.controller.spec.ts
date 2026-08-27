@@ -2,6 +2,7 @@ import {
   RoomCreateDTO,
   RoomUpdateDTO,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
@@ -38,6 +39,7 @@ describe('RoomsController', () => {
     controller = new RoomsController(
       service as unknown as RoomsService,
       {} as PrismaService,
+      {} as Logger,
     );
   });
 

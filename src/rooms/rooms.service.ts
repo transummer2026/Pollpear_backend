@@ -284,26 +284,60 @@ export class RoomsService {
     );
   }
 
-  async findManyRooms(userId: number) {
+  async findUsersManyRooms(userId: number, targetId: number) {
     const [rooms, votesMadeByUser] = await Promise.all([
       this.prisma.room.findMany({
         where: {
-          OR: [
+          createdById: targetId,
+          deletedAt: null,
+        },
+        include: getRoomIncludeArgs(userId),
+      }),
+      this.prisma.vote.findMany({
+        where: {
+          createdById: userId,
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    return rooms.map((room) =>
+      RoomReadSchema.parse({
+        ...room,
+        polls: this.pollsService.shapeManyPollsForUser(
+          room.polls,
+          votesMadeByUser,
+        ),
+      }),
+    );
+  }
+
+  async findManyRooms(userId: number) {
+    const ability = await this.abilityFor(userId);
+    const [rooms, votesMadeByUser] = await Promise.all([
+      this.prisma.room.findMany({
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
             {
-              createdById: userId,
-              deletedAt: null,
-            },
-            {
-              visibility: 'public',
-              deletedAt: null,
-            },
-            {
-              roomMembers: {
-                some: {
-                  userId: userId,
+              OR: [
+                {
+                  createdById: userId,
+                  deletedAt: null,
                 },
-              },
-              deletedAt: null,
+                {
+                  visibility: 'public',
+                  deletedAt: null,
+                },
+                {
+                  roomMembers: {
+                    some: {
+                      userId: userId,
+                    },
+                  },
+                  deletedAt: null,
+                },
+              ],
             },
           ],
         },

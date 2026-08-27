@@ -8,6 +8,8 @@ import {
   ParseIntPipe,
   HttpCode,
   Body,
+  Query,
+  Logger,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import type {
@@ -28,11 +30,20 @@ export class RoomsController {
   constructor(
     private readonly roomsService: RoomsService,
     private readonly prisma: PrismaService,
+    private logger: Logger,
   ) {}
 
   @Get()
   @CheckAbilities(['read', 'Room'])
-  findMeManyRooms(@UserId() userId: number) {
+  findMeManyRooms(
+    @UserId() userId: number,
+    @Query('userId') targetUserId?: string,
+  ) {
+    if (targetUserId) {
+      this.logger.debug('targetId is captured in the url');
+      return this.roomsService.findUsersManyRooms(userId, +targetUserId);
+    }
+    this.logger.debug('Only userId is captured in the url');
     return this.roomsService.findMeManyRooms(userId);
   }
 
