@@ -1,8 +1,8 @@
 import { ForbiddenError, subject } from '@casl/ability';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
-import { AppAbility } from 'src/casl/casl-prisma';
+import { accessibleBy, AppAbility } from 'src/casl/casl-prisma';
 import { OptionsService } from 'src/options/options.service';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import {
@@ -10,7 +10,7 @@ import {
   PollReadSchema,
   PollUpdateDTO,
 } from 'Pollpear_shared/src/schemas/polls.schema';
-import { Poll } from 'src/generated/prisma/client';
+import { Poll, User } from 'src/generated/prisma/client';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
@@ -25,36 +25,30 @@ export class PollsService {
 
   /**
    * Creates a poll. Thin wrapper around {@link createPoll}.
-   * @param userId - owner of the new poll
+   * @param viewer - owner of the new poll
    * @param body - validated poll payload
    * @returns the created Poll (raw Prisma record)
    */
-  async create(userId: number, body: PollCreateDTO) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-    const ability = this.abilityFactory.createForUser(user);
+  async create(viewer: User, body: PollCreateDTO) {
+    const ability = this.abilityFactory.createForUser(viewer);
 
-    return await this.createPoll(userId, body, ability);
+    return await this.createPoll(viewer.id, body, ability);
   }
 
   /**
    * Updates a poll after a CASL check that the user may `'update'` it.
    * @param id - poll id
-   * @param userId - user attempting the update
+   * @param viewer - user attempting the update
    * @param body - validated fields to update
    * @returns the updated Poll
    * @throws `ForbiddenError` if the user lacks permission
    */
-  async update(id: number, userId: number, body: PollUpdateDTO) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
+  async update(id: number, viewer: User, body: PollUpdateDTO) {
     const poll = await this.prisma.poll.findFirstOrThrow({
       where: { id, deletedAt: null },
     });
 
-    const ability = this.abilityFactory.createForUser(user);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
       subject('Poll', poll),
@@ -66,19 +60,16 @@ export class PollsService {
   /**
    * Soft-deletes a poll after a CASL check that the user may `'delete'` it.
    * @param id - poll id
-   * @param userId - user attempting the deletion
+   * @param viewer - user attempting the deletion
    * @returns the updated (soft-deleted) Poll
    * @throws `ForbiddenError` if the user lacks permission
    */
-  async remove(id: number, userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
+  async remove(id: number, viewer: User) {
     const poll = await this.prisma.poll.findFirstOrThrow({
       where: { id, deletedAt: null },
     });
 
-    const ability = this.abilityFactory.createForUser(user);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'delete',
       subject('Poll', poll),
@@ -192,16 +183,27 @@ export class PollsService {
   /**
    * Fetches one poll shaped for the requesting user: adds `hasVoted`,
    * `voterCount`, `sliderResult` (0 unless it's a slider poll), and nulls
-   * out `createdBy` if the poll is anonymous.
+   * out `createdBy` if the poll is anonymous. The row is only loaded if the
+   * CASL `read` policy allows it (own/public polls, or polls in a room the
+   * viewer belongs to) — a poll outside that scope reports 404, same as any
+   * other id that doesn't exist, rather than leaking that it exists.
    * @param id - poll id
-   * @param userId - requesting user, used to compute `hasVoted`
+   * @param viewer - requesting user, used for the read check and to
+   * compute `hasVoted`
    * @returns poll parsed against `PollReadSchema`
-   * @throws if the poll doesn't exist or is deleted
+   * @throws `NotFoundException` if the poll doesn't exist, is deleted, or
+   * isn't readable by the viewer
    */
-  async findMeOnePoll(id: number, userId: number) {
+  async findMeOnePoll(id: number, viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
     const [poll, userVote] = await Promise.all([
-      this.prisma.poll.findUniqueOrThrow({
-        where: { id, deletedAt: null },
+      this.prisma.poll.findFirst({
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Poll'),
+            { id, deletedAt: null },
+          ],
+        },
         include: {
           options: {
             where: { deletedAt: null },
@@ -228,13 +230,14 @@ export class PollsService {
       this.prisma.vote.findUnique({
         where: {
           createdById_pollId: {
-            createdById: userId,
+            createdById: viewer.id,
             pollId: id,
           },
           deletedAt: null,
         },
       }),
     ]);
+    if (!poll) throw new NotFoundException('Poll not found');
     const hasVoted = userVote !== null;
 
     return this.shapePollForUser(poll, hasVoted);
@@ -251,15 +254,21 @@ export class PollsService {
    * polls + N more, one per poll), and gets slower as a user's poll count
    * grows.
    *
-   * @param userId - owner whose polls (and votes) are fetched
+   * @param viewer - owner whose polls (and votes) are fetched
    * @returns array of polls parsed against `PollReadSchema`
    */
-  async findMeManyPolls(userId: number) {
+  async findMeManyPolls(viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
     const [polls, votesMadeByUser] = await Promise.all([
       this.prisma.poll.findMany({
         where: {
-          createdById: userId,
-          deletedAt: null,
+          AND: [
+            accessibleBy(ability, 'read').ofType('Poll'),
+            {
+              createdById: viewer.id,
+              deletedAt: null,
+            },
+          ],
         },
         include: {
           options: {
@@ -293,7 +302,7 @@ export class PollsService {
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: userId,
+          createdById: viewer.id,
           deletedAt: null,
         },
       }),
@@ -306,14 +315,16 @@ export class PollsService {
   }
 
   // differences with me many polls.
-  async findUsersManyPolls(userId: number, targetId: number) {
+  async findUsersManyPolls(viewer: User, targetId: number) {
     this.logger.debug('entered the findUsersManyPolls');
+    const ability = this.abilityFactory.createForUser(viewer);
     const [polls, votesMadeByUser] = await Promise.all([
       this.prisma.poll.findMany({
         where: {
-          createdById: targetId,
-          isAnonymous: false,
-          deletedAt: null,
+          AND: [
+            accessibleBy(ability, 'read').ofType('Poll'),
+            { createdById: targetId, isAnonymous: false, deletedAt: null },
+          ],
         },
         include: {
           options: {
@@ -347,7 +358,7 @@ export class PollsService {
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: userId,
+          createdById: viewer.id,
           deletedAt: null,
         },
       }),

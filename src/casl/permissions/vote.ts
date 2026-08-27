@@ -34,7 +34,7 @@ export function defineVotePermissions(
     createdById: user.id,
   });
 
-  allow(['update'], 'Vote', {
+  allow(['update', 'delete'], 'Vote', {
     deletedAt: null,
     createdById: user.id,
     poll: { is: { status: { not: 'closed' } } },

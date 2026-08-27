@@ -1,5 +1,6 @@
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import type { User } from 'src/generated/prisma/client';
 import { RoomsService } from './rooms.service';
 
 function searchRow(id: number, name = `room${id}`) {
@@ -7,6 +8,7 @@ function searchRow(id: number, name = `room${id}`) {
 }
 
 const REQUESTER_ID = 1;
+const requesterViewer = { id: REQUESTER_ID, role: 'user' } as User;
 
 describe('RoomsService', () => {
   let service: RoomsService;
@@ -15,9 +17,6 @@ describe('RoomsService', () => {
       findMany: jest.Mock<Promise<unknown[]>, [Record<string, unknown>]>;
       count: jest.Mock<Promise<number>, [Record<string, unknown>]>;
     };
-    user: {
-      findUniqueOrThrow: jest.Mock<Promise<unknown>, [Record<string, unknown>]>;
-    };
   };
 
   beforeEach(() => {
@@ -25,11 +24,6 @@ describe('RoomsService', () => {
       room: {
         findMany: jest.fn<Promise<unknown[]>, [Record<string, unknown>]>(),
         count: jest.fn<Promise<number>, [Record<string, unknown>]>(),
-      },
-      user: {
-        findUniqueOrThrow: jest
-          .fn<Promise<unknown>, [Record<string, unknown>]>()
-          .mockResolvedValue({ id: REQUESTER_ID, role: 'user' }),
       },
     };
     service = new RoomsService(
@@ -43,16 +37,18 @@ describe('RoomsService', () => {
   });
 
   describe('search', () => {
-    // Derived from the CASL room-read policy for a plain 'user' role: active
-    // rooms that are either public, or the requester is a member of.
+    // Derived from the CASL room-read policy for a plain 'user' role: public
+    // rooms, or rooms the requester is a member of.
     const baseWhere = {
       deletedAt: null,
       OR: [
         {
-          status: 'active',
-          roomMembers: { some: { userId: REQUESTER_ID } },
+          deletedAt: null,
+          roomMembers: {
+            some: { userId: REQUESTER_ID, deletedAt: null },
+          },
         },
-        { status: 'active', visibility: 'public' },
+        { deletedAt: null, visibility: 'public' },
       ],
     };
     const matchWhere = (q: string) => ({
@@ -72,7 +68,7 @@ describe('RoomsService', () => {
         .mockResolvedValueOnce(prefixed)
         .mockResolvedValueOnce(contained);
 
-      await expect(service.search('room', REQUESTER_ID)).resolves.toEqual({
+      await expect(service.search('room', requesterViewer)).resolves.toEqual({
         items: [...prefixed, ...contained],
         total: 3,
       });
@@ -108,7 +104,7 @@ describe('RoomsService', () => {
       prisma.room.findMany.mockResolvedValueOnce(alphabetical);
 
       await expect(
-        service.search('a', REQUESTER_ID, { sortBy: 'alphabetical' }),
+        service.search('a', requesterViewer, { sortBy: 'alphabetical' }),
       ).resolves.toEqual({ items: alphabetical, total: 2 });
 
       expect(prisma.room.count).toHaveBeenCalledTimes(1);
@@ -130,7 +126,7 @@ describe('RoomsService', () => {
         .mockResolvedValueOnce([]);
 
       await expect(
-        service.search('room', REQUESTER_ID, { page: 3, limit: 5 }),
+        service.search('room', requesterViewer, { page: 3, limit: 5 }),
       ).resolves.toEqual({ items: page2, total: 11 });
 
       expect(prisma.room.findMany).toHaveBeenCalledWith({

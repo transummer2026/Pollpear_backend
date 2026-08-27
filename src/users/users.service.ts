@@ -19,7 +19,7 @@ import {
   SEARCH_RESULTS_LIMIT,
   type SearchOptions,
 } from 'src/search/search-options';
-import type { Prisma } from 'src/generated/prisma/client';
+import type { Prisma, User } from 'src/generated/prisma/client';
 
 const SEARCH_SELECT = {
   id: true,
@@ -57,14 +57,14 @@ export class UsersService {
    */
   async search(
     q: string,
-    userId: number,
+    viewer: User,
     {
       page = 1,
       limit = SEARCH_RESULTS_LIMIT,
       sortBy = 'relevance',
     }: SearchOptions = {},
   ) {
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     // `readableBy` and the search-term filter each need their own `OR`;
     // composing them with `AND` (rather than spreading both into the same
     // object) keeps the two from colliding and silently dropping one.
@@ -144,24 +144,28 @@ export class UsersService {
     return { items, total };
   }
 
-  async findOne(id: number, userId: number): Promise<UserPublicProfileDTO> {
-    const user = await this.findByUserId(id);
+  async findOne(id: number, viewer: User): Promise<UserPublicProfileDTO> {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const user = await this.prisma.user.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('User'),
+          { id, deletedAt: null },
+        ],
+      },
+    });
     if (!user) throw new NotFoundException('User not found');
-
-    const ability = await this.abilityFor(userId);
-    ForbiddenError.from(ability).throwUnlessCan('read', subject('User', user));
-
     return UserPublicProfileSchema.parse(user);
   }
 
   async update(
     id: number,
-    userId: number,
+    viewer: User,
     body: UserUpdateDTO,
   ): Promise<UserDTO> {
     const target = await this.prisma.user.findUniqueOrThrow({ where: { id } });
 
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
       subject('User', target),
@@ -241,13 +245,5 @@ export class UsersService {
       },
       data: data,
     });
-  }
-
-  private async abilityFor(userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
-    return this.abilityFactory.createForUser(user);
   }
 }

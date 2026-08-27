@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import type { Prisma } from 'src/generated/prisma/client';
+import type { Prisma, User } from 'src/generated/prisma/client';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { accessibleBy } from 'src/casl/casl-prisma';
 import {
@@ -29,14 +29,14 @@ export class RoomsService {
    */
   async search(
     q: string,
-    userId: number,
+    viewer: User,
     {
       page = 1,
       limit = SEARCH_RESULTS_LIMIT,
       sortBy = 'relevance',
     }: SearchOptions = {},
   ) {
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     const baseWhere: Prisma.RoomWhereInput = {
       deletedAt: null,
       ...accessibleBy(ability, 'read').ofType('Room'),
@@ -130,13 +130,5 @@ export class RoomsService {
 
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
-  }
-
-  private async abilityFor(userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
-    return this.abilityFactory.createForUser(user);
   }
 }

@@ -17,7 +17,7 @@ import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { NotificationService } from 'src/notification/notification.service';
 import { canonicalPair } from 'src/friendship/friendship.pair';
 import { ForbiddenError, subject } from '@casl/ability';
-import type { Block } from 'src/generated/prisma/client';
+import type { Block, User } from 'src/generated/prisma/client';
 
 const BLOCKED_USER_SELECT = {
   id: true,
@@ -57,10 +57,10 @@ export class BlockService {
   }
 
   async getBlockedUsers(
-    callerId: number,
+    viewer: User,
     targetId: number,
   ): Promise<BlockListItemDTO[]> {
-    const ability = await this.abilityFor(callerId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'read',
       subject('Block', { blockerId: targetId } as Block),
@@ -110,30 +110,22 @@ export class BlockService {
     return BlockSchema.parse(block);
   }
 
-  async unblockUser(userId: number, targetId: number): Promise<void> {
+  async unblockUser(viewer: User, targetId: number): Promise<void> {
     const existing = await this.prisma.block.findUnique({
       where: {
-        blockerId_blockedId: { blockerId: userId, blockedId: targetId },
+        blockerId_blockedId: { blockerId: viewer.id, blockedId: targetId },
       },
     });
     if (!existing) {
       throw new NotFoundException('You have not blocked this user.');
     }
 
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'delete',
       subject('Block', existing),
     );
 
     await this.prisma.block.delete({ where: { id: existing.id } });
-  }
-
-  private async abilityFor(userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
-    return this.abilityFactory.createForUser(user);
   }
 }

@@ -1,5 +1,5 @@
 import { ForbiddenError } from '@casl/ability';
-import { Logger } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import {
   PollCreateDTO,
   PollReadSchema,
@@ -9,10 +9,17 @@ import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { OptionsService } from 'src/options/options.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import type { User } from 'src/generated/prisma/client';
 import { PollsService } from './polls.service';
 
 function author(overrides: Record<string, unknown> = {}) {
   return { id: 42, role: 'user', ...overrides };
+}
+
+/** A full-shaped `User` for the given id — what `@CurrentUser()` now hands
+ * the service, in place of a bare id. */
+function viewer(overrides: Record<string, unknown> = {}): User {
+  return author(overrides) as User;
 }
 
 function pendingPoll(overrides: Record<string, unknown> = {}) {
@@ -82,8 +89,7 @@ describe('PollsService', () => {
   const pollUpdate = jest.fn();
   const pollFindMany = jest.fn();
   const pollFindFirstOrThrow = jest.fn();
-  const pollFindUniqueOrThrow = jest.fn();
-  const userFindUniqueOrThrow = jest.fn();
+  const pollFindFirst = jest.fn();
   const voteFindUnique = jest.fn();
   const voteFindMany = jest.fn();
   const prisma = {
@@ -92,9 +98,8 @@ describe('PollsService', () => {
       update: pollUpdate,
       findMany: pollFindMany,
       findFirstOrThrow: pollFindFirstOrThrow,
-      findUniqueOrThrow: pollFindUniqueOrThrow,
+      findFirst: pollFindFirst,
     },
-    user: { findUniqueOrThrow: userFindUniqueOrThrow },
     vote: { findUnique: voteFindUnique, findMany: voteFindMany },
   } as unknown as PrismaService;
   const buildOptionsNestedWrite = jest.fn();
@@ -133,14 +138,13 @@ describe('PollsService', () => {
 
   describe('create', () => {
     it('forces private visibility, pending status and the caller as owner', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
       const body = createBody({
         visibility: 'public',
         status: 'active',
         createdById: 999,
       });
 
-      await service.create(42, body);
+      await service.create(viewer(), body);
 
       expect(pollCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -152,7 +156,6 @@ describe('PollsService', () => {
     });
 
     it('nests option rows and resolved hashtag ids', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
       resolveHashtag
         .mockResolvedValueOnce({ hashtagId: 1 })
         .mockResolvedValueOnce({ hashtagId: 2 });
@@ -160,7 +163,7 @@ describe('PollsService', () => {
         hashtags: [{ name: 'dev' }, { name: 'life' }],
       });
 
-      await service.create(42, body);
+      await service.create(viewer(), body);
 
       expect(resolveHashtag).toHaveBeenNthCalledWith(
         1,
@@ -181,9 +184,7 @@ describe('PollsService', () => {
     });
 
     it('skips hashtag resolution when the body carries none', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
-
-      await service.create(42, createBody());
+      await service.create(viewer(), createBody());
 
       expect(resolveHashtag).not.toHaveBeenCalled();
     });
@@ -191,26 +192,23 @@ describe('PollsService', () => {
 
   describe('update', () => {
     it('refuses an update from anyone but the author', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author({ id: 43 }));
       pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
 
-      await expect(service.update(7, 43, updateBody())).rejects.toThrow(
-        ForbiddenError,
-      );
+      await expect(
+        service.update(7, viewer({ id: 43 }), updateBody()),
+      ).rejects.toThrow(ForbiddenError);
       expect(pollUpdate).not.toHaveBeenCalled();
     });
 
     it('refuses an update once the poll left the pending status', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
       pollFindFirstOrThrow.mockResolvedValue(pendingPoll({ status: 'active' }));
 
-      await expect(service.update(7, 42, updateBody())).rejects.toThrow(
+      await expect(service.update(7, viewer(), updateBody())).rejects.toThrow(
         ForbiddenError,
       );
     });
 
     it('lets the author update a pending poll and strips the type discriminant', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
       pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
       const optionsWrite = { create: [] };
       const hashtagsWrite = { deleteMany: [] };
@@ -218,7 +216,7 @@ describe('PollsService', () => {
       buildHashtagsNestedWrite.mockResolvedValue(hashtagsWrite);
       const body = updateBody();
 
-      await service.update(7, 42, body);
+      await service.update(7, viewer(), body);
 
       expect(buildOptionsNestedWrite).toHaveBeenCalledWith(7, body.options);
       expect(buildHashtagsNestedWrite).toHaveBeenCalledWith(
@@ -239,25 +237,24 @@ describe('PollsService', () => {
 
   describe('remove', () => {
     it('refuses a removal from anyone but the author', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author({ id: 43 }));
       pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
 
-      await expect(service.remove(7, 43)).rejects.toThrow(ForbiddenError);
+      await expect(service.remove(7, viewer({ id: 43 }))).rejects.toThrow(
+        ForbiddenError,
+      );
       expect(pollUpdate).not.toHaveBeenCalled();
     });
 
     it('refuses to remove a poll that left the pending status', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
       pollFindFirstOrThrow.mockResolvedValue(pendingPoll({ status: 'active' }));
 
-      await expect(service.remove(7, 42)).rejects.toThrow(ForbiddenError);
+      await expect(service.remove(7, viewer())).rejects.toThrow(ForbiddenError);
     });
 
     it('soft-deletes a pending poll for its author', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(author());
       pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
 
-      await service.remove(7, 42);
+      await service.remove(7, viewer());
 
       expect(pollFindFirstOrThrow).toHaveBeenCalledWith({
         where: { id: 7, deletedAt: null },
@@ -270,39 +267,48 @@ describe('PollsService', () => {
   });
 
   describe('findMeOnePoll', () => {
+    it('throws NotFoundException when the poll does not exist or is not readable by the viewer', async () => {
+      pollFindFirst.mockResolvedValue(null);
+      voteFindUnique.mockResolvedValue(null);
+
+      await expect(service.findMeOnePoll(7, viewer())).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
     it('reports hasVoted true when the requesting user has a vote on record', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(makePoll());
+      pollFindFirst.mockResolvedValue(makePoll());
       voteFindUnique.mockResolvedValue(makeVote());
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.hasVoted).toBe(true);
     });
 
     it('reports hasVoted false when the lookup finds no vote', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(makePoll());
+      pollFindFirst.mockResolvedValue(makePoll());
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.hasVoted).toBe(false);
     });
 
     it("counts every vote on the poll, not just the requesting user's", async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         makePoll({
           votes: [makeVote({ id: 1 }), makeVote({ id: 2, createdById: 99 })],
         }),
       );
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.voterCount).toBe(2);
     });
 
     it('averages slider votes into a 0-1 sliderResult', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         makePoll({
           type: 'slider',
           votes: [makeVote({ freeField: '80' }), makeVote({ freeField: '40' })],
@@ -310,14 +316,14 @@ describe('PollsService', () => {
       );
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       // (80 + 40) / 2 votes / 100 = 0.6
       expect(result.sliderResult).toBeCloseTo(0.6);
     });
 
     it('leaves sliderResult at 0 for non-slider polls, even if freeField is set', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         makePoll({
           type: 'multiple_choice',
           votes: [makeVote({ freeField: '80' })],
@@ -325,39 +331,37 @@ describe('PollsService', () => {
       );
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.sliderResult).toBe(0);
     });
 
     it('leaves sliderResult at 0 for a slider poll with no votes yet', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(
-        makePoll({ type: 'slider', votes: [] }),
-      );
+      pollFindFirst.mockResolvedValue(makePoll({ type: 'slider', votes: [] }));
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.sliderResult).toBe(0);
     });
 
     it('hides the author on an anonymous poll', async () => {
-      pollFindUniqueOrThrow.mockResolvedValue(makePoll({ isAnonymous: true }));
+      pollFindFirst.mockResolvedValue(makePoll({ isAnonymous: true }));
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.createdBy).toBeNull();
     });
 
     it('keeps the author on a non-anonymous poll', async () => {
       const author = { id: 1, name: 'Author' };
-      pollFindUniqueOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         makePoll({ isAnonymous: false, createdBy: author }),
       );
       voteFindUnique.mockResolvedValue(null);
 
-      const result = await service.findMeOnePoll(7, 42);
+      const result = await service.findMeOnePoll(7, viewer());
 
       expect(result.createdBy).toBe(author);
     });
@@ -371,7 +375,9 @@ describe('PollsService', () => {
       ]);
       voteFindMany.mockResolvedValue([makeVote({ pollId: 2 })]);
 
-      const [pollOne, pollTwo] = (await service.findMeManyPolls(42)) as Array<{
+      const [pollOne, pollTwo] = (await service.findMeManyPolls(
+        viewer(),
+      )) as Array<{
         hasVoted: boolean;
       }>;
 
@@ -398,7 +404,7 @@ describe('PollsService', () => {
       voteFindMany.mockResolvedValue([]);
 
       const [sliderPoll, choicePoll] = (await service.findMeManyPolls(
-        42,
+        viewer(),
       )) as Array<{
         voterCount: number;
         sliderResult: number;
@@ -408,6 +414,44 @@ describe('PollsService', () => {
       expect(sliderPoll.sliderResult).toBeCloseTo(0.5);
       expect(choicePoll.voterCount).toBe(1);
       expect(choicePoll.sliderResult).toBe(0);
+    });
+  });
+
+  describe('findUsersManyPolls', () => {
+    it("matches hasVoted against the viewer's own votes", async () => {
+      pollFindMany.mockResolvedValue([
+        makePoll({ id: 1 }),
+        makePoll({ id: 2 }),
+      ]);
+      voteFindMany.mockResolvedValue([makeVote({ pollId: 2 })]);
+
+      const [pollOne, pollTwo] = (await service.findUsersManyPolls(
+        viewer(),
+        99,
+      )) as Array<{ hasVoted: boolean }>;
+
+      expect(pollOne.hasVoted).toBe(false);
+      expect(pollTwo.hasVoted).toBe(true);
+      expect(voteFindMany).toHaveBeenCalledWith({
+        where: { createdById: 42, deletedAt: null },
+      });
+    });
+
+    it("only queries the target's non-anonymous polls the viewer can read", async () => {
+      pollFindMany.mockResolvedValue([]);
+      voteFindMany.mockResolvedValue([]);
+
+      await service.findUsersManyPolls(viewer(), 99);
+
+      expect(pollFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: expect.arrayContaining([
+              { createdById: 99, isAnonymous: false, deletedAt: null },
+            ]) as unknown,
+          },
+        }),
+      );
     });
   });
 });

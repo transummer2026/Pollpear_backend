@@ -1,7 +1,8 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
+import type { User } from 'src/generated/prisma/client';
 import { UsersService } from './users.service';
 
 function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
@@ -98,13 +99,21 @@ describe('UsersService', () => {
   });
 
   describe('findOne', () => {
+    const viewer = makeUser({ id: 1 }) as User;
+
     it('returns only the public profile fields when found', async () => {
       prisma.user.findFirst.mockResolvedValue(makeUser());
 
-      const result = await service.findOne(1, 1);
+      const result = await service.findOne(1, viewer);
 
+      const ability = new CaslAbilityFactory().createForUser(viewer);
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
-        where: { id: 1, deletedAt: null },
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('User'),
+            { id: 1, deletedAt: null },
+          ],
+        },
       });
       expect(result.username).toBe('alice');
       expect(result).not.toHaveProperty('passwordHash');
@@ -119,39 +128,41 @@ describe('UsersService', () => {
     it('throws NotFoundException when the user does not exist', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(999, 1)).rejects.toBeInstanceOf(
+      await expect(service.findOne(999, viewer)).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
 
-    it('denies read on a private profile that is not the requester', async () => {
-      prisma.user.findFirst.mockResolvedValue(
-        makeUser({ id: 2, visibility: 'private' }),
-      );
+    it('throws NotFoundException (not ForbiddenError) on a private profile that is not the viewer — accessibleBy filters it out of the query, it never loads', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(2, 1)).rejects.toThrow(ForbiddenError);
+      await expect(service.findOne(2, viewer)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
-    it('allows the requester to read their own private profile', async () => {
+    it('allows the viewer to read their own private profile', async () => {
       prisma.user.findFirst.mockResolvedValue(
         makeUser({ id: 1, visibility: 'private' }),
       );
 
-      const result = await service.findOne(1, 1);
+      const result = await service.findOne(1, viewer);
       expect(result.username).toBe('alice');
     });
   });
 
   describe('search', () => {
     const REQUESTER_ID = 1;
-    // Derived from the CASL User-read policy for a plain 'user' role:
-    // public users, or the requester's own profile. This has its own `OR`,
-    // same as the multi-field search term below, so the two are composed
-    // with `AND` rather than spread into one object — spreading two `OR`
-    // keys into the same where-clause silently drops one of them.
-    const readableBy = {
-      OR: [{ id: REQUESTER_ID }, { visibility: { not: 'private' } }],
-    };
+    const requesterViewer = { id: REQUESTER_ID, role: 'user' } as User;
+    // Computed from a real ability rather than hand-duplicated, so this
+    // fixture can't drift out of sync with whatever user.ts actually grants.
+    // Has its own `OR`, same as the multi-field search term below, so the
+    // two are composed with `AND` rather than spread into one object —
+    // spreading two `OR` keys into the same where-clause silently drops one.
+    const readableBy = accessibleBy(
+      new CaslAbilityFactory().createForUser(requesterViewer),
+      'read',
+    ).ofType('User');
     const baseWhere = { deletedAt: null, AND: [readableBy] };
     const matchWhere = (q: string) => ({
       deletedAt: null,
@@ -175,7 +186,7 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       prisma.user.findMany.mockResolvedValueOnce([]);
 
-      await service.search('surname-match', REQUESTER_ID);
+      await service.search('surname-match', requesterViewer);
 
       const countWhere = prisma.user.count.mock.calls[0][0].where as Record<
         string,
@@ -193,7 +204,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(prefixed)
         .mockResolvedValueOnce(contained);
 
-      await expect(service.search('ali', REQUESTER_ID)).resolves.toEqual({
+      await expect(service.search('ali', requesterViewer)).resolves.toEqual({
         items: [...prefixed, ...contained],
         total: 3,
       });
@@ -228,7 +239,7 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValueOnce(5).mockResolvedValueOnce(5);
       prisma.user.findMany.mockResolvedValueOnce(prefixed);
 
-      await expect(service.search('user', REQUESTER_ID)).resolves.toEqual({
+      await expect(service.search('user', requesterViewer)).resolves.toEqual({
         items: prefixed,
         total: 5,
       });
@@ -252,7 +263,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(contained);
 
       await expect(
-        service.search('user', REQUESTER_ID, { page: 2, limit: 5 }),
+        service.search('user', requesterViewer, { page: 2, limit: 5 }),
       ).resolves.toEqual({ items: [...prefixTail, ...contained], total: 10 });
 
       expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
@@ -280,7 +291,7 @@ describe('UsersService', () => {
       prisma.user.findMany.mockResolvedValueOnce(alphabetical);
 
       await expect(
-        service.search('a', REQUESTER_ID, { sortBy: 'alphabetical' }),
+        service.search('a', requesterViewer, { sortBy: 'alphabetical' }),
       ).resolves.toEqual({ items: alphabetical, total: 2 });
 
       expect(prisma.user.count).toHaveBeenCalledTimes(1);

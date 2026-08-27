@@ -4,22 +4,27 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { ForbiddenError, subject } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import {
   VoteCreateDTO,
   VoteUpdateDTO,
 } from 'Pollpear_shared/src/schemas/vote.schema';
-import { Vote } from 'src/generated/prisma/client';
+import { User, Vote } from 'src/generated/prisma/client';
 
 @Injectable()
 export class VotesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private abilityFactory: CaslAbilityFactory,
+  ) {}
 
-  async findOneVote(pollid: number, userId: number) {
+  async findOneVote(pollid: number, viewer: User) {
     const vote = await this.prisma.vote.findUniqueOrThrow({
       where: {
         createdById_pollId: {
-          createdById: userId,
+          createdById: viewer.id,
           pollId: pollid,
         },
         deletedAt: null,
@@ -28,6 +33,10 @@ export class VotesService {
         voteOptions: true,
       },
     });
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan('read', subject('Vote', vote));
+
     return vote;
   }
 
@@ -40,10 +49,18 @@ export class VotesService {
    */
   async createVote(
     pollId: number,
-    userId: number,
+    viewer: User,
     body: VoteCreateDTO,
   ): Promise<Vote> {
-    const poll = await this.validateVote(pollId, body);
+    const poll = await this.validateVote(pollId, viewer.id, body);
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'create',
+      subject('Vote', { poll } as unknown as Vote),
+    );
+
+    const userId = viewer.id;
     const existingVote = await this.prisma.vote.findUnique({
       where: {
         createdById_pollId: {
@@ -93,15 +110,22 @@ export class VotesService {
    * vote must already exist and be active: the ones in new and not in
    * current are to create, the ones in current and not in new are to delete.
    */
-  async updateVote(pollId: number, userId: number, body: VoteUpdateDTO) {
-    const poll = await this.validateVote(pollId, body);
+  async updateVote(pollId: number, viewer: User, body: VoteUpdateDTO) {
+    const poll = await this.validateVote(pollId, viewer.id, body);
     if (!poll.allowChangeVote) {
       throw new ForbiddenException('This poll does not allow vote changes.');
     }
     const vote = await this.prisma.vote.findFirstOrThrow({
-      where: { pollId, createdById: userId, deletedAt: null },
+      where: { pollId, createdById: viewer.id, deletedAt: null },
       include: { voteOptions: true },
     });
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('Vote', { ...vote, poll }),
+    );
+
     const incomingOptionsVoted = (body.optionsVoted ?? []).map(
       (o) => o.optionId,
     );
@@ -126,10 +150,18 @@ export class VotesService {
     });
   }
 
-  async deleteVote(pollId: number, userId: number) {
+  async deleteVote(pollId: number, viewer: User) {
     const vote = await this.prisma.vote.findFirstOrThrow({
-      where: { pollId, createdById: userId, deletedAt: null },
+      where: { pollId, createdById: viewer.id, deletedAt: null },
+      include: { poll: true },
     });
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'delete',
+      subject('Vote', vote),
+    );
+
     return this.prisma.vote.update({
       where: { id: vote.id },
       data: { deletedAt: new Date() },
@@ -140,9 +172,20 @@ export class VotesService {
     return `report vote in Poll #${id} works`;
   }
 
-  async validateVote(pollId: number, body: VoteCreateDTO | VoteUpdateDTO) {
+  async validateVote(
+    pollId: number,
+    viewerId: number,
+    body: VoteCreateDTO | VoteUpdateDTO,
+  ) {
     const poll = await this.prisma.poll.findFirstOrThrow({
       where: { id: pollId, deletedAt: null },
+      include: {
+        room: {
+          include: {
+            roomMembers: { where: { userId: viewerId, deletedAt: null } },
+          },
+        },
+      },
     });
     if (poll.status === 'closed')
       throw new ForbiddenException('Poll is not active.');
