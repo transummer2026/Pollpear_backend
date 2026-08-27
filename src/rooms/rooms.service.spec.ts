@@ -75,7 +75,7 @@ describe('RoomsService', () => {
     return accessibleBy(ability, 'read').ofType('Room');
   }
 
-  // findMeOneRoom runs the fetched room through RoomReadSchema.parse, which
+  // findOneRoom runs the fetched room through RoomReadSchema.parse, which
   // enforces the full Prisma-generated shape. These tests care about the
   // service's own logic (query shape, what gets returned), not re-validating
   // that shared schema, so `parse` is stubbed to just return whatever it's given.
@@ -204,7 +204,7 @@ describe('RoomsService', () => {
     });
   });
 
-  describe('findMeOneRoom', () => {
+  describe('findOneRoom', () => {
     it('checks read access on the room, then queries it with members/messages/polls/invitations', async () => {
       const abilityCheckRoom = {
         id: 7,
@@ -217,7 +217,7 @@ describe('RoomsService', () => {
         .mockResolvedValueOnce(abilityCheckRoom)
         .mockResolvedValueOnce(found);
 
-      await service.findMeOneRoom(7, viewer());
+      await service.findOneRoom(7, viewer());
 
       expect(roomFindFirst).toHaveBeenNthCalledWith(1, {
         where: { id: 7, deletedAt: null },
@@ -238,7 +238,7 @@ describe('RoomsService', () => {
       };
       roomFindFirst.mockResolvedValueOnce(privateRoom);
 
-      await expect(service.findMeOneRoom(7, viewer())).rejects.toThrow(
+      await expect(service.findOneRoom(7, viewer())).rejects.toThrow(
         ForbiddenError,
       );
     });
@@ -246,7 +246,7 @@ describe('RoomsService', () => {
     it('throws not-found for a missing room', async () => {
       roomFindFirst.mockResolvedValueOnce(null);
 
-      await expect(service.findMeOneRoom(7, viewer())).rejects.toThrow(
+      await expect(service.findOneRoom(7, viewer())).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -264,7 +264,7 @@ describe('RoomsService', () => {
         .mockResolvedValueOnce(abilityCheckRoom)
         .mockResolvedValueOnce(found);
 
-      const result = await service.findMeOneRoom(7, viewer());
+      const result = await service.findOneRoom(7, viewer());
 
       expect(shapeManyPollsForUser).toHaveBeenCalledWith([poll], []);
       expect(result).toEqual({ ...found, polls: [poll] });

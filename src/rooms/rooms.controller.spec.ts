@@ -15,7 +15,7 @@ describe('RoomsController', () => {
   let service: jest.Mocked<
     Pick<
       RoomsService,
-      | 'findMeOneRoom'
+      | 'findOneRoom'
       | 'create'
       | 'update'
       | 'remove'
@@ -29,7 +29,7 @@ describe('RoomsController', () => {
 
   beforeEach(() => {
     service = {
-      findMeOneRoom: jest.fn(),
+      findOneRoom: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
@@ -50,10 +50,10 @@ describe('RoomsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('GET :id delegates to roomsService.findMeOneRoom with (id, viewer)', async () => {
-    await controller.findMeOneRoom(7, viewer);
+  it('GET :id delegates to roomsService.findOneRoom with (id, viewer)', async () => {
+    await controller.findOneRoom(7, viewer);
 
-    expect(service.findMeOneRoom).toHaveBeenCalledWith(7, viewer);
+    expect(service.findOneRoom).toHaveBeenCalledWith(7, viewer);
   });
 
   it('POST new delegates to roomsService.create with (viewer, body)', async () => {

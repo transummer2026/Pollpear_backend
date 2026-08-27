@@ -56,11 +56,11 @@ export class RoomsController {
 
   @Get(':id')
   @CheckAbilities(['read', 'Room'])
-  findMeOneRoom(
+  findOneRoom(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() viewer: User,
   ) {
-    return this.roomsService.findMeOneRoom(id, viewer);
+    return this.roomsService.findOneRoom(id, viewer);
   }
 
   @Post('new')

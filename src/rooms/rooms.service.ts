@@ -202,7 +202,7 @@ export class RoomsService {
     });
   }
 
-  async findMeOneRoom(roomId: number, viewer: User) {
+  async findOneRoom(roomId: number, viewer: User) {
     const roomForAbilityCheck = await this.prisma.room.findFirst({
       where: { id: roomId, deletedAt: null },
       include: { roomMembers: { where: { deletedAt: null } } },
@@ -380,7 +380,7 @@ export class RoomsService {
  * The relations a room needs loaded to satisfy `RoomReadSchema`: other
  * active members, undeleted messages, undeleted polls (with their own
  * `getPollIncludeArgs`), the creator, and pending invitations. Shared so
- * `findMeOneRoom` and `findMeManyRooms` fetch this identically instead of
+ * `findOneRoom` and `findMeManyRooms` fetch this identically instead of
  * each hand-rolling their own `include`.
  */
 export function getRoomIncludeArgs(userId: number) {
