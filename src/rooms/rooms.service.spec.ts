@@ -351,13 +351,7 @@ describe('RoomsService', () => {
         where: {
           AND: [
             readAccessibleWhere(user({ id: 42 })),
-            {
-              OR: [
-                { createdById: 99, deletedAt: null },
-                { visibility: 'public', deletedAt: null },
-                { roomMembers: { some: { userId: 42 } }, deletedAt: null },
-              ],
-            },
+            { createdById: 99, deletedAt: null },
           ],
         },
         include: getRoomIncludeArgs(42),

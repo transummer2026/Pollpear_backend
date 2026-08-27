@@ -44,9 +44,10 @@ export class PollsService {
    * @throws `ForbiddenError` if the user lacks permission
    */
   async update(id: number, viewer: User, body: PollUpdateDTO) {
-    const poll = await this.prisma.poll.findFirstOrThrow({
+    const poll = await this.prisma.poll.findFirst({
       where: { id, deletedAt: null },
     });
+    if (!poll) throw new NotFoundException('Poll not found');
 
     const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
@@ -65,9 +66,10 @@ export class PollsService {
    * @throws `ForbiddenError` if the user lacks permission
    */
   async remove(id: number, viewer: User) {
-    const poll = await this.prisma.poll.findFirstOrThrow({
+    const poll = await this.prisma.poll.findFirst({
       where: { id, deletedAt: null },
     });
+    if (!poll) throw new NotFoundException('Poll not found');
 
     const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(

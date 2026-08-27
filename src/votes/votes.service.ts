@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ForbiddenError, subject } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -21,7 +22,7 @@ export class VotesService {
   ) {}
 
   async findOneVote(pollid: number, viewer: User) {
-    const vote = await this.prisma.vote.findUniqueOrThrow({
+    const vote = await this.prisma.vote.findUnique({
       where: {
         createdById_pollId: {
           createdById: viewer.id,
@@ -33,6 +34,7 @@ export class VotesService {
         voteOptions: true,
       },
     });
+    if (!vote) throw new NotFoundException('Vote not found');
 
     const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan('read', subject('Vote', vote));
@@ -115,10 +117,11 @@ export class VotesService {
     if (!poll.allowChangeVote) {
       throw new ForbiddenException('This poll does not allow vote changes.');
     }
-    const vote = await this.prisma.vote.findFirstOrThrow({
+    const vote = await this.prisma.vote.findFirst({
       where: { pollId, createdById: viewer.id, deletedAt: null },
       include: { voteOptions: true },
     });
+    if (!vote) throw new NotFoundException('Vote not found');
 
     const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
@@ -151,10 +154,11 @@ export class VotesService {
   }
 
   async deleteVote(pollId: number, viewer: User) {
-    const vote = await this.prisma.vote.findFirstOrThrow({
+    const vote = await this.prisma.vote.findFirst({
       where: { pollId, createdById: viewer.id, deletedAt: null },
       include: { poll: true },
     });
+    if (!vote) throw new NotFoundException('Vote not found');
 
     const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
@@ -177,7 +181,7 @@ export class VotesService {
     viewerId: number,
     body: VoteCreateDTO | VoteUpdateDTO,
   ) {
-    const poll = await this.prisma.poll.findFirstOrThrow({
+    const poll = await this.prisma.poll.findFirst({
       where: { id: pollId, deletedAt: null },
       include: {
         room: {
@@ -187,6 +191,7 @@ export class VotesService {
         },
       },
     });
+    if (!poll) throw new NotFoundException('Poll not found');
     if (poll.status === 'closed')
       throw new ForbiddenException('Poll is not active.');
     if (poll.endsAt < new Date())

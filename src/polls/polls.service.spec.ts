@@ -88,7 +88,6 @@ describe('PollsService', () => {
   const pollCreate = jest.fn();
   const pollUpdate = jest.fn();
   const pollFindMany = jest.fn();
-  const pollFindFirstOrThrow = jest.fn();
   const pollFindFirst = jest.fn();
   const voteFindUnique = jest.fn();
   const voteFindMany = jest.fn();
@@ -97,7 +96,6 @@ describe('PollsService', () => {
       create: pollCreate,
       update: pollUpdate,
       findMany: pollFindMany,
-      findFirstOrThrow: pollFindFirstOrThrow,
       findFirst: pollFindFirst,
     },
     vote: { findUnique: voteFindUnique, findMany: voteFindMany },
@@ -192,7 +190,7 @@ describe('PollsService', () => {
 
   describe('update', () => {
     it('refuses an update from anyone but the author', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
+      pollFindFirst.mockResolvedValue(pendingPoll());
 
       await expect(
         service.update(7, viewer({ id: 43 }), updateBody()),
@@ -201,7 +199,7 @@ describe('PollsService', () => {
     });
 
     it('refuses an update once the poll left the pending status', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(pendingPoll({ status: 'active' }));
+      pollFindFirst.mockResolvedValue(pendingPoll({ status: 'active' }));
 
       await expect(service.update(7, viewer(), updateBody())).rejects.toThrow(
         ForbiddenError,
@@ -209,7 +207,7 @@ describe('PollsService', () => {
     });
 
     it('lets the author update a pending poll and strips the type discriminant', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
+      pollFindFirst.mockResolvedValue(pendingPoll());
       const optionsWrite = { create: [] };
       const hashtagsWrite = { deleteMany: [] };
       buildOptionsNestedWrite.mockResolvedValue(optionsWrite);
@@ -237,7 +235,7 @@ describe('PollsService', () => {
 
   describe('remove', () => {
     it('refuses a removal from anyone but the author', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
+      pollFindFirst.mockResolvedValue(pendingPoll());
 
       await expect(service.remove(7, viewer({ id: 43 }))).rejects.toThrow(
         ForbiddenError,
@@ -246,17 +244,17 @@ describe('PollsService', () => {
     });
 
     it('refuses to remove a poll that left the pending status', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(pendingPoll({ status: 'active' }));
+      pollFindFirst.mockResolvedValue(pendingPoll({ status: 'active' }));
 
       await expect(service.remove(7, viewer())).rejects.toThrow(ForbiddenError);
     });
 
     it('soft-deletes a pending poll for its author', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(pendingPoll());
+      pollFindFirst.mockResolvedValue(pendingPoll());
 
       await service.remove(7, viewer());
 
-      expect(pollFindFirstOrThrow).toHaveBeenCalledWith({
+      expect(pollFindFirst).toHaveBeenCalledWith({
         where: { id: 7, deletedAt: null },
       });
       expect(pollUpdate).toHaveBeenCalledWith({

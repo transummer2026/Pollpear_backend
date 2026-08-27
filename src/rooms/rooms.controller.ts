@@ -83,6 +83,7 @@ export class RoomsController {
   }
 
   @Delete(':id')
+  @CheckAbilities(['delete', 'Room'])
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: User) {
     return this.roomsService.remove(id, viewer);
   }

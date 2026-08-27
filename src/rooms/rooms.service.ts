@@ -282,26 +282,7 @@ export class RoomsService {
         where: {
           AND: [
             accessibleBy(ability, 'read').ofType('Room'),
-            {
-              OR: [
-                {
-                  createdById: targetId,
-                  deletedAt: null,
-                },
-                {
-                  visibility: 'public',
-                  deletedAt: null,
-                },
-                {
-                  roomMembers: {
-                    some: {
-                      userId: viewer.id,
-                    },
-                  },
-                  deletedAt: null,
-                },
-              ],
-            },
+            { createdById: targetId, deletedAt: null },
           ],
         },
         include: getRoomIncludeArgs(viewer.id),
