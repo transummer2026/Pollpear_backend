@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { Prisma, User } from 'src/generated/prisma/client';
 import {
@@ -108,20 +108,17 @@ export class RoomsService {
     return { items, total };
   }
 
-  async create(userId: number, body: RoomCreateDTO) {
-    return await this.createRoom(userId, body);
+  async create(viewer: User, body: RoomCreateDTO) {
+    return await this.createRoom(viewer.id, body);
   }
 
-  async update(id: number, userId: number, body: RoomUpdateDTO) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-
-    const room = await this.prisma.room.findUniqueOrThrow({
+  async update(id: number, viewer: User, body: RoomUpdateDTO) {
+    const room = await this.prisma.room.findFirst({
       where: { id, deletedAt: null },
     });
+    if (!room) throw new NotFoundException('Room not found');
 
-    const ability = this.abilityFactory.createForUser(user);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
       subject('Room', room),
@@ -130,16 +127,13 @@ export class RoomsService {
     return await this.updateRoom(id, body);
   }
 
-  async remove(id: number, userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-
-    const room = await this.prisma.room.findUniqueOrThrow({
+  async remove(id: number, viewer: User) {
+    const room = await this.prisma.room.findFirst({
       where: { id, deletedAt: null },
     });
+    if (!room) throw new NotFoundException('Room not found');
 
-    const ability = this.abilityFactory.createForUser(user);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'delete',
       subject('Room', room),
@@ -166,14 +160,6 @@ export class RoomsService {
 
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
-  }
-
-  private async abilityFor(userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
-    return this.abilityFactory.createForUser(user);
   }
 
   // Prisma helpers
@@ -216,36 +202,35 @@ export class RoomsService {
     });
   }
 
-  async findMeOneRoom(roomId: number, userId: number) {
-    const [user, roomForAbilityCheck] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-      this.prisma.room.findUniqueOrThrow({
-        where: { id: roomId, deletedAt: null },
-        include: { roomMembers: { where: { deletedAt: null } } },
-      }),
-    ]);
+  async findMeOneRoom(roomId: number, viewer: User) {
+    const roomForAbilityCheck = await this.prisma.room.findFirst({
+      where: { id: roomId, deletedAt: null },
+      include: { roomMembers: { where: { deletedAt: null } } },
+    });
+    if (!roomForAbilityCheck) throw new NotFoundException('Room not found');
 
-    const ability = this.abilityFactory.createForUser(user);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'read',
       subject('Room', roomForAbilityCheck),
     );
 
     const [room, votesMadeByUser] = await Promise.all([
-      this.prisma.room.findUniqueOrThrow({
+      this.prisma.room.findFirst({
         where: {
           id: roomId,
           deletedAt: null,
         },
-        include: getRoomIncludeArgs(userId),
+        include: getRoomIncludeArgs(viewer.id),
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: userId,
+          createdById: viewer.id,
           deletedAt: null,
         },
       }),
     ]);
+    if (!room) throw new NotFoundException('Room not found');
 
     return RoomReadSchema.parse({
       ...room,
@@ -256,24 +241,24 @@ export class RoomsService {
     });
   }
 
-  async findMeManyRooms(userId: number) {
-    const ability = await this.abilityFor(userId);
+  async findMeManyRooms(viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
     const [rooms, votesMadeByUser] = await Promise.all([
       this.prisma.room.findMany({
         where: {
           AND: [
             accessibleBy(ability, 'read').ofType('Room'),
             {
-              createdById: userId,
+              createdById: viewer.id,
               deletedAt: null,
             },
           ],
         },
-        include: getRoomIncludeArgs(userId),
+        include: getRoomIncludeArgs(viewer.id),
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: userId,
+          createdById: viewer.id,
           deletedAt: null,
         },
       }),
@@ -290,8 +275,8 @@ export class RoomsService {
     );
   }
 
-  async findUsersManyRooms(userId: number, targetId: number) {
-    const ability = await this.abilityFor(userId);
+  async findUsersManyRooms(viewer: User, targetId: number) {
+    const ability = this.abilityFactory.createForUser(viewer);
     const [rooms, votesMadeByUser] = await Promise.all([
       this.prisma.room.findMany({
         where: {
@@ -310,7 +295,7 @@ export class RoomsService {
                 {
                   roomMembers: {
                     some: {
-                      userId: userId,
+                      userId: viewer.id,
                     },
                   },
                   deletedAt: null,
@@ -319,11 +304,11 @@ export class RoomsService {
             },
           ],
         },
-        include: getRoomIncludeArgs(userId),
+        include: getRoomIncludeArgs(viewer.id),
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: userId,
+          createdById: viewer.id,
           deletedAt: null,
         },
       }),
@@ -340,8 +325,8 @@ export class RoomsService {
     );
   }
 
-  async findManyRooms(userId: number) {
-    const ability = await this.abilityFor(userId);
+  async findManyRooms(viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
     const [rooms, votesMadeByUser] = await Promise.all([
       this.prisma.room.findMany({
         where: {
@@ -350,7 +335,7 @@ export class RoomsService {
             {
               OR: [
                 {
-                  createdById: userId,
+                  createdById: viewer.id,
                   deletedAt: null,
                 },
                 {
@@ -360,7 +345,7 @@ export class RoomsService {
                 {
                   roomMembers: {
                     some: {
-                      userId: userId,
+                      userId: viewer.id,
                     },
                   },
                   deletedAt: null,
@@ -369,11 +354,11 @@ export class RoomsService {
             },
           ],
         },
-        include: getRoomIncludeArgs(userId),
+        include: getRoomIncludeArgs(viewer.id),
       }),
       this.prisma.vote.findMany({
         where: {
-          createdById: userId,
+          createdById: viewer.id,
           deletedAt: null,
         },
       }),

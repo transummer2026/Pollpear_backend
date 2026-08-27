@@ -22,8 +22,9 @@ import {
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import type { User } from 'src/generated/prisma/client';
 
 @Controller('rooms')
 export class RoomsController {
@@ -36,54 +37,54 @@ export class RoomsController {
   @Get()
   @CheckAbilities(['read', 'Room'])
   findMeManyRooms(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Query('userId') targetUserId?: string,
   ) {
     if (targetUserId) {
       this.logger.debug('targetId is captured in the url');
-      return this.roomsService.findUsersManyRooms(userId, +targetUserId);
+      return this.roomsService.findUsersManyRooms(viewer, +targetUserId);
     }
     this.logger.debug('Only userId is captured in the url');
-    return this.roomsService.findMeManyRooms(userId);
+    return this.roomsService.findMeManyRooms(viewer);
   }
 
   @Get('feed')
   @CheckAbilities(['read', 'Room'])
-  findManyRooms(@UserId() userId: number) {
-    return this.roomsService.findManyRooms(userId);
+  findManyRooms(@CurrentUser() viewer: User) {
+    return this.roomsService.findManyRooms(viewer);
   }
 
   @Get(':id')
   @CheckAbilities(['read', 'Room'])
   findMeOneRoom(
     @Param('id', ParseIntPipe) id: number,
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
   ) {
-    return this.roomsService.findMeOneRoom(id, userId);
+    return this.roomsService.findMeOneRoom(id, viewer);
   }
 
   @Post('new')
   @CheckAbilities(['create', 'Room'])
   create(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Body(new ZodValidationPipe(RoomCreateSchema)) body: RoomCreateDTO,
   ) {
-    return this.roomsService.create(userId, body);
+    return this.roomsService.create(viewer, body);
   }
 
   @Patch(':id')
   @CheckAbilities(['update', 'Room'])
   update(
     @Param('id', ParseIntPipe) id: number,
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Body(new ZodValidationPipe(RoomUpdateSchema)) body: RoomUpdateDTO,
   ) {
-    return this.roomsService.update(id, userId, body);
+    return this.roomsService.update(id, viewer, body);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
-    return this.roomsService.remove(id, userId);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: User) {
+    return this.roomsService.remove(id, viewer);
   }
 
   @Post(':id/participants/:userId')

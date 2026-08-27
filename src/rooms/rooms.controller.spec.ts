@@ -4,8 +4,11 @@ import {
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import type { User } from 'src/generated/prisma/client';
 import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
+
+const viewer = { id: 42, role: 'user' } as User;
 
 describe('RoomsController', () => {
   let controller: RoomsController;
@@ -47,35 +50,35 @@ describe('RoomsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('GET :id delegates to roomsService.findMeOneRoom with (id, userId)', async () => {
-    await controller.findMeOneRoom(7, 42);
+  it('GET :id delegates to roomsService.findMeOneRoom with (id, viewer)', async () => {
+    await controller.findMeOneRoom(7, viewer);
 
-    expect(service.findMeOneRoom).toHaveBeenCalledWith(7, 42);
+    expect(service.findMeOneRoom).toHaveBeenCalledWith(7, viewer);
   });
 
-  it('POST new delegates to roomsService.create with (userId, body)', async () => {
+  it('POST new delegates to roomsService.create with (viewer, body)', async () => {
     const body: RoomCreateDTO = {
       name: 'Best pear variety?',
       visibility: 'public',
     };
 
-    await controller.create(42, body);
+    await controller.create(viewer, body);
 
-    expect(service.create).toHaveBeenCalledWith(42, body);
+    expect(service.create).toHaveBeenCalledWith(viewer, body);
   });
 
-  it('PATCH :id delegates to roomsService.update with (id, userId, body)', async () => {
+  it('PATCH :id delegates to roomsService.update with (id, viewer, body)', async () => {
     const body: RoomUpdateDTO = { name: 'Renamed' };
 
-    await controller.update(7, 42, body);
+    await controller.update(7, viewer, body);
 
-    expect(service.update).toHaveBeenCalledWith(7, 42, body);
+    expect(service.update).toHaveBeenCalledWith(7, viewer, body);
   });
 
-  it('DELETE :id delegates to roomsService.remove with (id, userId)', async () => {
-    await controller.remove(7, 42);
+  it('DELETE :id delegates to roomsService.remove with (id, viewer)', async () => {
+    await controller.remove(7, viewer);
 
-    expect(service.remove).toHaveBeenCalledWith(7, 42);
+    expect(service.remove).toHaveBeenCalledWith(7, viewer);
   });
 
   it('POST :id/participants/:userId delegates to roomsService.addParticipant with (id, userId)', () => {

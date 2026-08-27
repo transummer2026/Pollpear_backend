@@ -1,4 +1,5 @@
 import { ForbiddenError } from '@casl/ability';
+import { NotFoundException } from '@nestjs/common';
 import {
   RoomCreateDTO,
   RoomReadSchema,
@@ -13,6 +14,10 @@ import { RoomsService, getRoomIncludeArgs } from './rooms.service';
 
 function user(overrides: Record<string, unknown> = {}) {
   return { id: 42, role: 'user', ...overrides };
+}
+
+function viewer(overrides: Record<string, unknown> = {}) {
+  return user(overrides) as unknown as User;
 }
 
 function room(overrides: Record<string, unknown> = {}) {
@@ -37,20 +42,18 @@ const requesterViewer = { id: REQUESTER_ID, role: 'user' } as User;
 describe('RoomsService', () => {
   const roomCreate = jest.fn();
   const roomUpdate = jest.fn();
-  const roomFindUniqueOrThrow = jest.fn();
+  const roomFindFirst = jest.fn();
   const roomFindMany = jest.fn();
   const roomCount = jest.fn();
-  const userFindUniqueOrThrow = jest.fn();
   const voteFindMany = jest.fn().mockResolvedValue([]);
   const prisma = {
     room: {
       create: roomCreate,
       update: roomUpdate,
-      findUniqueOrThrow: roomFindUniqueOrThrow,
+      findFirst: roomFindFirst,
       findMany: roomFindMany,
       count: roomCount,
     },
-    user: { findUniqueOrThrow: userFindUniqueOrThrow },
     vote: { findMany: voteFindMany },
   } as unknown as PrismaService;
   const shapeManyPollsForUser = jest.fn((polls: unknown[]) => polls);
@@ -91,7 +94,7 @@ describe('RoomsService', () => {
     it('forces active status and adds the caller as the first room member', async () => {
       const body = createBody();
 
-      await service.create(42, body);
+      await service.create(viewer(), body);
 
       expect(roomCreate).toHaveBeenCalledWith({
         data: {
@@ -109,7 +112,9 @@ describe('RoomsService', () => {
       const created = { id: 7, ...createBody() };
       roomCreate.mockResolvedValue(created);
 
-      await expect(service.create(42, createBody())).resolves.toBe(created);
+      await expect(service.create(viewer(), createBody())).resolves.toBe(
+        created,
+      );
     });
   });
 
@@ -117,18 +122,18 @@ describe('RoomsService', () => {
     const body: RoomUpdateDTO = { name: 'Renamed' };
 
     it('refuses an update from anyone but the owner', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 43 }));
-      roomFindUniqueOrThrow.mockResolvedValue(room());
+      roomFindFirst.mockResolvedValue(room());
 
-      await expect(service.update(7, 43, body)).rejects.toThrow(ForbiddenError);
+      await expect(service.update(7, viewer({ id: 43 }), body)).rejects.toThrow(
+        ForbiddenError,
+      );
       expect(roomUpdate).not.toHaveBeenCalled();
     });
 
     it('lets the owner update a closed room', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user());
-      roomFindUniqueOrThrow.mockResolvedValue(room({ status: 'closed' }));
+      roomFindFirst.mockResolvedValue(room({ status: 'closed' }));
 
-      await service.update(7, 42, body);
+      await service.update(7, viewer(), body);
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
@@ -137,10 +142,9 @@ describe('RoomsService', () => {
     });
 
     it('lets the owner update an active room', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user());
-      roomFindUniqueOrThrow.mockResolvedValue(room());
+      roomFindFirst.mockResolvedValue(room());
 
-      await service.update(7, 42, body);
+      await service.update(7, viewer(), body);
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
@@ -148,22 +152,21 @@ describe('RoomsService', () => {
       });
     });
 
-    it('propagates the not-found rejection for a missing room', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user());
-      const notFound = new Error('not found');
-      roomFindUniqueOrThrow.mockRejectedValue(notFound);
+    it('throws not-found for a missing room', async () => {
+      roomFindFirst.mockResolvedValue(null);
 
-      await expect(service.update(7, 42, body)).rejects.toBe(notFound);
+      await expect(service.update(7, viewer(), body)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(roomUpdate).not.toHaveBeenCalled();
     });
   });
 
   describe('remove', () => {
     it('lets the room owner soft-delete their own room', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42, role: 'user' }));
-      roomFindUniqueOrThrow.mockResolvedValue(room({ createdById: 42 }));
+      roomFindFirst.mockResolvedValue(room({ createdById: 42 }));
 
-      await service.remove(7, 42);
+      await service.remove(7, viewer({ id: 42, role: 'user' }));
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
@@ -172,18 +175,18 @@ describe('RoomsService', () => {
     });
 
     it('refuses removal from a non-owner, non-admin user', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 99, role: 'user' }));
-      roomFindUniqueOrThrow.mockResolvedValue(room({ createdById: 42 }));
+      roomFindFirst.mockResolvedValue(room({ createdById: 42 }));
 
-      await expect(service.remove(7, 99)).rejects.toThrow(ForbiddenError);
+      await expect(
+        service.remove(7, viewer({ id: 99, role: 'user' })),
+      ).rejects.toThrow(ForbiddenError);
       expect(roomUpdate).not.toHaveBeenCalled();
     });
 
     it('lets an admin soft-delete a room they do not own', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 1, role: 'admin' }));
-      roomFindUniqueOrThrow.mockResolvedValue(room({ createdById: 42 }));
+      roomFindFirst.mockResolvedValue(room({ createdById: 42 }));
 
-      await service.remove(7, 1);
+      await service.remove(7, viewer({ id: 1, role: 'admin' }));
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
@@ -191,21 +194,17 @@ describe('RoomsService', () => {
       });
     });
 
-    it('propagates the not-found rejection for a missing room', async () => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ role: 'admin' }));
-      const notFound = new Error('not found');
-      roomFindUniqueOrThrow.mockRejectedValue(notFound);
+    it('throws not-found for a missing room', async () => {
+      roomFindFirst.mockResolvedValue(null);
 
-      await expect(service.remove(7, 42)).rejects.toBe(notFound);
+      await expect(
+        service.remove(7, viewer({ role: 'admin' })),
+      ).rejects.toThrow(NotFoundException);
       expect(roomUpdate).not.toHaveBeenCalled();
     });
   });
 
   describe('findMeOneRoom', () => {
-    beforeEach(() => {
-      userFindUniqueOrThrow.mockResolvedValue(user());
-    });
-
     it('checks read access on the room, then queries it with members/messages/polls/invitations', async () => {
       const abilityCheckRoom = {
         id: 7,
@@ -214,17 +213,17 @@ describe('RoomsService', () => {
         roomMembers: [],
       };
       const found = { id: 7, name: 'Best pear variety?', polls: [] };
-      roomFindUniqueOrThrow
+      roomFindFirst
         .mockResolvedValueOnce(abilityCheckRoom)
         .mockResolvedValueOnce(found);
 
-      await service.findMeOneRoom(7, 42);
+      await service.findMeOneRoom(7, viewer());
 
-      expect(roomFindUniqueOrThrow).toHaveBeenNthCalledWith(1, {
+      expect(roomFindFirst).toHaveBeenNthCalledWith(1, {
         where: { id: 7, deletedAt: null },
         include: { roomMembers: { where: { deletedAt: null } } },
       });
-      expect(roomFindUniqueOrThrow).toHaveBeenNthCalledWith(2, {
+      expect(roomFindFirst).toHaveBeenNthCalledWith(2, {
         where: { id: 7, deletedAt: null },
         include: getRoomIncludeArgs(42),
       });
@@ -237,10 +236,18 @@ describe('RoomsService', () => {
         deletedAt: null,
         roomMembers: [],
       };
-      roomFindUniqueOrThrow.mockResolvedValueOnce(privateRoom);
+      roomFindFirst.mockResolvedValueOnce(privateRoom);
 
-      await expect(service.findMeOneRoom(7, 42)).rejects.toThrow(
+      await expect(service.findMeOneRoom(7, viewer())).rejects.toThrow(
         ForbiddenError,
+      );
+    });
+
+    it('throws not-found for a missing room', async () => {
+      roomFindFirst.mockResolvedValueOnce(null);
+
+      await expect(service.findMeOneRoom(7, viewer())).rejects.toThrow(
+        NotFoundException,
       );
     });
 
@@ -253,11 +260,11 @@ describe('RoomsService', () => {
         roomMembers: [],
       };
       const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
-      roomFindUniqueOrThrow
+      roomFindFirst
         .mockResolvedValueOnce(abilityCheckRoom)
         .mockResolvedValueOnce(found);
 
-      const result = await service.findMeOneRoom(7, 42);
+      const result = await service.findMeOneRoom(7, viewer());
 
       expect(shapeManyPollsForUser).toHaveBeenCalledWith([poll], []);
       expect(result).toEqual({ ...found, polls: [poll] });
@@ -265,14 +272,10 @@ describe('RoomsService', () => {
   });
 
   describe('findMeManyRooms', () => {
-    beforeEach(() => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42 }));
-    });
-
     it('queries rooms the requester created, restricted to what they can read', async () => {
       roomFindMany.mockResolvedValue([]);
 
-      await service.findMeManyRooms(42);
+      await service.findMeManyRooms(viewer());
 
       expect(roomFindMany).toHaveBeenCalledWith({
         where: {
@@ -292,7 +295,7 @@ describe('RoomsService', () => {
       const roomB = { id: 8, name: 'Worst pear variety?', polls: [pollB] };
       roomFindMany.mockResolvedValue([roomA, roomB]);
 
-      const result = await service.findMeManyRooms(42);
+      const result = await service.findMeManyRooms(viewer());
 
       expect(shapeManyPollsForUser).toHaveBeenCalledWith([pollA], []);
       expect(shapeManyPollsForUser).toHaveBeenCalledWith([pollB], []);
@@ -304,14 +307,10 @@ describe('RoomsService', () => {
   });
 
   describe('findManyRooms', () => {
-    beforeEach(() => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42 }));
-    });
-
     it('queries rooms the requester created, joined, or that are public, restricted to what they can read', async () => {
       roomFindMany.mockResolvedValue([]);
 
-      await service.findManyRooms(42);
+      await service.findManyRooms(viewer());
 
       expect(roomFindMany).toHaveBeenCalledWith({
         where: {
@@ -335,7 +334,7 @@ describe('RoomsService', () => {
       const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
       roomFindMany.mockResolvedValue([found]);
 
-      const result = await service.findManyRooms(42);
+      const result = await service.findManyRooms(viewer());
 
       expect(shapeManyPollsForUser).toHaveBeenCalledWith([poll], []);
       expect(result).toEqual([{ ...found, polls: [poll] }]);
@@ -343,14 +342,10 @@ describe('RoomsService', () => {
   });
 
   describe('findUsersManyRooms', () => {
-    beforeEach(() => {
-      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42 }));
-    });
-
     it("queries the target user's rooms visible to the requester", async () => {
       roomFindMany.mockResolvedValue([]);
 
-      await service.findUsersManyRooms(42, 99);
+      await service.findUsersManyRooms(viewer(), 99);
 
       expect(roomFindMany).toHaveBeenCalledWith({
         where: {
@@ -374,7 +369,7 @@ describe('RoomsService', () => {
       const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
       roomFindMany.mockResolvedValue([found]);
 
-      const result = await service.findUsersManyRooms(42, 99);
+      const result = await service.findUsersManyRooms(viewer(), 99);
 
       expect(shapeManyPollsForUser).toHaveBeenCalledWith([poll], []);
       expect(result).toEqual([{ ...found, polls: [poll] }]);
