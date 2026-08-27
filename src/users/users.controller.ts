@@ -13,6 +13,8 @@ import {
 import { type Response } from 'express';
 import { UsersService } from './users.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import type { User } from 'src/generated/prisma/client';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   type UserUpdateDTO,
@@ -37,12 +39,13 @@ export class UsersController {
   ) {}
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
-    return this.usersService.findOne(id, userId);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: User) {
+    return this.usersService.findOne(id, viewer);
   }
 
   @Post(':id/report')
   @HttpCode(503)
+  @CheckAbilities(['report', 'User'])
   report(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.report(+id);
   }
@@ -59,10 +62,10 @@ export class UsersController {
   @Get(':id/blocks')
   @CheckAbilities(['read', 'Block'])
   getBlockedUsers(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.blockService.getBlockedUsers(userId, id);
+    return this.blockService.getBlockedUsers(viewer, id);
   }
 
   @Post(':id/block')
@@ -75,19 +78,22 @@ export class UsersController {
   @Delete(':id/block')
   @HttpCode(204)
   @CheckAbilities(['delete', 'Block'])
-  unblockUser(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.blockService.unblockUser(userId, id);
+  unblockUser(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.blockService.unblockUser(viewer, id);
   }
 
   @Get(':id/friendship')
   @CheckAbilities(['read', 'Friendship'])
   async getFriendship(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Res({ passthrough: true }) res: Response,
   ) {
     const friendship = await this.friendshipService.getFriendshipWith(
-      userId,
+      viewer,
       id,
     );
     if (!friendship) {
@@ -99,17 +105,20 @@ export class UsersController {
 
   @Get(':id/friends')
   @CheckAbilities(['read', 'Friendship'])
-  getFriends(@UserId() userId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.friendshipService.getFriends(userId, id);
+  getFriends(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.friendshipService.getFriends(viewer, id);
   }
 
   @Get(':id/friend-requests')
   @CheckAbilities(['read', 'Friendship'])
   getFriendRequests(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.friendshipService.getFriendRequests(userId, id);
+    return this.friendshipService.getFriendRequests(viewer, id);
   }
 
   @Post(':id/friendship')
@@ -127,27 +136,28 @@ export class UsersController {
   @HttpCode(202)
   @CheckAbilities(['update', 'Friendship'])
   updateFriendRequest(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Body(new ZodValidationPipe(FriendshipStatusUpdateSchema))
     body: FriendshipStatusUpdateDTO,
   ) {
-    return this.friendshipService.updateFriendRequest(userId, id, body.status);
+    return this.friendshipService.updateFriendRequest(viewer, id, body.status);
   }
 
   @Delete(':id/friendship')
   @HttpCode(204)
   @CheckAbilities(['delete', 'Friendship'])
   removeFriendship(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.friendshipService.removeFriendship(userId, id);
+    return this.friendshipService.removeFriendship(viewer, id);
   }
 
   // add Guard for moderator from here on (green arrows on sequence diagram)
   @Post(':id/ban')
   @HttpCode(503)
+  @CheckAbilities(['ban', 'User'])
   ban(@Param('id', ParseIntPipe) id: number) {
     return this.banService.ban(+id);
   }
@@ -163,16 +173,17 @@ export class UsersController {
   @Patch(':id')
   @CheckAbilities(['update', 'User'])
   update(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Body(new ZodValidationPipe(UserUpdateSchema))
     body: UserUpdateDTO,
   ) {
-    return this.usersService.update(id, userId, body);
+    return this.usersService.update(id, viewer, body);
   }
 
   @Delete(':id')
   @HttpCode(503)
+  @CheckAbilities(['delete', 'User'])
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.remove(+id);
   }

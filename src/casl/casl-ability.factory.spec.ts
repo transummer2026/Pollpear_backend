@@ -116,10 +116,39 @@ describe('CaslAbilityFactory', () => {
       },
     );
 
-    it('grants create and update on Vote, but not delete', () => {
+    it('grants create, update and delete on Vote', () => {
       expect(ability.can('create', 'Vote')).toBe(true);
       expect(ability.can('update', 'Vote')).toBe(true);
-      expect(ability.can('delete', 'Vote')).toBe(false);
+      expect(ability.can('delete', 'Vote')).toBe(true);
+    });
+
+    it('grants update/delete on the user own vote while the poll is open, denies once closed', () => {
+      const open = voteSubject({
+        deletedAt: null,
+        createdById: 1,
+        poll: { status: 'active' },
+      });
+      const closed = voteSubject({
+        deletedAt: null,
+        createdById: 1,
+        poll: { status: 'closed' },
+      });
+
+      expect(ability.can('update', open)).toBe(true);
+      expect(ability.can('delete', open)).toBe(true);
+      expect(ability.can('update', closed)).toBe(false);
+      expect(ability.can('delete', closed)).toBe(false);
+    });
+
+    it('denies update/delete on another user own vote', () => {
+      const othersVote = voteSubject({
+        deletedAt: null,
+        createdById: 2,
+        poll: { status: 'active' },
+      });
+
+      expect(ability.can('update', othersVote)).toBe(false);
+      expect(ability.can('delete', othersVote)).toBe(false);
     });
 
     it('grants create on a Poll with no room, or attached to an active room', () => {

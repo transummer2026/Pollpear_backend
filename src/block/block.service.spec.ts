@@ -7,6 +7,7 @@ import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { NotificationService } from 'src/notification/notification.service';
+import type { User } from 'src/generated/prisma/client';
 import { BlockService } from './block.service';
 
 function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
@@ -16,6 +17,12 @@ function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
     role: 'user',
     ...overrides,
   };
+}
+
+/** A full-shaped `User` for a given id — what `@CurrentUser()` now hands
+ * the service, in place of a bare id. */
+function viewer(id: number): User {
+  return makeUser({ id }) as User;
 }
 
 function makeBlock(overrides: Partial<Record<string, unknown>> = {}) {
@@ -29,7 +36,6 @@ function makeBlock(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-type FindFirstArgs = { where: Record<string, unknown> };
 type FindManyArgs = {
   where: Record<string, unknown>;
   include: Record<string, unknown>;
@@ -52,9 +58,6 @@ describe('BlockService', () => {
     clearFriendNotifications: jest.Mock;
   };
   let prisma: {
-    user: {
-      findUniqueOrThrow: jest.Mock<Promise<unknown>, [FindFirstArgs]>;
-    };
     friendship: {
       updateMany: jest.Mock<Promise<unknown>, [UpdateManyArgs]>;
     };
@@ -69,11 +72,6 @@ describe('BlockService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: {
-        findUniqueOrThrow: jest
-          .fn<Promise<unknown>, [FindFirstArgs]>()
-          .mockResolvedValue(makeUser({ id: 1 })),
-      },
       friendship: {
         updateMany: jest.fn<Promise<unknown>, [UpdateManyArgs]>(),
       },
@@ -153,9 +151,9 @@ describe('BlockService', () => {
 
   describe('getBlockedUsers', () => {
     it("rejects viewing another user's blocked users", async () => {
-      await expect(service.getBlockedUsers(1, 2)).rejects.toBeInstanceOf(
-        ForbiddenError,
-      );
+      await expect(
+        service.getBlockedUsers(viewer(1), 2),
+      ).rejects.toBeInstanceOf(ForbiddenError);
       expect(prisma.block.findMany).not.toHaveBeenCalled();
     });
 
@@ -169,7 +167,7 @@ describe('BlockService', () => {
         makeBlock({ id: 20, blockerId: 1, blockedId: 2, blocked }),
       ]);
 
-      const result = await service.getBlockedUsers(1, 1);
+      const result = await service.getBlockedUsers(viewer(1), 1);
 
       expect(prisma.block.findMany).toHaveBeenCalledWith({
         where: { blockerId: 1 },
@@ -247,7 +245,7 @@ describe('BlockService', () => {
     it('throws when the caller has not blocked the target', async () => {
       prisma.block.findUnique.mockResolvedValue(null);
 
-      await expect(service.unblockUser(1, 2)).rejects.toBeInstanceOf(
+      await expect(service.unblockUser(viewer(1), 2)).rejects.toBeInstanceOf(
         NotFoundException,
       );
       expect(prisma.block.delete).not.toHaveBeenCalled();
@@ -257,7 +255,7 @@ describe('BlockService', () => {
       prisma.block.findUnique.mockResolvedValue(makeBlock({ id: 20 }));
       prisma.block.delete.mockResolvedValue(undefined);
 
-      await service.unblockUser(1, 2);
+      await service.unblockUser(viewer(1), 2);
 
       expect(prisma.block.delete).toHaveBeenCalledWith({ where: { id: 20 } });
     });

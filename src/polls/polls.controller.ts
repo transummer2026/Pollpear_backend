@@ -11,7 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { PollsService } from './polls.service';
-import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import type { User } from 'src/generated/prisma/client';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   type PollCreateDTO,
@@ -40,49 +41,49 @@ export class PollsController {
   @Post('new')
   @CheckAbilities(['create', 'Poll'])
   create(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Body(new ZodValidationPipe(PollCreateSchema)) body: PollCreateDTO,
   ) {
-    return this.pollsService.create(userId, body);
+    return this.pollsService.create(viewer, body);
   }
 
   @Get(':id')
   @CheckAbilities(['read', 'Poll'])
   findMeOnePoll(
     @Param('id', ParseIntPipe) id: number,
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
   ) {
-    return this.pollsService.findMeOnePoll(id, userId);
+    return this.pollsService.findMeOnePoll(id, viewer);
   }
 
   @Get()
   @CheckAbilities(['read', 'Poll'])
   findManyPolls(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Query('userId') targetUserId?: string,
   ) {
     if (targetUserId) {
       this.logger.debug('targetId is captured in the url');
-      return this.pollsService.findUsersManyPolls(userId, +targetUserId);
+      return this.pollsService.findUsersManyPolls(viewer, +targetUserId);
     }
     this.logger.debug('Only userId is captured in the url');
-    return this.pollsService.findMeManyPolls(userId);
+    return this.pollsService.findMeManyPolls(viewer);
   }
 
   @Patch(':id')
   @CheckAbilities(['update', 'Poll'])
   update(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Body(new ZodValidationPipe(PollUpdateSchema)) body: PollUpdateDTO,
   ) {
-    return this.pollsService.update(id, userId, body);
+    return this.pollsService.update(id, viewer, body);
   }
 
   @Delete(':id')
   @CheckAbilities(['delete', 'Poll'])
-  remove(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
-    return this.pollsService.remove(id, userId);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: User) {
+    return this.pollsService.remove(id, viewer);
   }
 
   @Post(':id/report')
@@ -116,37 +117,40 @@ export class PollsController {
   //routes will dissapear because later we will use wbesockets
   @Get(':id/vote:id')
   @CheckAbilities(['read', 'Vote'])
-  findOneVote(@Param('id', ParseIntPipe) id: number, @UserId() userId: number) {
-    return this.votesService.findOneVote(id, userId);
+  findOneVote(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() viewer: User,
+  ) {
+    return this.votesService.findOneVote(id, viewer);
   }
 
   @Post(':id/vote')
   @CheckAbilities(['create', 'Vote'])
   createVote(
     @Param('id', ParseIntPipe) pollId: number,
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Body(new ZodValidationPipe(VoteCreateSchema)) body: VoteCreateDTO,
   ) {
-    return this.votesService.createVote(pollId, userId, body);
+    return this.votesService.createVote(pollId, viewer, body);
   }
 
   @Patch(':id/vote')
   @CheckAbilities(['update', 'Vote'])
   updateVote(
     @Param('id', ParseIntPipe) pollId: number,
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Body(new ZodValidationPipe(VoteUpdateSchema)) body: VoteUpdateDTO,
   ) {
-    return this.votesService.updateVote(pollId, userId, body);
+    return this.votesService.updateVote(pollId, viewer, body);
   }
 
   @Delete(':id/vote')
   @CheckAbilities(['delete', 'Vote'])
   removeVote(
     @Param('id', ParseIntPipe) pollId: number,
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
   ) {
-    return this.votesService.deleteVote(pollId, userId);
+    return this.votesService.deleteVote(pollId, viewer);
   }
 
   @Post(':id/vote/report')

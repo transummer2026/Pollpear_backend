@@ -7,8 +7,10 @@ import {
 import { ForbiddenError } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
 import { NotificationService } from 'src/notification/notification.service';
 import { Prisma } from 'src/generated/prisma/client';
+import type { User } from 'src/generated/prisma/client';
 import { FriendshipService } from './friendship.service';
 
 function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
@@ -18,6 +20,12 @@ function makeUser(overrides: Partial<Record<string, unknown>> = {}) {
     role: 'user',
     ...overrides,
   };
+}
+
+/** A full-shaped `User` for a given id — what `@CurrentUser()` now hands
+ * the service, in place of a bare id. */
+function viewer(id: number): User {
+  return makeUser({ id }) as User;
 }
 
 function makeFriendship(overrides: Partial<Record<string, unknown>> = {}) {
@@ -129,7 +137,7 @@ describe('FriendshipService', () => {
     it('returns null when no friendship exists between the two users', async () => {
       prisma.friendship.findFirst.mockResolvedValue(null);
 
-      const result = await service.getFriendshipWith(1, 2);
+      const result = await service.getFriendshipWith(viewer(1), 2);
 
       expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
         where: { userAId: 1, userBId: 2, deletedAt: null },
@@ -140,7 +148,7 @@ describe('FriendshipService', () => {
     it('returns the friendship without deletedAt when found', async () => {
       prisma.friendship.findFirst.mockResolvedValue(makeFriendship());
 
-      const result = await service.getFriendshipWith(1, 2);
+      const result = await service.getFriendshipWith(viewer(1), 2);
 
       expect(result).not.toHaveProperty('deletedAt');
       expect(result?.status).toBe('pending');
@@ -152,7 +160,7 @@ describe('FriendshipService', () => {
         makeFriendship({ addresseeId: 1 }),
       );
 
-      const result = await service.getFriendshipWith(1, 2);
+      const result = await service.getFriendshipWith(viewer(1), 2);
 
       expect(result?.requesterId).toBe(2);
     });
@@ -160,7 +168,7 @@ describe('FriendshipService', () => {
 
   describe('getFriends', () => {
     it('maps each friendship to the other user, whichever side the viewer is on', async () => {
-      const viewer = {
+      const viewerRow = {
         id: 2,
         username: 'alice',
         avatarUrl: '/uploads/avatars/default.svg',
@@ -186,7 +194,7 @@ describe('FriendshipService', () => {
           userBId: 2,
           addresseeId: 2,
           userA: friendAsUserA,
-          userB: viewer,
+          userB: viewerRow,
         }),
         makeFriendship({
           id: 11,
@@ -194,12 +202,12 @@ describe('FriendshipService', () => {
           userAId: 2,
           userBId: 3,
           addresseeId: 3,
-          userA: viewer,
+          userA: viewerRow,
           userB: friendAsUserB,
         }),
       ]);
 
-      const result = await service.getFriends(2, 2);
+      const result = await service.getFriends(viewer(2), 2);
 
       const friendUserSelect = {
         id: true,
@@ -207,11 +215,17 @@ describe('FriendshipService', () => {
         avatarUrl: true,
         isOnline: true,
       };
+      const ability = new CaslAbilityFactory().createForUser(viewer(2));
       expect(prisma.friendship.findMany).toHaveBeenCalledWith({
         where: {
-          deletedAt: null,
-          status: 'accepted',
-          OR: [{ userAId: 2 }, { userBId: 2 }],
+          AND: [
+            accessibleBy(ability, 'read').ofType('Friendship'),
+            {
+              deletedAt: null,
+              status: 'accepted',
+              OR: [{ userAId: 2 }, { userBId: 2 }],
+            },
+          ],
         },
         include: {
           userA: { select: friendUserSelect },
@@ -237,35 +251,36 @@ describe('FriendshipService', () => {
     it("excludes the viewer from another user's friend list", async () => {
       prisma.friendship.findMany.mockResolvedValue([]);
 
-      await service.getFriends(1, 2);
+      await service.getFriends(viewer(1), 2);
 
-      expect(prisma.friendship.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            deletedAt: null,
-            status: 'accepted',
-            OR: [{ userAId: 2 }, { userBId: 2 }],
-            NOT: [{ userAId: 1 }, { userBId: 1 }],
-          },
-        }),
-      );
+      const [args] = prisma.friendship.findMany.mock.calls[0] as [
+        { where: { AND: [unknown, Record<string, unknown>] } },
+      ];
+      expect(args.where.AND[1]).toEqual({
+        deletedAt: null,
+        status: 'accepted',
+        OR: [{ userAId: 2 }, { userBId: 2 }],
+        NOT: [{ userAId: 1 }, { userBId: 1 }],
+      });
     });
 
     it('does not filter anyone out of your own friend list', async () => {
       prisma.friendship.findMany.mockResolvedValue([]);
 
-      await service.getFriends(1, 1);
+      await service.getFriends(viewer(1), 1);
 
-      const [args] = prisma.friendship.findMany.mock.calls[0];
-      expect(args.where).not.toHaveProperty('NOT');
+      const [args] = prisma.friendship.findMany.mock.calls[0] as [
+        { where: { AND: [unknown, Record<string, unknown>] } },
+      ];
+      expect(args.where.AND[1]).not.toHaveProperty('NOT');
     });
   });
 
   describe('getFriendRequests', () => {
     it("rejects viewing another user's pending requests", async () => {
-      await expect(service.getFriendRequests(1, 2)).rejects.toBeInstanceOf(
-        ForbiddenError,
-      );
+      await expect(
+        service.getFriendRequests(viewer(1), 2),
+      ).rejects.toBeInstanceOf(ForbiddenError);
       expect(prisma.friendship.findMany).not.toHaveBeenCalled();
     });
 
@@ -293,7 +308,7 @@ describe('FriendshipService', () => {
         }),
       ]);
 
-      const result = await service.getFriendRequests(1, 1);
+      const result = await service.getFriendRequests(viewer(1), 1);
 
       const friendUserSelect = {
         id: true,
@@ -521,7 +536,7 @@ describe('FriendshipService', () => {
       prisma.friendship.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateFriendRequest(1, 2, 'accepted'),
+        service.updateFriendRequest(viewer(1), 2, 'accepted'),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
@@ -530,7 +545,7 @@ describe('FriendshipService', () => {
       prisma.friendship.findFirst.mockResolvedValue(null);
 
       await service
-        .updateFriendRequest(1, 2, 'accepted')
+        .updateFriendRequest(viewer(1), 2, 'accepted')
         .catch(() => undefined);
 
       expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
@@ -549,7 +564,7 @@ describe('FriendshipService', () => {
       prisma.friendship.findFirst.mockResolvedValue(pending);
 
       await expect(
-        service.updateFriendRequest(1, 2, 'accepted'),
+        service.updateFriendRequest(viewer(1), 2, 'accepted'),
       ).rejects.toBeInstanceOf(ForbiddenError);
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
@@ -565,7 +580,7 @@ describe('FriendshipService', () => {
       prisma.friendship.findFirst.mockResolvedValue(accepted);
 
       await expect(
-        service.updateFriendRequest(1, 2, 'rejected'),
+        service.updateFriendRequest(viewer(1), 2, 'rejected'),
       ).rejects.toBeInstanceOf(ForbiddenError);
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
@@ -576,7 +591,7 @@ describe('FriendshipService', () => {
       );
 
       await expect(
-        service.updateFriendRequest(1, 2, 'accepted'),
+        service.updateFriendRequest(viewer(1), 2, 'accepted'),
       ).rejects.toBeInstanceOf(ForbiddenError);
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
@@ -591,7 +606,11 @@ describe('FriendshipService', () => {
       });
       prisma.friendship.findFirst.mockResolvedValue(accepted);
 
-      const result = await service.updateFriendRequest(1, 2, 'accepted');
+      const result = await service.updateFriendRequest(
+        viewer(1),
+        2,
+        'accepted',
+      );
 
       expect(result.status).toBe('accepted');
       expect(prisma.friendship.update).not.toHaveBeenCalled();
@@ -612,7 +631,11 @@ describe('FriendshipService', () => {
         status: 'accepted',
       });
 
-      const result = await service.updateFriendRequest(1, 2, 'accepted');
+      const result = await service.updateFriendRequest(
+        viewer(1),
+        2,
+        'accepted',
+      );
 
       expect(prisma.friendship.update).toHaveBeenCalledWith({
         where: { id: 10 },
@@ -635,7 +658,11 @@ describe('FriendshipService', () => {
         status: 'rejected',
       });
 
-      const result = await service.updateFriendRequest(1, 2, 'rejected');
+      const result = await service.updateFriendRequest(
+        viewer(1),
+        2,
+        'rejected',
+      );
 
       expect(prisma.friendship.update).toHaveBeenCalledWith({
         where: { id: 10 },
@@ -649,9 +676,9 @@ describe('FriendshipService', () => {
     it('throws when there is no friendship between the two users', async () => {
       prisma.friendship.findFirst.mockResolvedValue(null);
 
-      await expect(service.removeFriendship(1, 2)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.removeFriendship(viewer(1), 2),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.friendship.update).not.toHaveBeenCalled();
     });
 
@@ -659,7 +686,7 @@ describe('FriendshipService', () => {
       prisma.friendship.findFirst.mockResolvedValue(makeFriendship({ id: 10 }));
       prisma.friendship.update.mockResolvedValue(undefined);
 
-      await service.removeFriendship(1, 2);
+      await service.removeFriendship(viewer(1), 2);
 
       const [args] = prisma.friendship.update.mock.calls[0];
       expect(args.where).toEqual({ id: 10 });
@@ -673,7 +700,7 @@ describe('FriendshipService', () => {
       );
       prisma.friendship.update.mockResolvedValue(undefined);
 
-      await service.removeFriendship(1, 2);
+      await service.removeFriendship(viewer(1), 2);
 
       expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
     });

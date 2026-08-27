@@ -14,10 +14,11 @@ import {
   type FriendshipStatusUpdateDTO,
 } from 'Pollpear_shared/src/schemas/friendship.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
 import { NotificationService } from 'src/notification/notification.service';
 import { ForbiddenError, subject } from '@casl/ability';
 import { Prisma } from 'src/generated/prisma/client';
-import type { Friendship } from 'src/generated/prisma/client';
+import type { Friendship, User } from 'src/generated/prisma/client';
 import { canonicalPair } from './friendship.pair';
 
 const FRIEND_USER_SELECT = {
@@ -41,13 +42,13 @@ export class FriendshipService {
   ) {}
 
   async getFriendshipWith(
-    userId: number,
+    viewer: User,
     otherId: number,
   ): Promise<FriendshipDTO | null> {
-    const friendship = await this.findFriendshipBetween(userId, otherId);
+    const friendship = await this.findFriendshipBetween(viewer.id, otherId);
     if (!friendship) return null;
 
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'read',
       subject('Friendship', friendship),
@@ -57,17 +58,23 @@ export class FriendshipService {
   }
 
   async getFriends(
-    callerId: number,
+    viewer: User,
     targetId: number,
   ): Promise<FriendListItemDTO[]> {
+    const ability = this.abilityFactory.createForUser(viewer);
     const friendships = await this.prisma.friendship.findMany({
       where: {
-        deletedAt: null,
-        status: 'accepted',
-        OR: [{ userAId: targetId }, { userBId: targetId }],
-        ...(callerId !== targetId
-          ? { NOT: [{ userAId: callerId }, { userBId: callerId }] }
-          : {}),
+        AND: [
+          accessibleBy(ability, 'read').ofType('Friendship'),
+          {
+            deletedAt: null,
+            status: 'accepted',
+            OR: [{ userAId: targetId }, { userBId: targetId }],
+            ...(viewer.id !== targetId
+              ? { NOT: [{ userAId: viewer.id }, { userBId: viewer.id }] }
+              : {}),
+          },
+        ],
       },
       include: {
         userA: { select: FRIEND_USER_SELECT },
@@ -87,10 +94,10 @@ export class FriendshipService {
   }
 
   async getFriendRequests(
-    callerId: number,
+    viewer: User,
     targetId: number,
   ): Promise<FriendListItemDTO[]> {
-    const ability = await this.abilityFor(callerId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'read',
       subject('Friendship', {
@@ -178,11 +185,11 @@ export class FriendshipService {
   }
 
   async updateFriendRequest(
-    userId: number,
+    viewer: User,
     otherId: number,
     status: FriendshipStatusUpdateDTO['status'],
   ): Promise<FriendshipDTO> {
-    const friendship = await this.findFriendshipBetween(userId, otherId);
+    const friendship = await this.findFriendshipBetween(viewer.id, otherId);
     if (!friendship) {
       throw new NotFoundException('No pending friend request from this user.');
     }
@@ -190,13 +197,13 @@ export class FriendshipService {
     if (
       status === 'accepted' &&
       friendship.status === 'accepted' &&
-      friendship.addresseeId === userId
+      friendship.addresseeId === viewer.id
     ) {
-      await this.notificationService.clearFriendRequest(userId, otherId);
+      await this.notificationService.clearFriendRequest(viewer.id, otherId);
       return FriendshipSchema.parse(friendship);
     }
 
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
       subject('Friendship', friendship),
@@ -207,21 +214,21 @@ export class FriendshipService {
       data: { status },
     });
 
-    await this.notificationService.clearFriendRequest(userId, otherId);
+    await this.notificationService.clearFriendRequest(viewer.id, otherId);
     if (status === 'accepted') {
-      await this.notificationService.notifyFriendAccepted(otherId, userId);
+      await this.notificationService.notifyFriendAccepted(otherId, viewer.id);
     }
 
     return FriendshipSchema.parse(updated);
   }
 
-  async removeFriendship(userId: number, otherId: number): Promise<void> {
-    const friendship = await this.findFriendshipBetween(userId, otherId);
+  async removeFriendship(viewer: User, otherId: number): Promise<void> {
+    const friendship = await this.findFriendshipBetween(viewer.id, otherId);
     if (!friendship) {
       throw new NotFoundException('No friendship found with this user.');
     }
 
-    const ability = await this.abilityFor(userId);
+    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'delete',
       subject('Friendship', friendship),
@@ -303,14 +310,6 @@ export class FriendshipService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     );
-  }
-
-  private async abilityFor(userId: number) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
-    return this.abilityFactory.createForUser(user);
   }
 
   private findFriendshipBetween(userId: number, otherId: number) {

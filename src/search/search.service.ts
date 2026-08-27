@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { RoomsService } from 'src/rooms/rooms.service';
+import type { User } from 'src/generated/prisma/client';
 import {
   SearchResultsSchema,
   type SearchQueryDTO,
@@ -17,7 +18,7 @@ export class SearchService {
 
   async search(
     { q, type, page, limit, sortBy }: SearchQueryDTO,
-    userId: number,
+    viewer: User,
   ): Promise<SearchResultsDTO> {
     const isScoped = type !== 'all';
     const options = isScoped
@@ -26,10 +27,10 @@ export class SearchService {
 
     const [users, rooms] = await Promise.all([
       type === 'all' || type === 'user'
-        ? this.usersService.search(q, userId, options)
+        ? this.usersService.search(q, viewer, options)
         : { items: [], total: 0 },
       type === 'all' || type === 'room'
-        ? this.roomsService.search(q, userId, options)
+        ? this.roomsService.search(q, viewer, options)
         : { items: [], total: 0 },
     ]);
 
