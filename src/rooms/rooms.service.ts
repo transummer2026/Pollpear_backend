@@ -257,11 +257,17 @@ export class RoomsService {
   }
 
   async findMeManyRooms(userId: number) {
+    const ability = await this.abilityFor(userId);
     const [rooms, votesMadeByUser] = await Promise.all([
       this.prisma.room.findMany({
         where: {
-          createdById: userId,
-          deletedAt: null,
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            {
+              createdById: userId,
+              deletedAt: null,
+            },
+          ],
         },
         include: getRoomIncludeArgs(userId),
       }),
@@ -285,11 +291,33 @@ export class RoomsService {
   }
 
   async findUsersManyRooms(userId: number, targetId: number) {
+    const ability = await this.abilityFor(userId);
     const [rooms, votesMadeByUser] = await Promise.all([
       this.prisma.room.findMany({
         where: {
-          createdById: targetId,
-          deletedAt: null,
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            {
+              OR: [
+                {
+                  createdById: targetId,
+                  deletedAt: null,
+                },
+                {
+                  visibility: 'public',
+                  deletedAt: null,
+                },
+                {
+                  roomMembers: {
+                    some: {
+                      userId: userId,
+                    },
+                  },
+                  deletedAt: null,
+                },
+              ],
+            },
+          ],
         },
         include: getRoomIncludeArgs(userId),
       }),

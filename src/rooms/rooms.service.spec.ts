@@ -6,9 +6,10 @@ import {
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import type { User } from 'src/generated/prisma/client';
+import { accessibleBy } from 'src/casl/casl-prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PollsService, getPollIncludeArgs } from 'src/polls/polls.service';
-import { RoomsService } from './rooms.service';
+import { PollsService } from 'src/polls/polls.service';
+import { RoomsService, getRoomIncludeArgs } from './rooms.service';
 
 function user(overrides: Record<string, unknown> = {}) {
   return { id: 42, role: 'user', ...overrides };
@@ -56,11 +57,20 @@ describe('RoomsService', () => {
   const pollsService = {
     shapeManyPollsForUser,
   } as unknown as PollsService;
-  const service = new RoomsService(
-    prisma,
-    new CaslAbilityFactory(),
-    pollsService,
-  );
+  const abilityFactory = new CaslAbilityFactory();
+  const service = new RoomsService(prisma, abilityFactory, pollsService);
+
+  // The CASL room-read policy (permissions/room.ts) is the single source of
+  // truth for "what can this user see". Rather than re-typing its conditions
+  // by hand here (which drifts the moment the policy changes), tests derive
+  // the expected `where` clause the same way the service does: by running
+  // the real ability through `accessibleBy`.
+  function readAccessibleWhere(u: ReturnType<typeof user>) {
+    const ability = abilityFactory.createForUser(
+      u as unknown as { id: number; role: 'user' | 'moderator' | 'admin' },
+    );
+    return accessibleBy(ability, 'read').ofType('Room');
+  }
 
   // findMeOneRoom runs the fetched room through RoomReadSchema.parse, which
   // enforces the full Prisma-generated shape. These tests care about the
@@ -74,6 +84,7 @@ describe('RoomsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    voteFindMany.mockResolvedValue([]);
   });
 
   describe('create', () => {
@@ -148,12 +159,16 @@ describe('RoomsService', () => {
   });
 
   describe('remove', () => {
-    it('refuses removal from the room owner (only admins may delete)', async () => {
+    it('lets the room owner soft-delete their own room', async () => {
       userFindUniqueOrThrow.mockResolvedValue(user({ id: 42, role: 'user' }));
       roomFindUniqueOrThrow.mockResolvedValue(room({ createdById: 42 }));
 
-      await expect(service.remove(7, 42)).rejects.toThrow(ForbiddenError);
-      expect(roomUpdate).not.toHaveBeenCalled();
+      await service.remove(7, 42);
+
+      expect(roomUpdate).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: { deletedAt: expect.any(Date) as Date },
+      });
     });
 
     it('refuses removal from a non-owner, non-admin user', async () => {
@@ -187,31 +202,60 @@ describe('RoomsService', () => {
   });
 
   describe('findMeOneRoom', () => {
-    it('queries the room scoped to its creator, with members/messages/polls/invitations', async () => {
+    beforeEach(() => {
+      userFindUniqueOrThrow.mockResolvedValue(user());
+    });
+
+    it('checks read access on the room, then queries it with members/messages/polls/invitations', async () => {
+      const abilityCheckRoom = {
+        id: 7,
+        visibility: 'public',
+        deletedAt: null,
+        roomMembers: [],
+      };
       const found = { id: 7, name: 'Best pear variety?', polls: [] };
-      roomFindUniqueOrThrow.mockResolvedValue(found);
+      roomFindUniqueOrThrow
+        .mockResolvedValueOnce(abilityCheckRoom)
+        .mockResolvedValueOnce(found);
 
       await service.findMeOneRoom(7, 42);
 
-      expect(roomFindUniqueOrThrow).toHaveBeenCalledWith({
-        where: { id: 7, createdById: 42 },
-        include: {
-          roomMembers: { where: { deletedAt: null, userId: { not: 42 } } },
-          messages: { where: { deletedAt: null } },
-          polls: {
-            where: { deletedAt: null },
-            include: getPollIncludeArgs(),
-          },
-          createdBy: true,
-          invitations: { where: { deletedAt: null, status: 'pending' } },
-        },
+      expect(roomFindUniqueOrThrow).toHaveBeenNthCalledWith(1, {
+        where: { id: 7, deletedAt: null },
+        include: { roomMembers: { where: { deletedAt: null } } },
       });
+      expect(roomFindUniqueOrThrow).toHaveBeenNthCalledWith(2, {
+        where: { id: 7, deletedAt: null },
+        include: getRoomIncludeArgs(42),
+      });
+    });
+
+    it('refuses a room the requester cannot read', async () => {
+      const privateRoom = {
+        id: 7,
+        visibility: 'private',
+        deletedAt: null,
+        roomMembers: [],
+      };
+      roomFindUniqueOrThrow.mockResolvedValueOnce(privateRoom);
+
+      await expect(service.findMeOneRoom(7, 42)).rejects.toThrow(
+        ForbiddenError,
+      );
     });
 
     it('shapes each poll for the requesting user and returns the room with them', async () => {
       const poll = { id: 1 };
+      const abilityCheckRoom = {
+        id: 7,
+        visibility: 'public',
+        deletedAt: null,
+        roomMembers: [],
+      };
       const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
-      roomFindUniqueOrThrow.mockResolvedValue(found);
+      roomFindUniqueOrThrow
+        .mockResolvedValueOnce(abilityCheckRoom)
+        .mockResolvedValueOnce(found);
 
       const result = await service.findMeOneRoom(7, 42);
 
@@ -221,23 +265,23 @@ describe('RoomsService', () => {
   });
 
   describe('findMeManyRooms', () => {
-    it('queries rooms scoped to their creator, with members/messages/polls/invitations', async () => {
+    beforeEach(() => {
+      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42 }));
+    });
+
+    it('queries rooms the requester created, restricted to what they can read', async () => {
       roomFindMany.mockResolvedValue([]);
 
       await service.findMeManyRooms(42);
 
       expect(roomFindMany).toHaveBeenCalledWith({
-        where: { createdById: 42 },
-        include: {
-          roomMembers: { where: { deletedAt: null, userId: { not: 42 } } },
-          messages: { where: { deletedAt: null } },
-          polls: {
-            where: { deletedAt: null },
-            include: getPollIncludeArgs(),
-          },
-          createdBy: true,
-          invitations: { where: { deletedAt: null, status: 'pending' } },
+        where: {
+          AND: [
+            readAccessibleWhere(user({ id: 42 })),
+            { createdById: 42, deletedAt: null },
+          ],
         },
+        include: getRoomIncludeArgs(42),
       });
     });
 
@@ -259,27 +303,97 @@ describe('RoomsService', () => {
     });
   });
 
+  describe('findManyRooms', () => {
+    beforeEach(() => {
+      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42 }));
+    });
+
+    it('queries rooms the requester created, joined, or that are public, restricted to what they can read', async () => {
+      roomFindMany.mockResolvedValue([]);
+
+      await service.findManyRooms(42);
+
+      expect(roomFindMany).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            readAccessibleWhere(user({ id: 42 })),
+            {
+              OR: [
+                { createdById: 42, deletedAt: null },
+                { visibility: 'public', deletedAt: null },
+                { roomMembers: { some: { userId: 42 } }, deletedAt: null },
+              ],
+            },
+          ],
+        },
+        include: getRoomIncludeArgs(42),
+      });
+    });
+
+    it("shapes each room's polls for the requesting user and returns every room", async () => {
+      const poll = { id: 1 };
+      const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
+      roomFindMany.mockResolvedValue([found]);
+
+      const result = await service.findManyRooms(42);
+
+      expect(shapeManyPollsForUser).toHaveBeenCalledWith([poll], []);
+      expect(result).toEqual([{ ...found, polls: [poll] }]);
+    });
+  });
+
+  describe('findUsersManyRooms', () => {
+    beforeEach(() => {
+      userFindUniqueOrThrow.mockResolvedValue(user({ id: 42 }));
+    });
+
+    it("queries the target user's rooms visible to the requester", async () => {
+      roomFindMany.mockResolvedValue([]);
+
+      await service.findUsersManyRooms(42, 99);
+
+      expect(roomFindMany).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            readAccessibleWhere(user({ id: 42 })),
+            {
+              OR: [
+                { createdById: 99, deletedAt: null },
+                { visibility: 'public', deletedAt: null },
+                { roomMembers: { some: { userId: 42 } }, deletedAt: null },
+              ],
+            },
+          ],
+        },
+        include: getRoomIncludeArgs(42),
+      });
+    });
+
+    it("shapes each room's polls for the requesting user and returns every room", async () => {
+      const poll = { id: 1 };
+      const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
+      roomFindMany.mockResolvedValue([found]);
+
+      const result = await service.findUsersManyRooms(42, 99);
+
+      expect(shapeManyPollsForUser).toHaveBeenCalledWith([poll], []);
+      expect(result).toEqual([{ ...found, polls: [poll] }]);
+    });
+  });
+
   describe('search', () => {
     // Derived from the CASL room-read policy for a plain 'user' role: public
     // rooms, or rooms the requester is a member of.
-    const baseWhere = {
+    const baseWhere = () => ({
       deletedAt: null,
-      OR: [
-        {
-          deletedAt: null,
-          roomMembers: {
-            some: { userId: REQUESTER_ID, deletedAt: null },
-          },
-        },
-        { deletedAt: null, visibility: 'public' },
-      ],
-    };
+      ...readAccessibleWhere(user({ id: REQUESTER_ID })),
+    });
     const matchWhere = (q: string) => ({
-      ...baseWhere,
+      ...baseWhere(),
       name: { contains: q, mode: 'insensitive' },
     });
     const startsWithWhere = (q: string) => ({
-      ...baseWhere,
+      ...baseWhere(),
       name: { startsWith: q, mode: 'insensitive' },
     });
 
