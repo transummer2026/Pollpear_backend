@@ -1,0 +1,101 @@
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "hello jojo",
+	"visibility": "public",
+	"description": "Do hard work bitch !!!"
+}
+
+### minimal payload, description omitted (nullish/optional) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "minimal room",
+	"visibility": "private"
+}
+
+### missing name -> 400 Bad Request (zod required field)
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"visibility": "public"
+}
+
+### empty name -> 400 Bad Request (zod min(1))
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "",
+	"visibility": "public"
+}
+
+### name over 255 characters -> 400 Bad Request (zod max(255))
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	"visibility": "public"
+}
+
+### description over 3000 characters -> 400 Bad Request (zod max(3000))
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "too much lore",
+	"visibility": "public",
+	"description": "lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
+}
+
+### invalid visibility value -> 400 Bad Request (zod enum mismatch)
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "secret room",
+	"visibility": "secret"
+}
+
+### missing x-user-id header -> 401 Unauthorized
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+
+{
+	"name": "no auth room",
+	"visibility": "public"
+}
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 999999
+
+{
+	"name": "ghost room",
+	"visibility": "public"
+}
+
+### extra/unknown fields are stripped, not persisted -> 201, status is "active" and createdById is 1 regardless of the injected values
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "cannot self-elevate",
+	"visibility": "public",
+	"status": "closed",
+	"createdById": 999,
+	"id": 1
+}

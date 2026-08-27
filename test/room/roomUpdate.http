@@ -1,0 +1,112 @@
+### create a room to update (run first, then replace :id below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "update target",
+	"visibility": "public",
+	"description": "before update"
+}
+
+### owner updates their own room -> 200
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "updated name",
+	"description": "after update"
+}
+
+### partial update — only description changes, name stays untouched -> 200
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"description": "only the description changes this time"
+}
+
+### non-owner tries to update -> 403 Forbidden (user 2 doesn't own the room created above)
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"name": "hijacked"
+}
+
+### update a room that doesn't exist -> 404 Not Found
+PATCH http://localhost:3000/rooms/999999 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "ghost room"
+}
+
+### missing x-user-id header -> 401 Unauthorized
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+
+{
+	"name": "no auth"
+}
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 999999
+
+{
+	"name": "ghost user"
+}
+
+### empty name -> 400 Bad Request (zod min(1) still enforced on the partial schema)
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": ""
+}
+
+### invalid visibility value -> 400 Bad Request (zod enum mismatch)
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"visibility": "secret"
+}
+
+### non-integer room id -> 400 Bad Request (ParseIntPipe)
+PATCH http://localhost:3000/rooms/abc HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "n/a"
+}
+
+### extra/unknown fields are stripped, not persisted -> 200, status/createdById stay as they were
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "still just the owner",
+	"status": "closed",
+	"createdById": 999
+}
+
+### updating a closed room -> 403 Forbidden ("Poll is closed" message, service applies the Poll copy to Room)
+### depends on seeded data: replace :id with a room whose status is "closed" from your seed
+PATCH http://localhost:3000/rooms/:id HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "should not apply"
+}

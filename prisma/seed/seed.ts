@@ -212,8 +212,7 @@ function buildRoom(i: number, creatorId: number): Prisma.RoomCreateInput {
     RoomStatus.closed,
   ]);
 
-  const publishedAt = faker.date.past({ years: 1 });
-  const createdAt = faker.date.recent({ days: 5, refDate: publishedAt });
+  const createdAt = faker.date.past({ years: 1 });
 
   return {
     name: 'room' + i,
@@ -224,7 +223,6 @@ function buildRoom(i: number, creatorId: number): Prisma.RoomCreateInput {
       Visibility.private,
     ]),
     status,
-    publishedAt,
     createdAt,
     createdBy: { connect: { id: creatorId } },
   };
@@ -260,17 +258,17 @@ function buildOptionRows(
 
 function buildPollTimes(
   status: PollStatus,
-  room: { publishedAt: Date | null; createdAt: Date } | null,
+  room: { createdAt: Date } | null,
 ): { createdAt: Date; publishedAt: Date | null; endsAt: Date } {
   const publishedAt = room
-    ? faker.date.between({ from: room.publishedAt ?? room.createdAt, to: now })
+    ? faker.date.between({ from: room.createdAt, to: now })
     : faker.date.past({ years: 1 });
   const createdAt = room
     ? faker.date.between({
         from: new Date(
           Math.max(
             publishedAt.getTime() - 5 * DAY_MS,
-            (room.publishedAt ?? room.createdAt).getTime(),
+            room.createdAt.getTime(),
           ),
         ),
         to: publishedAt,
@@ -366,7 +364,6 @@ async function main() {
       id: true,
       status: true,
       visibility: true,
-      publishedAt: true,
       createdById: true,
       createdAt: true,
     },
@@ -387,7 +384,7 @@ async function main() {
   const roomMemberRows: { roomId: number; userId: number; joinedAt: Date }[] =
     [];
   for (const room of rooms) {
-    const base = room.publishedAt ?? room.createdAt;
+    const base = room.createdAt;
     const members = [{ userId: room.createdById, joinedAt: base }];
     const pool = userIds.filter((id) => id !== room.createdById);
     const extraCount = Math.min(

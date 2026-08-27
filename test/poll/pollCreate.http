@@ -1,0 +1,391 @@
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "Best pizza topping?",
+	"description": "Settling this once and for all",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"hashtags": [ { "name": "food" }, { "name": "pizza" } ],
+	"options": [
+		{ "text": "Pineapple", "order": 0 },
+		{ "text": "Pepperoni", "order": 1 },
+		{ "text": "Mushroom", "order": 2 }
+	]
+}
+
+### minimal single_choice payload, description/hashtags omitted -> 201
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "Cats or dogs?",
+	"type": "single_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "private",
+	"allowChangeVote": false,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "Cats", "order": 0 },
+		{ "text": "Dogs", "order": 1 }
+	]
+}
+
+### slider poll with labels -> 201
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "How hard did you work today?",
+	"type": "slider",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": true,
+	"options": [
+		{ "text": "Effort", "order": 0, "sliderLeftLabel": "Not at all", "sliderRightLabel": "Extremely" }
+	]
+}
+
+### slider poll, labels omitted (nullish/optional) -> 201
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "Rate this",
+	"type": "slider",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "Rating", "order": 0 }
+	]
+}
+
+### missing title -> 400 Bad Request (zod required field)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### empty title -> 400 Bad Request (zod min(1))
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### title over 255 characters -> 400 Bad Request (zod max(255))
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### description over 3000 characters -> 400 Bad Request (zod max(3000))
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "too much lore",
+	"description": "lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### endsAt in the past -> 400 Bad Request ("Date cannot be in the past")
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "already over",
+	"type": "multiple_choice",
+	"endsAt": "2020-01-01T00:00:00.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### missing endsAt -> 400 Bad Request (zod required field)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "no deadline",
+	"type": "multiple_choice",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### invalid visibility value -> 400 Bad Request (zod enum mismatch)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "secret poll",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "friends-only",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### missing type -> 400 Bad Request (discriminated union has no matching branch)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "what am i",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### invalid type value -> 400 Bad Request ("free_field" is a valid PollType but not a PollCreateSchema branch)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "free field poll",
+	"type": "free_field",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 }
+	]
+}
+
+### multiple_choice with only 1 option -> 400 Bad Request (zod min(2))
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "not enough options",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "Only one", "order": 0 }
+	]
+}
+
+### single_choice with 0 options -> 400 Bad Request (zod min(2))
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "no options at all",
+	"type": "single_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": []
+}
+
+### slider poll with 2 options -> 400 Bad Request (zod length(1))
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "too many sliders",
+	"type": "slider",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "First", "order": 0 },
+		{ "text": "Second", "order": 1 }
+	]
+}
+
+### option with empty text -> 400 Bad Request (zod min(1) on option text)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "blank option",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### option missing order -> 400 Bad Request (zod required field)
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "no order",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A" },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### missing x-user-id header -> 401 Unauthorized
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+
+{
+	"title": "no auth poll",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 999999
+
+{
+	"title": "ghost poll",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### roomId that doesn't exist -> 400 Bad Request (P2003 foreign key violation -> "Invalid reference.")
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "poll in nowhere room",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"roomId": 999999,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}
+
+### extra/unknown fields are stripped or forced server-side -> 201, visibility is "private" and status is "pending" regardless of the injected values, createdById is the caller (2) not the spoofed one
+POST http://localhost:3000/polls/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 2
+
+{
+	"title": "cannot self-elevate",
+	"type": "multiple_choice",
+	"endsAt": "2026-12-31T23:59:59.000Z",
+	"visibility": "public",
+	"allowChangeVote": true,
+	"isAnonymous": false,
+	"status": "active",
+	"createdById": 999,
+	"id": 1,
+	"options": [
+		{ "text": "A", "order": 0 },
+		{ "text": "B", "order": 1 }
+	]
+}

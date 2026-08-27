@@ -1,0 +1,50 @@
+### create a room to delete (run first, then replace :id below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "delete target",
+	"visibility": "public"
+}
+
+### owner deletes their own room -> 200 (soft delete)
+DELETE http://localhost:3000/rooms/:id HTTP/1.1
+x-user-id: 1
+
+### run the request above a second time -> 404 Not Found (already soft-deleted)
+DELETE http://localhost:3000/rooms/:id HTTP/1.1
+x-user-id: 1
+
+### create another room, owned by user 1, for the forbidden-delete checks below -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "protected room",
+	"visibility": "private"
+}
+
+### non-owner, non-admin tries to delete -> 403 Forbidden (user 6 is a regular user, not the owner)
+DELETE http://localhost:3000/rooms/:id HTTP/1.1
+x-user-id: 6
+
+### admin can delete a room they don't own -> 200 (user 2 is admin, not the owner)
+DELETE http://localhost:3000/rooms/:id HTTP/1.1
+x-user-id: 2
+
+### delete a room that doesn't exist -> 404 Not Found
+DELETE http://localhost:3000/rooms/999999 HTTP/1.1
+x-user-id: 1
+
+### missing x-user-id header -> 401 Unauthorized
+DELETE http://localhost:3000/rooms/:id HTTP/1.1
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+DELETE http://localhost:3000/rooms/999999 HTTP/1.1
+x-user-id: 999999
+
+### non-integer room id -> 400 Bad Request (ParseIntPipe)
+DELETE http://localhost:3000/rooms/abc HTTP/1.1
+x-user-id: 1

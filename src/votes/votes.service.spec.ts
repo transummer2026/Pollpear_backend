@@ -52,20 +52,18 @@ function storedVote(...optionIds: number[]) {
 }
 
 describe('VotesService', () => {
-  const pollFindFirstOrThrow = jest.fn();
+  const pollFindFirst = jest.fn();
   const optionFindMany = jest.fn();
   const voteFindUnique = jest.fn();
-  const voteFindUniqueOrThrow = jest.fn();
-  const voteFindFirstOrThrow = jest.fn();
+  const voteFindFirst = jest.fn();
   const voteUpsert = jest.fn();
   const voteUpdate = jest.fn();
   const prisma = {
-    poll: { findFirstOrThrow: pollFindFirstOrThrow },
+    poll: { findFirst: pollFindFirst },
     option: { findMany: optionFindMany },
     vote: {
       findUnique: voteFindUnique,
-      findUniqueOrThrow: voteFindUniqueOrThrow,
-      findFirstOrThrow: voteFindFirstOrThrow,
+      findFirst: voteFindFirst,
       upsert: voteUpsert,
       update: voteUpdate,
     },
@@ -91,7 +89,7 @@ describe('VotesService', () => {
 
   describe('validateVote', () => {
     it('rejects a poll that is not active', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ status: 'closed' }));
+      pollFindFirst.mockResolvedValue(poll({ status: 'closed' }));
 
       const act = service.validateVote(7, 42, choiceBody(1));
 
@@ -100,7 +98,7 @@ describe('VotesService', () => {
     });
 
     it('rejects a poll past its end date', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         poll({ endsAt: new Date(Date.now() - 1_000) }),
       );
 
@@ -111,7 +109,7 @@ describe('VotesService', () => {
     });
 
     it('rejects a body whose type differs from the poll type', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ type: 'slider' }));
+      pollFindFirst.mockResolvedValue(poll({ type: 'slider' }));
 
       const act = service.validateVote(7, 42, choiceBody(1));
 
@@ -120,7 +118,7 @@ describe('VotesService', () => {
     });
 
     it('rejects options that belong to another poll', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll());
+      pollFindFirst.mockResolvedValue(poll());
       optionFindMany.mockResolvedValue([{ id: 1 }]);
 
       await expect(
@@ -132,14 +130,14 @@ describe('VotesService', () => {
     });
 
     it('passes a body without optionsVoted without checking options', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll());
+      pollFindFirst.mockResolvedValue(poll());
       const body: VoteUpdateDTO = { type: 'multiple_choice' };
 
       await expect(service.validateVote(7, 42, body)).resolves.toMatchObject({
         id: 7,
       });
 
-      expect(pollFindFirstOrThrow).toHaveBeenCalledWith({
+      expect(pollFindFirst).toHaveBeenCalledWith({
         where: { id: 7, deletedAt: null },
         include: {
           room: {
@@ -156,11 +154,11 @@ describe('VotesService', () => {
   describe('findOneVote', () => {
     it("returns the caller's own vote", async () => {
       const row = { id: 99, createdById: 42, pollId: 7, deletedAt: null };
-      voteFindUniqueOrThrow.mockResolvedValue(row);
+      voteFindUnique.mockResolvedValue(row);
 
       await expect(service.findOneVote(7, viewer())).resolves.toBe(row);
 
-      expect(voteFindUniqueOrThrow).toHaveBeenCalledWith({
+      expect(voteFindUnique).toHaveBeenCalledWith({
         where: {
           createdById_pollId: { createdById: 42, pollId: 7 },
           deletedAt: null,
@@ -172,7 +170,7 @@ describe('VotesService', () => {
 
   describe('createVote', () => {
     beforeEach(() => {
-      pollFindFirstOrThrow.mockResolvedValue(poll());
+      pollFindFirst.mockResolvedValue(poll());
       givenAllOptionsBelongToThePoll();
     });
 
@@ -199,7 +197,7 @@ describe('VotesService', () => {
     });
 
     it('stores the free field only for slider votes', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ type: 'slider' }));
+      pollFindFirst.mockResolvedValue(poll({ type: 'slider' }));
       const body = sliderBody('both are fine');
 
       await service.createVote(7, viewer(), body);
@@ -221,7 +219,7 @@ describe('VotesService', () => {
     });
 
     it('rejects voting on a private poll the caller cannot read', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         poll({ visibility: 'private', createdById: 99 }),
       );
 
@@ -232,7 +230,7 @@ describe('VotesService', () => {
     });
 
     it('rejects voting on a poll attached to a closed room', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(
+      pollFindFirst.mockResolvedValue(
         poll({
           visibility: 'public',
           roomId: 1,
@@ -249,23 +247,23 @@ describe('VotesService', () => {
 
   describe('updateVote', () => {
     beforeEach(() => {
-      pollFindFirstOrThrow.mockResolvedValue(poll());
+      pollFindFirst.mockResolvedValue(poll());
       givenAllOptionsBelongToThePoll();
     });
 
     it('targets the caller active vote on the poll', async () => {
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1));
+      voteFindFirst.mockResolvedValue(storedVote(1));
 
       await service.updateVote(7, viewer(), choiceBody(1));
 
-      expect(voteFindFirstOrThrow).toHaveBeenCalledWith({
+      expect(voteFindFirst).toHaveBeenCalledWith({
         where: { pollId: 7, createdById: 42, deletedAt: null },
         include: { voteOptions: true },
       });
     });
 
     it('rejects the update when the poll disallows vote changes', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ allowChangeVote: false }));
+      pollFindFirst.mockResolvedValue(poll({ allowChangeVote: false }));
 
       await expect(
         service.updateVote(7, viewer(), choiceBody(1)),
@@ -274,7 +272,7 @@ describe('VotesService', () => {
     });
 
     it('rejects updating another user own vote', async () => {
-      voteFindFirstOrThrow.mockResolvedValue({
+      voteFindFirst.mockResolvedValue({
         ...storedVote(1),
         createdById: 99,
       });
@@ -286,8 +284,8 @@ describe('VotesService', () => {
     });
 
     it('rejects updating a vote once the poll is closed', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ status: 'closed' }));
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1));
+      pollFindFirst.mockResolvedValue(poll({ status: 'closed' }));
+      voteFindFirst.mockResolvedValue(storedVote(1));
 
       await expect(
         service.updateVote(7, viewer(), choiceBody(1)),
@@ -295,7 +293,7 @@ describe('VotesService', () => {
     });
 
     it('creates only the newly picked options', async () => {
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1));
+      voteFindFirst.mockResolvedValue(storedVote(1));
 
       await service.updateVote(7, viewer(), choiceBody(1, 2));
 
@@ -311,7 +309,7 @@ describe('VotesService', () => {
     });
 
     it('deletes only the dropped options', async () => {
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1, 2));
+      voteFindFirst.mockResolvedValue(storedVote(1, 2));
 
       await service.updateVote(7, viewer(), choiceBody(1));
 
@@ -327,7 +325,7 @@ describe('VotesService', () => {
     });
 
     it('changes nothing when the selection is identical', async () => {
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1, 2));
+      voteFindFirst.mockResolvedValue(storedVote(1, 2));
 
       await service.updateVote(7, viewer(), choiceBody(1, 2));
 
@@ -343,7 +341,7 @@ describe('VotesService', () => {
     });
 
     it('drops every current option when optionsVoted is absent', async () => {
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1, 2));
+      voteFindFirst.mockResolvedValue(storedVote(1, 2));
 
       await service.updateVote(7, viewer(), { type: 'multiple_choice' });
 
@@ -360,8 +358,8 @@ describe('VotesService', () => {
     });
 
     it('passes the slider free field through', async () => {
-      pollFindFirstOrThrow.mockResolvedValue(poll({ type: 'slider' }));
-      voteFindFirstOrThrow.mockResolvedValue(storedVote(1));
+      pollFindFirst.mockResolvedValue(poll({ type: 'slider' }));
+      voteFindFirst.mockResolvedValue(storedVote(1));
 
       await service.updateVote(7, viewer(), sliderBody('still fine'));
 
@@ -380,7 +378,7 @@ describe('VotesService', () => {
 
   describe('deleteVote', () => {
     it('soft-deletes the caller active vote instead of removing the row', async () => {
-      voteFindFirstOrThrow.mockResolvedValue({
+      voteFindFirst.mockResolvedValue({
         id: 99,
         createdById: 42,
         deletedAt: null,
@@ -389,7 +387,7 @@ describe('VotesService', () => {
 
       await service.deleteVote(7, viewer());
 
-      expect(voteFindFirstOrThrow).toHaveBeenCalledWith({
+      expect(voteFindFirst).toHaveBeenCalledWith({
         where: { pollId: 7, createdById: 42, deletedAt: null },
         include: { poll: true },
       });
@@ -400,7 +398,7 @@ describe('VotesService', () => {
     });
 
     it('rejects deleting a vote once the poll is closed', async () => {
-      voteFindFirstOrThrow.mockResolvedValue({
+      voteFindFirst.mockResolvedValue({
         id: 99,
         createdById: 42,
         deletedAt: null,

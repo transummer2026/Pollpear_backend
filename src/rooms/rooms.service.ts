@@ -1,7 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { Prisma, User } from 'src/generated/prisma/client';
+import {
+  RoomCreateDTO,
+  RoomReadSchema,
+  RoomUpdateDTO,
+} from 'Pollpear_shared/src/schemas/rooms.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { ForbiddenError, subject } from '@casl/ability';
+import { PollsService, getPollIncludeArgs } from 'src/polls/polls.service';
 import { accessibleBy } from 'src/casl/casl-prisma';
 import {
   SEARCH_RESULTS_LIMIT,
@@ -15,6 +22,7 @@ export class RoomsService {
   constructor(
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
+    private pollsService: PollsService,
   ) {}
 
   /**
@@ -100,16 +108,38 @@ export class RoomsService {
     return { items, total };
   }
 
-  create() {
-    return 'add a new room works';
+  async create(viewer: User, body: RoomCreateDTO) {
+    return await this.createRoom(viewer.id, body);
   }
 
-  update(id: number) {
-    return `update room #${id} works`;
+  async update(id: number, viewer: User, body: RoomUpdateDTO) {
+    const room = await this.prisma.room.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('Room', room),
+    );
+
+    return await this.updateRoom(id, body);
   }
 
-  remove(id: number) {
-    return `remove room #${id} works`;
+  async remove(id: number, viewer: User) {
+    const room = await this.prisma.room.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'delete',
+      subject('Room', room),
+    );
+
+    return await this.deleteRoom(id);
   }
 
   addParticipant(id: number, userId: number) {
@@ -131,4 +161,234 @@ export class RoomsService {
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
   }
+
+  // Prisma helpers
+
+  /**
+   *
+   * @param userId
+   * @param body
+   * @returns
+   */
+  async createRoom(userId: number, body: RoomCreateDTO) {
+    return await this.prisma.room.create({
+      data: {
+        ...body,
+        createdById: userId,
+        status: 'active',
+        roomMembers: {
+          create: {
+            userId: userId,
+            joinedAt: new Date(),
+          },
+        },
+      },
+    });
+  }
+
+  async updateRoom(roomId: number, body: RoomUpdateDTO) {
+    return await this.prisma.room.update({
+      where: { id: roomId },
+      data: body,
+    });
+  }
+
+  async deleteRoom(roomId: number) {
+    return await this.prisma.room.update({
+      where: { id: roomId },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+  }
+
+  async findOneRoom(roomId: number, viewer: User) {
+    const roomForAbilityCheck = await this.prisma.room.findFirst({
+      where: { id: roomId, deletedAt: null },
+      include: { roomMembers: { where: { deletedAt: null } } },
+    });
+    if (!roomForAbilityCheck) throw new NotFoundException('Room not found');
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'read',
+      subject('Room', roomForAbilityCheck),
+    );
+
+    const [room, votesMadeByUser] = await Promise.all([
+      this.prisma.room.findFirst({
+        where: {
+          id: roomId,
+          deletedAt: null,
+        },
+        include: getRoomIncludeArgs(viewer.id),
+      }),
+      this.prisma.vote.findMany({
+        where: {
+          createdById: viewer.id,
+          deletedAt: null,
+        },
+      }),
+    ]);
+    if (!room) throw new NotFoundException('Room not found');
+
+    return RoomReadSchema.parse({
+      ...room,
+      polls: this.pollsService.shapeManyPollsForUser(
+        room.polls,
+        votesMadeByUser,
+      ),
+    });
+  }
+
+  async findMeManyRooms(viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const [rooms, votesMadeByUser] = await Promise.all([
+      this.prisma.room.findMany({
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            {
+              createdById: viewer.id,
+              deletedAt: null,
+            },
+          ],
+        },
+        include: getRoomIncludeArgs(viewer.id),
+      }),
+      this.prisma.vote.findMany({
+        where: {
+          createdById: viewer.id,
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    return rooms.map((room) =>
+      RoomReadSchema.parse({
+        ...room,
+        polls: this.pollsService.shapeManyPollsForUser(
+          room.polls,
+          votesMadeByUser,
+        ),
+      }),
+    );
+  }
+
+  async findUsersManyRooms(viewer: User, targetId: number) {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const [rooms, votesMadeByUser] = await Promise.all([
+      this.prisma.room.findMany({
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            { createdById: targetId, deletedAt: null },
+          ],
+        },
+        include: getRoomIncludeArgs(viewer.id),
+      }),
+      this.prisma.vote.findMany({
+        where: {
+          createdById: viewer.id,
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    return rooms.map((room) =>
+      RoomReadSchema.parse({
+        ...room,
+        polls: this.pollsService.shapeManyPollsForUser(
+          room.polls,
+          votesMadeByUser,
+        ),
+      }),
+    );
+  }
+
+  async findManyRooms(viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const [rooms, votesMadeByUser] = await Promise.all([
+      this.prisma.room.findMany({
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            {
+              OR: [
+                {
+                  createdById: viewer.id,
+                  deletedAt: null,
+                },
+                {
+                  visibility: 'public',
+                  deletedAt: null,
+                },
+                {
+                  roomMembers: {
+                    some: {
+                      userId: viewer.id,
+                    },
+                  },
+                  deletedAt: null,
+                },
+              ],
+            },
+          ],
+        },
+        include: getRoomIncludeArgs(viewer.id),
+      }),
+      this.prisma.vote.findMany({
+        where: {
+          createdById: viewer.id,
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    return rooms.map((room) =>
+      RoomReadSchema.parse({
+        ...room,
+        polls: this.pollsService.shapeManyPollsForUser(
+          room.polls,
+          votesMadeByUser,
+        ),
+      }),
+    );
+  }
+}
+
+/**
+ * The relations a room needs loaded to satisfy `RoomReadSchema`: other
+ * active members, undeleted messages, undeleted polls (with their own
+ * `getPollIncludeArgs`), the creator, and pending invitations. Shared so
+ * `findOneRoom` and `findMeManyRooms` fetch this identically instead of
+ * each hand-rolling their own `include`.
+ */
+export function getRoomIncludeArgs(userId: number) {
+  return {
+    roomMembers: {
+      where: {
+        deletedAt: null,
+        userId: { not: userId },
+      },
+    },
+    messages: {
+      where: {
+        deletedAt: null,
+      },
+    },
+    polls: {
+      where: {
+        deletedAt: null,
+      },
+      include: getPollIncludeArgs(),
+    },
+    createdBy: true,
+    invitations: {
+      where: {
+        deletedAt: null,
+        status: 'pending',
+      },
+    },
+  } satisfies Prisma.RoomInclude;
 }
