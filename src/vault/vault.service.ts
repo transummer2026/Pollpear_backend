@@ -38,6 +38,11 @@ export interface S3Secrets {
   secret_key: string;
 }
 
+export interface RateLimitSecrets {
+  limit: string;
+  window_seconds: string;
+}
+
 export interface AppConfig {
   frontend_url: string;
   gateway_url: string;
@@ -69,6 +74,7 @@ export interface PollpearSecrets {
   session: SessionSecrets;
   mail: MailSecrets;
   s3: S3Secrets;
+  rate_limit: RateLimitSecrets;
   app: AppConfig;
   ws: WsConfig;
   oauth: OauthSecrets;
@@ -88,6 +94,7 @@ export class VaultService {
         session: await vault.readKv(token, 'pollpear/session'),
         mail: await vault.readKv(token, 'pollpear/mail'),
         s3: await vault.readKv(token, 'pollpear/s3'),
+        rate_limit: await vault.readKv(token, 'pollpear/rate_limit'),
         app: await vault.readKv(token, 'pollpear/app'),
         ws: await vault.readKv(token, 'pollpear/ws'),
         oauth: {
@@ -121,6 +128,9 @@ export class VaultService {
   }
   get s3() {
     return this.secrets.s3;
+  }
+  get rateLimit() {
+    return this.secrets.rate_limit;
   }
   get app() {
     return this.secrets.app;
