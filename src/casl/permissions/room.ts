@@ -55,6 +55,23 @@ export function roomJoinConditions(user: AuthorizationUser) {
   ];
 }
 
+export function roomInviteConditions(user: AuthorizationUser) {
+  return [
+    {
+      deletedAt: null,
+      status: 'active' as const,
+      visibility: 'public' as const,
+      roomMembers: { some: { userId: user.id, deletedAt: null } },
+    },
+    {
+      deletedAt: null,
+      status: 'active' as const,
+      visibility: 'private' as const,
+      createdById: user.id,
+    },
+  ];
+}
+
 export function defineRoomPermissions(
   { can: allow }: AbilityBuilder<AppAbility>,
   user: AuthorizationUser,
@@ -95,18 +112,9 @@ export function defineRoomPermissions(
     createdById: user.id,
   });
 
-  allow('invite', 'Room', {
-    deletedAt: null,
-    status: 'active',
-    visibility: 'public',
-    roomMembers: { some: { userId: user.id, deletedAt: null } },
-  });
-  allow('invite', 'Room', {
-    deletedAt: null,
-    status: 'active',
-    visibility: 'private',
-    createdById: user.id,
-  });
+  for (const condition of roomInviteConditions(user)) {
+    allow('invite', 'Room', condition);
+  }
 
   allow('leave', 'Room', {
     deletedAt: null,

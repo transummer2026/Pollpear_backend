@@ -4,9 +4,10 @@ import { RoomsController } from './rooms.controller';
 import { RoomsExpiryService } from './rooms-expiry.service';
 import { PollsModule } from 'src/polls/polls.module';
 import { MessagesModule } from 'src/messages/messages.module';
+import { InvitationModule } from 'src/invitation/invitation.module';
 
 @Module({
-  imports: [PollsModule, MessagesModule],
+  imports: [PollsModule, MessagesModule, InvitationModule],
   controllers: [RoomsController],
   providers: [RoomsService, RoomsExpiryService, Logger],
   exports: [RoomsService],

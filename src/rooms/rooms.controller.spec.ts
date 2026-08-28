@@ -7,6 +7,7 @@ import type { User } from 'src/generated/prisma/client';
 import { MessagesService } from 'src/messages/messages.service';
 import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
+import { InvitationService } from 'src/invitation/invitation.service';
 
 const viewer = { id: 42, role: 'user' } as User;
 
@@ -20,9 +21,13 @@ describe('RoomsController', () => {
       | 'create'
       | 'update'
       | 'remove'
-      | 'addParticipant'
-      | 'removeParticipant'
       | 'removeMessage'
+    >
+  >;
+  let invitationService: jest.Mocked<
+    Pick<
+      InvitationService,
+      'createRoomInvitation' | 'respondToInvitation' | 'removeInvitation'
     >
   >;
 
@@ -32,14 +37,18 @@ describe('RoomsController', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
-      addParticipant: jest.fn(),
-      removeParticipant: jest.fn(),
       removeMessage: jest.fn(),
     };
     messages = { listForRoom: jest.fn() };
+    invitationService = {
+      createRoomInvitation: jest.fn(),
+      respondToInvitation: jest.fn(),
+      removeInvitation: jest.fn(),
+    };
     controller = new RoomsController(
       service as unknown as RoomsService,
       messages as unknown as MessagesService,
+      invitationService as unknown as InvitationService,
       {} as Logger,
     );
   });
@@ -79,16 +88,37 @@ describe('RoomsController', () => {
     expect(service.remove).toHaveBeenCalledWith(7, viewer);
   });
 
-  it('POST :id/participants/:userId delegates to roomsService.addParticipant with (id, userId)', () => {
-    controller.addParticipant(7, 42);
+  it('POST :id/invitations/:userId delegates to invitationService.createRoomInvitation with (viewer, id, userId)', async () => {
+    await controller.createInvitation(viewer, 7, 42);
 
-    expect(service.addParticipant).toHaveBeenCalledWith(7, 42);
+    expect(invitationService.createRoomInvitation).toHaveBeenCalledWith(
+      viewer,
+      7,
+      42,
+    );
   });
 
-  it('DELETE :id/participants/:userId delegates to roomsService.removeParticipant with (id, userId)', () => {
-    controller.removeParticipant(7, 42);
+  it('PATCH :id/invitations/:userId delegates to invitationService.respondToInvitation with (viewer, id, userId, status)', async () => {
+    await controller.respondToInvitation(viewer, 7, 42, {
+      status: 'accepted',
+    });
 
-    expect(service.removeParticipant).toHaveBeenCalledWith(7, 42);
+    expect(invitationService.respondToInvitation).toHaveBeenCalledWith(
+      viewer,
+      7,
+      42,
+      'accepted',
+    );
+  });
+
+  it('DELETE :id/invitations/:userId delegates to invitationService.removeInvitation with (viewer, id, userId)', async () => {
+    await controller.removeInvitation(viewer, 7, 42);
+
+    expect(invitationService.removeInvitation).toHaveBeenCalledWith(
+      viewer,
+      7,
+      42,
+    );
   });
 
   it('GET :id/messages delegates to messagesService.listForRoom with (id, viewer, query)', async () => {

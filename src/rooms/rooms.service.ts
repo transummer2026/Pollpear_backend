@@ -154,14 +154,6 @@ export class RoomsService {
     return await this.deleteRoom(id);
   }
 
-  addParticipant(id: number, userId: number) {
-    return `add user #${userId} for Room #${id} works`;
-  }
-
-  removeParticipant(id: number, userId: number) {
-    return `remove user #${userId} from room #${id} works`;
-  }
-
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
   }

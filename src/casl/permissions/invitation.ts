@@ -2,6 +2,7 @@ import { AbilityBuilder } from '@casl/ability';
 import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
+import { roomInviteConditions } from './room';
 
 export type InvitationActions = CrudAction;
 
@@ -13,26 +14,9 @@ export function defineInvitationPermissions(
   { can: allow }: AbilityBuilder<AppAbility>,
   user: AuthorizationUser,
 ) {
-  allow(['create'], 'Invitation', {
-    room: {
-      is: {
-        deletedAt: null,
-        status: 'active',
-        visibility: 'public',
-        roomMembers: { some: { userId: user.id, deletedAt: null } },
-      },
-    },
-  });
-  allow(['create'], 'Invitation', {
-    room: {
-      is: {
-        deletedAt: null,
-        status: 'active',
-        visibility: 'private',
-        createdById: user.id,
-      },
-    },
-  });
+  for (const condition of roomInviteConditions(user)) {
+    allow(['create'], 'Invitation', { room: { is: condition } });
+  }
 
   allow(['read'], 'Invitation', {
     deletedAt: null,

@@ -20,6 +20,8 @@ import {
   RoomCreateSchema,
   RoomUpdateSchema,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
+import type { InvitationStatusUpdateDTO } from 'Pollpear_shared/src/schemas/invitations.schema';
+import { InvitationStatusUpdateSchema } from 'Pollpear_shared/src/schemas/invitations.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { MessagesService } from 'src/messages/messages.service';
 import {
@@ -29,12 +31,14 @@ import {
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import type { User } from 'src/generated/prisma/client';
+import { InvitationService } from 'src/invitation/invitation.service';
 
 @Controller('rooms')
 export class RoomsController {
   constructor(
     private readonly roomsService: RoomsService,
     private readonly messagesService: MessagesService,
+    private readonly invitationService: InvitationService,
     private logger: Logger,
   ) {}
 
@@ -92,31 +96,43 @@ export class RoomsController {
     return this.roomsService.remove(id, viewer);
   }
 
-  @Post(':id/participants/:userId')
-  @HttpCode(503)
+  @Post(':id/invitations/:userId')
+  @HttpCode(201)
   @CheckAbilities(['invite', 'Room'])
-  addParticipant(
+  createInvitation(
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Param('userId', ParseIntPipe) userId: number,
   ) {
-    return this.roomsService.addParticipant(+id, +userId);
+    return this.invitationService.createRoomInvitation(viewer, id, userId);
   }
 
-  // Serves both self-leave and moderator/owner-kick — the coarse
-  // decorator can't pick a single action, since which one applies depends
-  // on whether :userId is the caller or someone else. Needs a fine-grained
-  // check in the service once implemented:
-  // ForbiddenError.from(ability).throwUnlessCan(
-  //   userId === callerId ? 'leave' : 'kick',
-  //   subject('Room', room),
-  // );
-  @Delete(':id/participants/:userId')
-  @HttpCode(503)
-  removeParticipant(
+  @Patch(':id/invitations/:userId')
+  @CheckAbilities(['update', 'Invitation'])
+  respondToInvitation(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body(new ZodValidationPipe(InvitationStatusUpdateSchema))
+    body: InvitationStatusUpdateDTO,
+  ) {
+    return this.invitationService.respondToInvitation(
+      viewer,
+      id,
+      userId,
+      body.status,
+    );
+  }
+
+  @Delete(':id/invitations/:userId')
+  @HttpCode(204)
+  @CheckAbilities(['delete', 'Invitation'])
+  removeInvitation(
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Param('userId', ParseIntPipe) userId: number,
   ) {
-    return this.roomsService.removeParticipant(+id, +userId);
+    return this.invitationService.removeInvitation(viewer, id, userId);
   }
 
   @Get(':id/messages')

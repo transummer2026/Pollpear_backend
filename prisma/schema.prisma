@@ -506,6 +506,7 @@ model Invitation {
   inviter User @relation("Inviter", fields: [inviterId], references: [id])
   invitee User @relation("Invitee", fields: [inviteeId], references: [id])
 
+  @@unique([inviteeId, roomId])
   @@index([roomId])
   @@index([inviterId])
   @@index([inviteeId])
