@@ -1,5 +1,4 @@
-// src/api/v1/common/media.ts
-const ABSOLUTE_URL = /^https?:\/\//;
+const ABSOLUTE_URL = /^https?:\/\//i;
 
 export function publicMedia(value: string | null): string | null {
   return value !== null && ABSOLUTE_URL.test(value) ? value : null;

@@ -12,13 +12,16 @@ import {
   ApiBody,
   ApiConsumes,
   ApiExtension,
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiMeAvatarService } from './avatar.service';
-import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import type { User } from 'src/generated/prisma/client';
 import { toOpenApi } from '../../common/openapi';
 import { ApiMeAvatarSchema } from '../../common/schemas/api-me.schema';
 
@@ -63,13 +66,14 @@ export class ApiMeAvatarController {
 
   @Post()
   @HttpCode(200)
+  @CheckAbilities(['update', 'User'])
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiExtension('x-codeSamples', CODE_SAMPLES)
   @ApiOperation({
     summary: 'Replace the avatar of the account behind the api key',
     description:
-      'Takes one image field named file, up to 12 MB: jpeg, png, webp, avif, tiff, gif, heif or heic. Sharp re-encodes it to a 512x512 webp, so the stored image is never the uploaded bytes and a file that does not decode is refused whatever type it claims to be.',
+      'Takes one image field named file, up to 12 MB: jpeg, png, webp, avif, tiff, gif, heif or heic. It is re-encoded to a 512x512 webp, so the stored image is never the uploaded bytes and a file that does not decode is refused whatever type it claims to be.',
   })
   @ApiBody({
     schema: {
@@ -85,10 +89,13 @@ export class ApiMeAvatarController {
   @ApiUnauthorizedResponse({
     description: 'Missing, expired or revoked api key, or deleted owner.',
   })
+  @ApiForbiddenResponse({
+    description: 'Banned account, or one the policy keeps out of its avatar.',
+  })
   uploadAvatar(
-    @UserId() ownerId: number,
+    @CurrentUser() viewer: User,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.avatarService.replaceAvatar(ownerId, file);
+    return this.avatarService.replaceAvatar(viewer, file);
   }
 }

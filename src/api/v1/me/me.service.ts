@@ -1,7 +1,10 @@
 // src/api/v1/me/me.service.ts
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenError, subject } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MeService } from 'src/me/me.service';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy, type AppAbility } from 'src/casl/casl-prisma';
 import type { User } from 'src/generated/prisma/client';
 import { publicMedia } from '../common/media';
 import { selectOf, type AssertColumns } from '../common/select';
@@ -27,25 +30,35 @@ export class ApiMeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly meService: MeService,
+    private readonly abilityFactory: CaslAbilityFactory,
   ) {}
 
-  async findMe(ownerId: number): Promise<ApiMeDTO> {
+  async findMe(viewer: User): Promise<ApiMeDTO> {
+    const ability = this.abilityFactory.createForUser(viewer);
     const user = await this.prisma.user.findFirst({
-      where: { id: ownerId, deletedAt: null },
+      where: {
+        AND: [accessibleBy(ability, 'read').ofType('User'), { id: viewer.id }],
+      },
       select: ME_SELECT,
     });
 
     if (!user) {
-      this.logger.warn(`api key of deleted or unknown user ${ownerId} used`);
-      throw new UnauthorizedException('Invalid credentials');
+      this.logger.warn(`user ${viewer.id} may no longer read their account`);
+      throw new ForbiddenException('Access denied');
     }
 
     return this.toPublicProfile(user);
   }
 
-  async updateMe(ownerId: number, body: ApiMeUpdateDTO): Promise<ApiMeDTO> {
+  async updateMe(viewer: User, body: ApiMeUpdateDTO): Promise<ApiMeDTO> {
+    const ability = this.abilityFactory.createForUser(viewer);
+    this.assertMayWrite(ability, viewer, Object.keys(body));
+
     const user = await this.prisma.user.update({
-      where: { id: ownerId, deletedAt: null },
+      where: {
+        id: viewer.id,
+        AND: [accessibleBy(ability, 'update').ofType('User')],
+      },
       data: body,
       select: ME_SELECT,
     });
@@ -53,9 +66,29 @@ export class ApiMeService {
     return this.toPublicProfile(user);
   }
 
-  async deleteMe(ownerId: number): Promise<void> {
-    await this.meService.remove(ownerId);
-    this.logger.log(`user ${ownerId} deleted their account through the api`);
+  async deleteMe(viewer: User): Promise<void> {
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'delete',
+      subject('User', viewer),
+    );
+
+    await this.meService.remove(viewer.id);
+    this.logger.log(`user ${viewer.id} deleted their account through the api`);
+  }
+
+  private assertMayWrite(
+    ability: AppAbility,
+    viewer: User,
+    fields: string[],
+  ): void {
+    const guard = ForbiddenError.from(ability);
+    const target = subject('User', viewer);
+
+    guard.throwUnlessCan('update', target);
+    for (const field of fields) {
+      guard.throwUnlessCan('update', target, field);
+    }
   }
 
   private toPublicProfile(user: {

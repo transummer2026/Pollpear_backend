@@ -3,6 +3,7 @@ import { Body, Controller, Delete, Get, HttpCode, Patch } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -10,7 +11,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiMeService } from './me.service';
-import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import type { User } from 'src/generated/prisma/client';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { toOpenApi } from '../common/openapi';
 import {
@@ -25,6 +28,7 @@ export class ApiMeController {
   constructor(private readonly meService: ApiMeService) {}
 
   @Get()
+  @CheckAbilities(['read', 'User'])
   @ApiOperation({
     summary: 'The account behind the api key',
     description:
@@ -34,11 +38,16 @@ export class ApiMeController {
   @ApiUnauthorizedResponse({
     description: 'Missing, expired or revoked api key, or deleted owner.',
   })
-  findMe(@UserId() ownerId: number) {
-    return this.meService.findMe(ownerId);
+  @ApiForbiddenResponse({
+    description:
+      'Banned account, or one the policy no longer lets read itself.',
+  })
+  findMe(@CurrentUser() viewer: User) {
+    return this.meService.findMe(viewer);
   }
 
   @Patch()
+  @CheckAbilities(['update', 'User'])
   @ApiOperation({
     summary: 'Edit the account behind the api key',
     description:
@@ -52,15 +61,19 @@ export class ApiMeController {
   @ApiUnauthorizedResponse({
     description: 'Missing, expired or revoked api key, or deleted owner.',
   })
+  @ApiForbiddenResponse({
+    description: 'Banned account, or a field the policy keeps read-only.',
+  })
   updateMe(
-    @UserId() ownerId: number,
+    @CurrentUser() viewer: User,
     @Body(new ZodValidationPipe(ApiMeUpdateSchema)) body: ApiMeUpdateDTO,
   ) {
-    return this.meService.updateMe(ownerId, body);
+    return this.meService.updateMe(viewer, body);
   }
 
   @Delete()
   @HttpCode(204)
+  @CheckAbilities(['delete', 'User'])
   @ApiOperation({
     summary: 'Delete the account behind the api key',
     description:
@@ -70,7 +83,11 @@ export class ApiMeController {
   @ApiUnauthorizedResponse({
     description: 'Missing, expired or revoked api key, or deleted owner.',
   })
-  deleteMe(@UserId() ownerId: number) {
-    return this.meService.deleteMe(ownerId);
+  @ApiForbiddenResponse({
+    description:
+      'Banned account, or one the policy does not let delete itself.',
+  })
+  deleteMe(@CurrentUser() viewer: User) {
+    return this.meService.deleteMe(viewer);
   }
 }

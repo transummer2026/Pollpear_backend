@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApiMeAvatarController } from './avatar.controller';
 import { ApiMeAvatarService } from './avatar.service';
+import type { User } from 'src/generated/prisma/client';
 
 const OWNER_ID = 1;
+const viewer = { id: OWNER_ID, role: 'user', deletedAt: null } as User;
 const file = { originalname: 'me.png' } as Express.Multer.File;
 
 describe('ApiMeAvatarController', () => {
@@ -22,8 +24,8 @@ describe('ApiMeAvatarController', () => {
   it('uploads for the caller, never for an id from the request', () => {
     replaceAvatar.mockResolvedValue({ avatarUrl: 'https://gateway/a.webp' });
 
-    void controller.uploadAvatar(OWNER_ID, file);
+    void controller.uploadAvatar(viewer, file);
 
-    expect(replaceAvatar).toHaveBeenCalledWith(OWNER_ID, file);
+    expect(replaceAvatar).toHaveBeenCalledWith(viewer, file);
   });
 });
