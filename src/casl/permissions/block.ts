@@ -1,9 +1,8 @@
 import { AbilityBuilder } from '@casl/ability';
 import { AuthorizationUser } from './role';
-import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type BlockActions = CrudAction;
+export type BlockActions = 'create' | 'read' | 'delete';
 
 export type BlockSubject = 'Block';
 

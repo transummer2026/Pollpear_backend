@@ -118,24 +118,24 @@ describe('BlockService', () => {
       expect(result).toEqual({ blockedByMe: true, blockedMe: false });
     });
 
-    it('reports blockedMe when only the target has blocked the caller', async () => {
+    it('throws not found when the target has blocked the caller, instead of exposing blockedMe', async () => {
       prisma.block.findUnique
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(makeBlock({ blockerId: 2, blockedId: 1 }));
 
-      const result = await service.getBlockStatus(1, 2);
-
-      expect(result).toEqual({ blockedByMe: false, blockedMe: true });
+      await expect(service.getBlockStatus(1, 2)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
-    it('reports both flags true on a mutual block', async () => {
+    it('throws not found on a mutual block, instead of exposing blockedMe', async () => {
       prisma.block.findUnique
         .mockResolvedValueOnce(makeBlock({ blockerId: 1, blockedId: 2 }))
         .mockResolvedValueOnce(makeBlock({ blockerId: 2, blockedId: 1 }));
 
-      const result = await service.getBlockStatus(1, 2);
-
-      expect(result).toEqual({ blockedByMe: true, blockedMe: true });
+      await expect(service.getBlockStatus(1, 2)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('reports both flags false when no block exists', async () => {

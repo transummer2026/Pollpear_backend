@@ -18,6 +18,12 @@ export function roomReadConditions(user: AuthorizationUser) {
     {
       deletedAt: null,
       visibility: 'public' as const,
+      createdBy: {
+        is: {
+          blocksGiven: { none: { blockedId: user.id } },
+          blocksReceived: { none: { blockerId: user.id } },
+        },
+      },
     },
     {
       deletedAt: null,
@@ -32,6 +38,12 @@ export function roomJoinConditions(user: AuthorizationUser) {
       deletedAt: null,
       status: 'active' as const,
       visibility: 'public' as const,
+      createdBy: {
+        is: {
+          blocksGiven: { none: { blockedId: user.id } },
+          blocksReceived: { none: { blockerId: user.id } },
+        },
+      },
     },
     {
       deletedAt: null,

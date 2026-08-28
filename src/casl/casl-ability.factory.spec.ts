@@ -65,6 +65,64 @@ describe('CaslAbilityFactory', () => {
       ).toBe(true);
     });
 
+    it('denies read on a public User who blocked the requester', () => {
+      expect(
+        ability.can(
+          'read',
+          userSubject({
+            id: 99,
+            visibility: 'public',
+            blocksGiven: [{ blockedId: 1 }],
+          } as Partial<User> & Record<string, unknown>),
+        ),
+      ).toBe(false);
+    });
+
+    it('denies read on a public User the requester blocked', () => {
+      expect(
+        ability.can(
+          'read',
+          userSubject({
+            id: 99,
+            visibility: 'public',
+            blocksReceived: [{ blockerId: 1 }],
+          } as Partial<User> & Record<string, unknown>),
+        ),
+      ).toBe(false);
+    });
+
+    it('grants interact on a private User the requester has no block with', () => {
+      expect(
+        ability.can('interact', userSubject({ id: 99, visibility: 'private' })),
+      ).toBe(true);
+    });
+
+    it('denies interact on a User who blocked the requester', () => {
+      expect(
+        ability.can(
+          'interact',
+          userSubject({
+            id: 99,
+            visibility: 'private',
+            blocksGiven: [{ blockedId: 1 }],
+          } as Partial<User> & Record<string, unknown>),
+        ),
+      ).toBe(false);
+    });
+
+    it('denies interact on a User the requester blocked', () => {
+      expect(
+        ability.can(
+          'interact',
+          userSubject({
+            id: 99,
+            visibility: 'private',
+            blocksReceived: [{ blockerId: 1 }],
+          } as Partial<User> & Record<string, unknown>),
+        ),
+      ).toBe(false);
+    });
+
     it('denies read on a private User that is not the requester', () => {
       expect(
         ability.can('read', userSubject({ id: 99, visibility: 'private' })),
@@ -90,6 +148,28 @@ describe('CaslAbilityFactory', () => {
     it('grants read and create on Poll', () => {
       expect(ability.can('read', 'Poll')).toBe(true);
       expect(ability.can('create', 'Poll')).toBe(true);
+    });
+
+    it('denies read on a public Poll whose creator blocked the requester', () => {
+      const poll = pollSubject({
+        deletedAt: null,
+        visibility: 'public',
+        createdById: 2,
+        createdBy: { blocksGiven: [{ blockedId: 1 }] },
+      });
+
+      expect(ability.can('read', poll)).toBe(false);
+    });
+
+    it('denies read on a public Poll whose creator the requester blocked', () => {
+      const poll = pollSubject({
+        deletedAt: null,
+        visibility: 'public',
+        createdById: 2,
+        createdBy: { blocksReceived: [{ blockerId: 1 }] },
+      });
+
+      expect(ability.can('read', poll)).toBe(false);
     });
 
     it('grants update and delete on the user own pending Poll', () => {
@@ -169,7 +249,12 @@ describe('CaslAbilityFactory', () => {
 
     it('grants create on a Vote for a public Poll with no room, or attached to an active room', () => {
       const noRoom = voteSubject({
-        poll: { visibility: 'public', deletedAt: null, roomId: null },
+        poll: {
+          visibility: 'public',
+          deletedAt: null,
+          roomId: null,
+          createdBy: { blocksGiven: [], blocksReceived: [] },
+        },
       });
       const activeRoom = voteSubject({
         poll: {
@@ -177,6 +262,7 @@ describe('CaslAbilityFactory', () => {
           deletedAt: null,
           roomId: 1,
           room: { status: 'active' },
+          createdBy: { blocksGiven: [], blocksReceived: [] },
         },
       });
 
@@ -191,6 +277,32 @@ describe('CaslAbilityFactory', () => {
           deletedAt: null,
           roomId: 1,
           room: { status: 'closed' },
+        },
+      });
+
+      expect(ability.can('create', vote)).toBe(false);
+    });
+
+    it('denies create on a Vote for a public Poll whose creator blocked the requester', () => {
+      const vote = voteSubject({
+        poll: {
+          visibility: 'public',
+          deletedAt: null,
+          roomId: null,
+          createdBy: { blocksGiven: [{ blockedId: 1 }] },
+        },
+      });
+
+      expect(ability.can('create', vote)).toBe(false);
+    });
+
+    it('denies create on a Vote for a public Poll whose creator the requester blocked', () => {
+      const vote = voteSubject({
+        poll: {
+          visibility: 'public',
+          deletedAt: null,
+          roomId: null,
+          createdBy: { blocksReceived: [{ blockerId: 1 }] },
         },
       });
 
@@ -319,9 +431,33 @@ describe('CaslAbilityFactory', () => {
       });
 
       it('grants read on an active public Room', () => {
-        const room = roomSubject({ status: 'active', visibility: 'public' });
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'public',
+          createdBy: { blocksGiven: [] },
+        });
 
         expect(ability.can('read', room)).toBe(true);
+      });
+
+      it('denies read on an active public Room whose creator blocked the viewer', () => {
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'public',
+          createdBy: { blocksGiven: [{ blockedId: 1 }] },
+        });
+
+        expect(ability.can('read', room)).toBe(false);
+      });
+
+      it('denies read on an active public Room whose creator the viewer blocked', () => {
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'public',
+          createdBy: { blocksReceived: [{ blockerId: 1 }] },
+        });
+
+        expect(ability.can('read', room)).toBe(false);
       });
 
       it('still grants read on a closed public Room for a non-member', () => {
@@ -329,6 +465,7 @@ describe('CaslAbilityFactory', () => {
           status: 'closed',
           visibility: 'public',
           roomMembers: [],
+          createdBy: { blocksGiven: [] },
         });
 
         expect(ability.can('read', room)).toBe(true);
@@ -365,9 +502,33 @@ describe('CaslAbilityFactory', () => {
       });
 
       it('grants join on an active public Room', () => {
-        const room = roomSubject({ status: 'active', visibility: 'public' });
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'public',
+          createdBy: { blocksGiven: [] },
+        });
 
         expect(ability.can('join', room)).toBe(true);
+      });
+
+      it('denies join on an active public Room whose creator blocked the viewer', () => {
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'public',
+          createdBy: { blocksGiven: [{ blockedId: 1 }] },
+        });
+
+        expect(ability.can('join', room)).toBe(false);
+      });
+
+      it('denies join on an active public Room whose creator the viewer blocked', () => {
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'public',
+          createdBy: { blocksReceived: [{ blockerId: 1 }] },
+        });
+
+        expect(ability.can('join', room)).toBe(false);
       });
 
       it('denies join on a closed Room', () => {
@@ -610,6 +771,50 @@ describe('CaslAbilityFactory', () => {
 
       expect(ability.can('read', userAPrivate)).toBe(false);
       expect(ability.can('read', userBPrivate)).toBe(false);
+    });
+
+    it('denies read on a friendship where either side blocked the requester', () => {
+      const userABlockedRequester = friendshipSubject({
+        status: 'accepted',
+        userAId: 8,
+        userBId: 9,
+        addresseeId: 9,
+        userA: { visibility: 'public', blocksGiven: [{ blockedId: 1 }] },
+        userB: { visibility: 'public' },
+      });
+      const userBBlockedRequester = friendshipSubject({
+        status: 'accepted',
+        userAId: 8,
+        userBId: 9,
+        addresseeId: 9,
+        userA: { visibility: 'public' },
+        userB: { visibility: 'public', blocksGiven: [{ blockedId: 1 }] },
+      });
+
+      expect(ability.can('read', userABlockedRequester)).toBe(false);
+      expect(ability.can('read', userBBlockedRequester)).toBe(false);
+    });
+
+    it('denies read on a friendship where the requester blocked either side', () => {
+      const requesterBlockedUserA = friendshipSubject({
+        status: 'accepted',
+        userAId: 8,
+        userBId: 9,
+        addresseeId: 9,
+        userA: { visibility: 'public', blocksReceived: [{ blockerId: 1 }] },
+        userB: { visibility: 'public' },
+      });
+      const requesterBlockedUserB = friendshipSubject({
+        status: 'accepted',
+        userAId: 8,
+        userBId: 9,
+        addresseeId: 9,
+        userA: { visibility: 'public' },
+        userB: { visibility: 'public', blocksReceived: [{ blockerId: 1 }] },
+      });
+
+      expect(ability.can('read', requesterBlockedUserA)).toBe(false);
+      expect(ability.can('read', requesterBlockedUserB)).toBe(false);
     });
 
     it('grants read to the user sitting in the second slot of the pair', () => {

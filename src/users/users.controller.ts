@@ -125,10 +125,10 @@ export class UsersController {
   @HttpCode(201)
   @CheckAbilities(['create', 'Friendship'])
   createFriendRequest(
-    @UserId() userId: number,
+    @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.friendshipService.createFriendRequest(userId, id);
+    return this.friendshipService.createFriendRequest(viewer, id);
   }
 
   // respond to friend request to update the result of the friendship

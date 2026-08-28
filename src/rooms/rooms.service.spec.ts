@@ -205,45 +205,24 @@ describe('RoomsService', () => {
   });
 
   describe('findOneRoom', () => {
-    it('checks read access on the room, then queries it with members/messages/polls/invitations', async () => {
-      const abilityCheckRoom = {
-        id: 7,
-        visibility: 'public',
-        deletedAt: null,
-        roomMembers: [],
-      };
+    it('queries the room restricted to what the requester can read', async () => {
       const found = { id: 7, name: 'Best pear variety?', polls: [] };
-      roomFindFirst
-        .mockResolvedValueOnce(abilityCheckRoom)
-        .mockResolvedValueOnce(found);
+      roomFindFirst.mockResolvedValueOnce(found);
 
       await service.findOneRoom(7, viewer());
 
-      expect(roomFindFirst).toHaveBeenNthCalledWith(1, {
-        where: { id: 7, deletedAt: null },
-        include: { roomMembers: { where: { deletedAt: null } } },
-      });
-      expect(roomFindFirst).toHaveBeenNthCalledWith(2, {
-        where: { id: 7, deletedAt: null },
+      expect(roomFindFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            readAccessibleWhere(user({ id: 42 })),
+            { id: 7, deletedAt: null },
+          ],
+        },
         include: getRoomIncludeArgs(42),
       });
     });
 
-    it('refuses a room the requester cannot read', async () => {
-      const privateRoom = {
-        id: 7,
-        visibility: 'private',
-        deletedAt: null,
-        roomMembers: [],
-      };
-      roomFindFirst.mockResolvedValueOnce(privateRoom);
-
-      await expect(service.findOneRoom(7, viewer())).rejects.toThrow(
-        ForbiddenError,
-      );
-    });
-
-    it('throws not-found for a missing room', async () => {
+    it('throws not-found for a room the requester cannot read or that does not exist', async () => {
       roomFindFirst.mockResolvedValueOnce(null);
 
       await expect(service.findOneRoom(7, viewer())).rejects.toThrow(
@@ -253,16 +232,8 @@ describe('RoomsService', () => {
 
     it('shapes each poll for the requesting user and returns the room with them', async () => {
       const poll = { id: 1 };
-      const abilityCheckRoom = {
-        id: 7,
-        visibility: 'public',
-        deletedAt: null,
-        roomMembers: [],
-      };
       const found = { id: 7, name: 'Best pear variety?', polls: [poll] };
-      roomFindFirst
-        .mockResolvedValueOnce(abilityCheckRoom)
-        .mockResolvedValueOnce(found);
+      roomFindFirst.mockResolvedValueOnce(found);
 
       const result = await service.findOneRoom(7, viewer());
 

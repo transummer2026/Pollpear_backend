@@ -3,7 +3,7 @@ import { AuthorizationUser } from './role';
 import { AppAbility } from '../casl-prisma';
 import { CrudAction } from './crud';
 
-export type UserActions = CrudAction | 'ban' | 'report';
+export type UserActions = CrudAction | 'ban' | 'report' | 'interact';
 
 export type UserAbilities = [UserActions, 'User'];
 
@@ -28,10 +28,17 @@ export function defineUserPermissions(
     deletedAt: null,
     visibility: { not: 'private' },
     blocksGiven: { none: { blockedId: user.id } },
+    blocksReceived: { none: { blockerId: user.id } },
   });
   allow(['read'], 'User', {
     deletedAt: null,
     id: user.id,
+  });
+
+  allow(['interact'], 'User', {
+    deletedAt: null,
+    blocksGiven: { none: { blockedId: user.id } },
+    blocksReceived: { none: { blockerId: user.id } },
   });
 
   allow(['update'], 'User', {
