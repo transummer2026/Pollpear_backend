@@ -2,6 +2,7 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Injectable } from '@nestjs/common';
 import { UUID } from 'crypto';
 import Redis from 'ioredis';
+import { apiKeyCacheKey } from './redis-keys';
 
 @Injectable()
 export class RedisService {
@@ -99,7 +100,7 @@ export class RedisService {
    * @param ttl seconds left before the key expires
    */
   async setApiKey(keyHash: string, userId: number, ttl: number) {
-    await this.redis.set(`apikey:${keyHash}`, userId, 'EX', ttl);
+    await this.redis.set(apiKeyCacheKey(keyHash), userId, 'EX', ttl);
   }
 
   /**
@@ -110,13 +111,13 @@ export class RedisService {
     if (keyHash.length === 0) {
       return;
     }
-    await this.redis.del(`apikey:${keyHash}`);
+    await this.redis.del(apiKeyCacheKey(keyHash));
   }
 
   async deleteApiKeys(keyHashes: string[]) {
     if (keyHashes.length === 0) {
       return;
     }
-    await this.redis.del(...keyHashes.map((keyHash) => `apikey:${keyHash}`));
+    await this.redis.del(...keyHashes.map(apiKeyCacheKey));
   }
 }

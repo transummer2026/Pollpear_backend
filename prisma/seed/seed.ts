@@ -5,6 +5,13 @@ import dotenv from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { VaultService } from '../../src/vault/vault.service';
 import { canonicalPair } from '../../src/friendship/friendship.pair';
+import Redis from 'ioredis';
+import { apiKeyCacheKey } from '../../src/redis/redis-keys';
+import {
+  expiryFromTtl,
+  generateApiKey,
+  remainingSeconds,
+} from '../../src/api-key/api-key.util';
 import {
   PrismaClient,
   Prisma,
@@ -24,6 +31,22 @@ dotenv.config({ path: '../.env' });
 const USER_COUNT = 50;
 const ROOM_COUNT = 20;
 const DEFAULT_PASSWORD = 'Password123!';
+const API_KEY_LIFETIME_SECONDS = 365 * 24 * 60 * 60;
+
+type IssuedKey = {
+  role: UserRole;
+  username: string;
+  key: string;
+  keyHash: string;
+  ownerId: number;
+  expiredAt: Date;
+};
+
+const API_ACCOUNTS: { username: string; role: UserRole }[] = [
+  { username: 'apiuser', role: UserRole.user },
+  { username: 'apimoderator', role: UserRole.moderator },
+  { username: 'apiadmin', role: UserRole.admin },
+];
 const JOJO_PENDING_REQUESTS = 30;
 
 const HASHTAG_NAMES = [
@@ -322,6 +345,77 @@ function pickVoteOptions(
   return { optionIds: subset.map((o) => o.id), freeField: null };
 }
 
+function buildApiAccount(
+  username: string,
+  role: UserRole,
+  passwordHash: string,
+): Prisma.UserCreateInput {
+  return {
+    username,
+    email: username + '@pollpear.com',
+    birthdate: new Date('1990-01-01'),
+    passwordHash,
+    isEmailVerified: true,
+    createdAt: accountCreatedAt(),
+    role,
+    gender: Gender.prefer_not_to_say,
+    nationality: 'Switzerland',
+    userTheme: UserTheme.dark,
+  };
+}
+
+/**
+ * La cle en clair n'existe qu'ici : seul son hash est stocke. Elle est donc
+ * affichee en fin de seed, sinon elle est perdue. Rien n'est ecrit dans redis,
+ * ou la gateway va pourtant la lire : c'est ApiKeySyncService qui l'y restaure
+ * au demarrage du backend, ce qui evite de reecrire ici ce format de cle.
+ */
+async function seedApiAccounts(passwordHash: string): Promise<IssuedKey[]> {
+  const issued: IssuedKey[] = [];
+
+  for (const { username, role } of API_ACCOUNTS) {
+    const user = await prisma.user.create({
+      data: buildApiAccount(username, role, passwordHash),
+    });
+    const { key, keyHash } = generateApiKey();
+    const expiredAt = expiryFromTtl(API_KEY_LIFETIME_SECONDS);
+
+    await prisma.apiKey.create({
+      data: { keyHash, appName: 'api-roles', ownerId: user.id, expiredAt },
+    });
+
+    issued.push({ role, username, key, keyHash, ownerId: user.id, expiredAt });
+  }
+
+  return issued;
+}
+
+async function pushKeysToRedis(issued: IssuedKey[]): Promise<number> {
+  const redis = new Redis({
+    host: vault.redis.host,
+    port: Number(vault.redis.port),
+    password: vault.redis.password,
+  });
+
+  try {
+    for (const { keyHash, ownerId, expiredAt } of issued) {
+      const ttl = remainingSeconds(expiredAt);
+      await redis.set(apiKeyCacheKey(keyHash), ownerId, 'EX', ttl);
+    }
+    return issued.length;
+  } finally {
+    await redis.quit();
+  }
+}
+
+function reportApiAccounts(issued: IssuedKey[]) {
+  console.log(`\nAPI test accounts, password ${DEFAULT_PASSWORD}:`);
+  for (const { role, username, key } of issued) {
+    console.log(`  ${role.padEnd(10)} ${username.padEnd(13)} ${key}`);
+  }
+  console.log('\nFeed them to scripts/api-roles.sh to compare a route.');
+}
+
 async function main() {
   await vault.init();
   const adapter = new PrismaPg({ connectionString: vault.db.database_url });
@@ -342,7 +436,10 @@ async function main() {
   for (let i = 6; i < USER_COUNT; i++) {
     await prisma.user.create({ data: buildUser(i, passwordHash) });
   }
-  console.log(`Done — ${USER_COUNT} users seeded.`);
+  const issuedKeys = await seedApiAccounts(passwordHash);
+  console.log(
+    `Done — ${USER_COUNT} users seeded, plus ${API_ACCOUNTS.length} api ones.`,
+  );
 
   const userIds = (await prisma.user.findMany({ select: { id: true } })).map(
     (u) => u.id,
@@ -438,9 +535,7 @@ async function main() {
         in: userIds.filter(
           (id) =>
             id !== jojo.id &&
-            !usedPairs.has(
-              `${Math.min(id, jojo.id)}-${Math.max(id, jojo.id)}`,
-            ),
+            !usedPairs.has(`${Math.min(id, jojo.id)}-${Math.max(id, jojo.id)}`),
         ),
       },
     },
@@ -621,6 +716,16 @@ async function main() {
       SCORE_PER_POLL * (pollsCreated.get(id) ?? 0);
     if (score > 0) await prisma.user.update({ where: { id }, data: { score } });
   }
+
+  try {
+    const loaded = await pushKeysToRedis(issuedKeys);
+    console.log(`Done — ${loaded} api key(s) loaded into redis.`);
+  } catch (error) {
+    console.error(`Could not load the keys into redis: ${String(error)}`);
+    console.error('Restart the backend to have it restore them.');
+  }
+
+  reportApiAccounts(issuedKeys);
 }
 
 main()
