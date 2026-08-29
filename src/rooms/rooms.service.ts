@@ -357,7 +357,7 @@ export class RoomsService {
 
 /**
  * The relations a room needs loaded to satisfy `RoomReadSchema`: other
- * active members, undeleted messages, undeleted polls (with their own
+ * active members, undeleted polls (with their own
  * `getPollIncludeArgs`), the creator, and pending invitations. Shared so
  * `findOneRoom` and `findMeManyRooms` fetch this identically instead of
  * each hand-rolling their own `include`.
@@ -368,11 +368,6 @@ export function getRoomIncludeArgs(userId: number) {
       where: {
         deletedAt: null,
         userId: { not: userId },
-      },
-    },
-    messages: {
-      where: {
-        deletedAt: null,
       },
     },
     polls: {

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { userChannel } from './socket-user';
+import { roomChannel, userChannel } from './socket-user';
 
 @Injectable()
 @WebSocketGateway()
@@ -30,6 +30,24 @@ export class WebsocketEmitter {
     }
     this.server.to(userIds.map(userChannel)).emit(event, payload);
     this.logger.debug(`sent ${event} to ${userIds.length} user(s)`);
+  }
+
+  toRoom(
+    roomId: number,
+    event: string,
+    payload?: unknown,
+    exceptSocketId?: string,
+  ): void {
+    if (!this.server) {
+      this.logger.warn(`dropped ${event} for room ${roomId}: server not ready`);
+      return;
+    }
+    const channel = this.server.to(roomChannel(roomId));
+    (exceptSocketId ? channel.except(exceptSocketId) : channel).emit(
+      event,
+      payload,
+    );
+    this.logger.debug(`sent ${event} to room ${roomId}`);
   }
 
   async revokeUser(userId: number): Promise<void> {
