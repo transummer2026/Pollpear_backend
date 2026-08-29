@@ -12,22 +12,30 @@ import { ApiModule } from './api/api.module';
 import { ApiV1Module } from './api/v1/v1.module';
 import {
   describeApiV1,
+  documentRateLimit,
   OPENAPI_DOCS_PATH,
   OPENAPI_JSON_PATH,
 } from './api/v1/common/openapi';
 
-function setupApiDocs(app: NestExpressApplication, publicUrl: string) {
-  const document = SwaggerModule.createDocument(app, describeApiV1(publicUrl), {
-    include: [ApiModule, ApiV1Module],
-    deepScanRoutes: true,
-  });
+function setupApiDocs(
+  app: NestExpressApplication,
+  publicUrl: string,
+  rateLimit: RateLimitSecrets,
+) {
+  const document = documentRateLimit(
+    SwaggerModule.createDocument(app, describeApiV1(publicUrl), {
+      include: [ApiModule, ApiV1Module],
+      deepScanRoutes: true,
+    }),
+    rateLimit,
+  );
 
   app.use(OPENAPI_JSON_PATH, (_req: Request, res: Response) =>
     res.json(document),
   );
   app.use(OPENAPI_DOCS_PATH, apiReference({ content: document }));
 }
-import { VaultService } from './vault/vault.service';
+import { VaultService, type RateLimitSecrets } from './vault/vault.service';
 
 /**
  * NestFactory exposes static methods that allow creating an application
@@ -47,7 +55,7 @@ async function bootstrap() {
   app.useGlobalFilters(new PrismaExceptionFilter(), new CaslExceptionFilter());
   app.useWebSocketAdapter(new WebsocketAdapter(app));
   const vault = app.get(VaultService);
-  setupApiDocs(app, vault.app.gateway_url);
+  setupApiDocs(app, vault.app.gateway_url, vault.rateLimit);
   await app.listen(vault.app.backend_port);
 }
 void bootstrap();
