@@ -19,7 +19,7 @@ import {
   pageMeta,
 } from '../common/pagination';
 import { skipFor } from '../common/schemas/api-pagination.schema';
-import { matching, authorOf } from './polls.presentation';
+import { matching, authorOf, authorOnFeed } from './polls.presentation';
 import {
   ApiPollOfferedTypeSchema,
   ApiPollAuthorSchema,
@@ -139,7 +139,6 @@ export class ApiPollsService {
     const ability = this.abilityFactory.createForUser(caller);
     assertLimitAllowed(query, ability);
 
-    const viewer = viewerOf(caller, ability);
     const where: Prisma.PollWhereInput = {
       AND: [accessibleBy(ability, 'read').ofType('Poll'), matching(query)],
       type: { in: ApiPollOfferedTypeSchema.options },
@@ -158,7 +157,7 @@ export class ApiPollsService {
     assertPageWithin(query, total);
 
     return ApiPollPageSchema.parse({
-      data: rows.map((row) => this.listed(row, viewer)),
+      data: rows.map((row) => this.listed(row)),
       ...pageMeta(query, total),
     });
   }
@@ -356,11 +355,11 @@ export class ApiPollsService {
       : new ForbiddenException(refusal.notYours);
   }
 
-  private listed(row: ListedPoll, viewer: Viewer) {
+  private listed(row: ListedPoll) {
     const { _count, ...columns } = row;
     return {
       ...columns,
-      createdBy: authorOf(row, viewer),
+      createdBy: authorOnFeed(row),
       voterCount: _count.votes,
     };
   }

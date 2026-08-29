@@ -1,4 +1,4 @@
-import { matching, authorOf } from './polls.presentation';
+import { matching, authorOf, authorOnFeed } from './polls.presentation';
 import { accessibleBy, type AppAbility } from 'src/casl/casl-prisma';
 import { viewerAs } from '../common/viewer.mock';
 
@@ -74,6 +74,7 @@ describe('matching', () => {
       type: 'slider',
       status: 'active',
       createdById: 9,
+      isAnonymous: false,
       pollHashtags: {
         some: { hashtag: { name: 'climate', deletedAt: null } },
       },
@@ -115,5 +116,36 @@ describe('authorOf', () => {
     expect(authorOf({ isAnonymous: true, createdBy: author }, moderator)).toBe(
       author,
     );
+  });
+});
+
+describe('anonymity', () => {
+  const author = { id: 9, username: 'pierre' };
+  const anonymous = { isAnonymous: true, createdBy: author };
+  const signed = { isAnonymous: false, createdBy: author };
+
+  it('never lets an author filter surface what they posted anonymously', () => {
+    expect(matching({ page: 1, limit: 20, createdBy: 9 })).toMatchObject({
+      createdById: 9,
+      isAnonymous: false,
+    });
+  });
+
+  it('leaves anonymity out of a query that names no author', () => {
+    expect(
+      matching({ page: 1, limit: 20, status: 'active' }),
+    ).not.toHaveProperty('isAnonymous');
+  });
+
+  it('names nobody on the feed when the poll is anonymous', () => {
+    expect(authorOnFeed(anonymous)).toBeNull();
+  });
+
+  it('still names the author of a signed poll', () => {
+    expect(authorOnFeed(signed)).toEqual(author);
+  });
+
+  it('cannot answer differently by role: it is given no viewer', () => {
+    expect(authorOnFeed).toHaveLength(1);
   });
 });

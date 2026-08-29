@@ -18,7 +18,9 @@ export function matching(filter: ApiPollQueryDTO): Prisma.PollWhereInput {
   return {
     ...(filter.type ? { type: filter.type } : {}),
     ...(filter.status ? { status: filter.status } : {}),
-    ...(filter.createdBy ? { createdById: filter.createdBy } : {}),
+    ...(filter.createdBy
+      ? { createdById: filter.createdBy, isAnonymous: false }
+      : {}),
     ...(filter.hashtag
       ? {
           pollHashtags: {
@@ -27,6 +29,15 @@ export function matching(filter: ApiPollQueryDTO): Prisma.PollWhereInput {
         }
       : {}),
   };
+}
+
+export function authorOnFeed<
+  Poll extends {
+    isAnonymous: boolean;
+    createdBy: { id: number; username: string };
+  },
+>(poll: Poll) {
+  return poll.isAnonymous ? null : poll.createdBy;
 }
 
 export function authorOf<
