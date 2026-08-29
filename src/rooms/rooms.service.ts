@@ -203,23 +203,14 @@ export class RoomsService {
   }
 
   async findOneRoom(roomId: number, viewer: User) {
-    const roomForAbilityCheck = await this.prisma.room.findFirst({
-      where: { id: roomId, deletedAt: null },
-      include: { roomMembers: { where: { deletedAt: null } } },
-    });
-    if (!roomForAbilityCheck) throw new NotFoundException('Room not found');
-
     const ability = this.abilityFactory.createForUser(viewer);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'read',
-      subject('Room', roomForAbilityCheck),
-    );
-
     const [room, votesMadeByUser] = await Promise.all([
       this.prisma.room.findFirst({
         where: {
-          id: roomId,
-          deletedAt: null,
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            { id: roomId, deletedAt: null },
+          ],
         },
         include: getRoomIncludeArgs(viewer.id),
       }),

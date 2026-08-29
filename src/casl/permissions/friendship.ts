@@ -18,8 +18,20 @@ export function defineFriendshipPermissions(
   allow('read', 'Friendship', {
     deletedAt: null,
     status: 'accepted',
-    userA: { is: { visibility: { not: 'private' } } },
-    userB: { is: { visibility: { not: 'private' } } },
+    userA: {
+      is: {
+        visibility: { not: 'private' },
+        blocksGiven: { none: { blockedId: user.id } },
+        blocksReceived: { none: { blockerId: user.id } },
+      },
+    },
+    userB: {
+      is: {
+        visibility: { not: 'private' },
+        blocksGiven: { none: { blockedId: user.id } },
+        blocksReceived: { none: { blockerId: user.id } },
+      },
+    },
   });
   allow('read', 'Friendship', {
     deletedAt: null,

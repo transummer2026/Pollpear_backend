@@ -100,9 +100,12 @@ describe('UsersController', () => {
   });
 
   it('createFriendRequest delegates with (viewer, target)', () => {
-    void controller.createFriendRequest(1, 2);
+    void controller.createFriendRequest(viewer, 2);
 
-    expect(friendshipService.createFriendRequest).toHaveBeenCalledWith(1, 2);
+    expect(friendshipService.createFriendRequest).toHaveBeenCalledWith(
+      viewer,
+      2,
+    );
   });
 
   it('updateFriendRequest delegates with (viewer, target, status)', () => {

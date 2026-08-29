@@ -128,24 +128,26 @@ export class FriendshipService {
   }
 
   async createFriendRequest(
-    userId: number,
+    viewer: User,
     targetId: number,
   ): Promise<FriendshipDTO> {
+    const userId = viewer.id;
     if (userId === targetId) {
       throw new BadRequestException(
         'Cannot send a friend request to yourself.',
       );
     }
 
-    const blocked = await this.prisma.block.findFirst({
+    const ability = this.abilityFactory.createForUser(viewer);
+    const target = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { blockerId: userId, blockedId: targetId },
-          { blockerId: targetId, blockedId: userId },
+        AND: [
+          accessibleBy(ability, 'interact').ofType('User'),
+          { id: targetId, deletedAt: null },
         ],
       },
     });
-    if (blocked) {
+    if (!target) {
       throw new ForbiddenException(
         'Cannot send a friend request to this user.',
       );

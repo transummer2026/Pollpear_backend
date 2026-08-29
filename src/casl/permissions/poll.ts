@@ -25,6 +25,12 @@ export function pollReadConditions(user: AuthorizationUser) {
     {
       deletedAt: null,
       visibility: 'public' as const,
+      createdBy: {
+        is: {
+          blocksGiven: { none: { blockedId: user.id } },
+          blocksReceived: { none: { blockerId: user.id } },
+        },
+      },
     },
   ];
 }
@@ -69,11 +75,23 @@ export function pollVotableConditions(user: AuthorizationUser) {
       deletedAt: null,
       visibility: 'public' as const,
       roomId: null,
+      createdBy: {
+        is: {
+          blocksGiven: { none: { blockedId: user.id } },
+          blocksReceived: { none: { blockerId: user.id } },
+        },
+      },
     },
     {
       deletedAt: null,
       visibility: 'public' as const,
       room: { is: { status: 'active' as const } },
+      createdBy: {
+        is: {
+          blocksGiven: { none: { blockedId: user.id } },
+          blocksReceived: { none: { blockerId: user.id } },
+        },
+      },
     },
   ];
 }

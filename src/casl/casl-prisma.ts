@@ -61,6 +61,7 @@ export type AppAbility = Ability<
       | 'delete'
       | 'ban'
       | 'report'
+      | 'interact'
       | 'join'
       | 'invite'
       | 'kick'

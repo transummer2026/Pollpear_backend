@@ -50,9 +50,16 @@ export class BlockService {
       }),
     ]);
 
+    // A target who blocked the caller must stay indistinguishable from a
+    // nonexistent/private profile: GET /users/:id already 404s for them,
+    // so this endpoint must not be the one place that still confirms it.
+    if (blockedMe !== null) {
+      throw new NotFoundException('User not found');
+    }
+
     return BlockStatusSchema.parse({
       blockedByMe: blockedByMe !== null,
-      blockedMe: blockedMe !== null,
+      blockedMe: false,
     });
   }
 

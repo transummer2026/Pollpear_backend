@@ -27,6 +27,7 @@ function poll(overrides: Record<string, unknown> = {}) {
     // the other branches (private/room-scoped).
     visibility: 'public',
     roomId: null,
+    createdBy: { blocksGiven: [], blocksReceived: [] },
     ...overrides,
   };
 }
@@ -143,6 +144,12 @@ describe('VotesService', () => {
           room: {
             include: {
               roomMembers: { where: { userId: 42, deletedAt: null } },
+            },
+          },
+          createdBy: {
+            include: {
+              blocksGiven: { where: { blockedId: 42 } },
+              blocksReceived: { where: { blockerId: 42 } },
             },
           },
         },

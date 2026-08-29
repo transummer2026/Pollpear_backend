@@ -189,6 +189,12 @@ export class VotesService {
             roomMembers: { where: { userId: viewerId, deletedAt: null } },
           },
         },
+        createdBy: {
+          include: {
+            blocksGiven: { where: { blockedId: viewerId } },
+            blocksReceived: { where: { blockerId: viewerId } },
+          },
+        },
       },
     });
     if (!poll) throw new NotFoundException('Poll not found');
