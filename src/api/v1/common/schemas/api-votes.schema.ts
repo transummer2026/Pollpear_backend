@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { VoteSchema as VoteModel } from 'Pollpear_shared/src/prisma/schemas/models/Vote.schema';
-import { MAX_LABEL, MAX_OPTIONS } from './api-polls.schema';
+import { MAX_OPTIONS } from './api-polls.schema';
+
+export const MAX_FREE_FIELD = 255;
 
 export const ApiVoteColumnsSchema = VoteModel.pick({
   id: true,
@@ -30,10 +32,31 @@ export const ApiVoteCastSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('slider'),
     optionIds: z.array(optionId()).length(1),
-    freeField: z.string().min(1).max(MAX_LABEL),
+    freeField: z.string().min(1).max(MAX_FREE_FIELD),
   }),
 ]);
+
+export const ApiVoteChangeSchema = z
+  .discriminatedUnion('type', [
+    z.strictObject({
+      type: z.literal('single_choice'),
+      optionIds: z.array(optionId()).length(1).optional(),
+    }),
+    z.strictObject({
+      type: z.literal('multiple_choice'),
+      optionIds: z.array(optionId()).min(1).max(MAX_OPTIONS).optional(),
+    }),
+    z.strictObject({
+      type: z.literal('slider'),
+      optionIds: z.array(optionId()).length(1).optional(),
+      freeField: z.string().min(1).max(MAX_FREE_FIELD).optional(),
+    }),
+  ])
+  .refine((ballot) => Object.keys(ballot).length > 1, {
+    error: 'Send at least one field to change',
+  });
 
 export type ApiVoteColumnsDTO = z.infer<typeof ApiVoteColumnsSchema>;
 export type ApiVoteDTO = z.infer<typeof ApiVoteSchema>;
 export type ApiVoteCastDTO = z.infer<typeof ApiVoteCastSchema>;
+export type ApiVoteChangeDTO = z.infer<typeof ApiVoteChangeSchema>;

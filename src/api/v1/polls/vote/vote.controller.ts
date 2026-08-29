@@ -20,8 +20,10 @@ import { ApiGuardDocs, ApiIdParamDocs } from '../../common/api-docs';
 import { toOpenApi } from '../../common/openapi';
 import {
   ApiVoteCastSchema,
+  ApiVoteChangeSchema,
   ApiVoteSchema,
   type ApiVoteCastDTO,
+  type ApiVoteChangeDTO,
 } from '../../common/schemas/api-votes.schema';
 
 @ApiTags('polls')
@@ -77,9 +79,9 @@ export class ApiPollVoteController {
   @ApiOperation({
     summary: 'Change the vote already cast',
     description:
-      'The ballot replaces the previous one whole, so it carries every option kept. Only a running poll takes a change, and a poll created without allowChangeVote refuses one for everybody.',
+      'Send only what changes: an omitted field keeps its value, and the options sent replace the previous selection whole. Only a running poll takes a change, and a poll created without allowChangeVote refuses one for everybody.',
   })
-  @ApiBody({ schema: toOpenApi(ApiVoteCastSchema) })
+  @ApiBody({ schema: toOpenApi(ApiVoteChangeSchema) })
   @ApiOkResponse({ schema: toOpenApi(ApiVoteSchema) })
   @ApiBadRequestResponse({
     description: 'Wrong poll type, or an option that is not the polls own.',
@@ -92,7 +94,7 @@ export class ApiPollVoteController {
   @ApiIdParamDocs('Poll the vote belongs to.')
   changeVote(
     @IdParam() id: number,
-    @ValidatedBody(ApiVoteCastSchema) ballot: ApiVoteCastDTO,
+    @ValidatedBody(ApiVoteChangeSchema) ballot: ApiVoteChangeDTO,
     @CurrentUser() caller: User,
   ) {
     return this.voteService.changeVote(id, ballot, caller);

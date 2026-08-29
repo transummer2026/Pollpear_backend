@@ -5,6 +5,26 @@ import { OptionSchema as OptionModel } from 'Pollpear_shared/src/prisma/schemas/
 import { PollStatus, PollType, Visibility } from 'src/generated/prisma/enums';
 import { apiPageOf, ApiPageQuerySchema } from './api-pagination.schema';
 
+export const MAX_OPTIONS = 20;
+export const MAX_TITLE = 255;
+export const MAX_LABEL = 255;
+export const MAX_DESCRIPTION = 3000;
+
+const OPTIONS_PER_TYPE = {
+  single_choice: { min: 2, max: MAX_OPTIONS },
+  multiple_choice: { min: 2, max: MAX_OPTIONS },
+  slider: { min: 1, max: 1 },
+  free_field: null,
+} satisfies Record<PollType, { min: number; max: number } | null>;
+
+const OFFERED_TYPES = (Object.keys(OPTIONS_PER_TYPE) as PollType[]).filter(
+  (type) => OPTIONS_PER_TYPE[type] !== null,
+);
+
+export const ApiPollOfferedTypeSchema = z.enum(
+  OFFERED_TYPES as [PollType, ...PollType[]],
+);
+
 export const ApiPollAuthorSchema = UserModel.pick({
   id: true,
   username: true,
@@ -17,7 +37,7 @@ export const ApiPollListColumnsSchema = PollModel.pick({
   status: true,
   endsAt: true,
 }).extend({
-  type: z.enum(PollType),
+  type: ApiPollOfferedTypeSchema,
   status: z.enum(PollStatus),
 });
 
@@ -46,7 +66,7 @@ export const ApiPollColumnsSchema = PollModel.pick({
   description: z.string().nullable(),
   publishedAt: z.date().nullable(),
   roomId: z.number().int().nullable(),
-  type: z.enum(PollType),
+  type: ApiPollOfferedTypeSchema,
   status: z.enum(PollStatus),
   visibility: z.enum(Visibility),
 });
@@ -68,11 +88,6 @@ export const ApiPollSchema = ApiPollColumnsSchema.extend({
   voterCount: z.number().int(),
 });
 
-export const MAX_OPTIONS = 20;
-export const MAX_TITLE = 255;
-export const MAX_LABEL = 255;
-export const MAX_DESCRIPTION = 10000;
-
 const endsInTheFuture = () =>
   z.coerce.date().refine((date) => date.getTime() > Date.now(), {
     error: 'endsAt must be in the future',
@@ -84,21 +99,6 @@ const OptionInput = z.strictObject({
   sliderLeftLabel: z.string().max(MAX_LABEL).nullable().optional(),
   sliderRightLabel: z.string().max(MAX_LABEL).nullable().optional(),
 });
-
-const OPTIONS_PER_TYPE = {
-  single_choice: { min: 2, max: MAX_OPTIONS },
-  multiple_choice: { min: 2, max: MAX_OPTIONS },
-  slider: { min: 1, max: 1 },
-  free_field: null,
-} satisfies Record<PollType, { min: number; max: number } | null>;
-
-const OFFERED_TYPES = (Object.keys(OPTIONS_PER_TYPE) as PollType[]).filter(
-  (type) => OPTIONS_PER_TYPE[type] !== null,
-);
-
-export const ApiPollOfferedTypeSchema = z.enum(
-  OFFERED_TYPES as [PollType, ...PollType[]],
-);
 
 export const ApiPollCreateSchema = z
   .strictObject({
@@ -149,7 +149,7 @@ export const ApiPollUpdateSchema = z
   });
 
 export const ApiPollFilterSchema = z.object({
-  type: z.enum(PollType).optional(),
+  type: ApiPollOfferedTypeSchema.optional(),
   status: z.enum(PollStatus).optional(),
   createdBy: z.coerce.number().int().min(1).optional(),
   hashtag: z.string().min(1).max(MAX_LABEL).optional(),

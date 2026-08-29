@@ -16,12 +16,13 @@ import { viewerOf, type Viewer } from '../../common/viewer';
 import { ApiPollOfferedTypeSchema } from '../../common/schemas/api-polls.schema';
 import {
   type ApiVoteCastDTO,
+  type ApiVoteChangeDTO,
   type ApiVoteColumnsDTO,
   type ApiVoteDTO,
 } from '../../common/schemas/api-votes.schema';
 import { presentVote, VOTE_SELECT } from './vote.presentation';
 
-const pollForBallot = (viewerId: number) =>
+export const pollForBallot = (viewerId: number) =>
   ({
     id: true,
     type: true,
@@ -81,13 +82,13 @@ export class ApiPollVoteService {
       create: {
         createdById: viewer.id,
         pollId,
-        freeField: freeFieldOf(ballot),
-        voteOptions: { create: optionRowsOf(ballot) },
+        freeField: ballotValue(ballot),
+        voteOptions: { create: chosenOptions(ballot) },
       },
       update: {
         deletedAt: null,
-        freeField: freeFieldOf(ballot),
-        voteOptions: { deleteMany: {}, create: optionRowsOf(ballot) },
+        freeField: ballotValue(ballot),
+        voteOptions: { deleteMany: {}, create: chosenOptions(ballot) },
       },
       select: VOTE_SELECT,
     });
@@ -99,15 +100,13 @@ export class ApiPollVoteService {
 
   async changeVote(
     pollId: number,
-    ballot: ApiVoteCastDTO,
+    ballot: ApiVoteChangeDTO,
     caller: User,
   ): Promise<ApiVoteDTO> {
     const viewer = this.viewer(caller);
     const poll = await this.changeablePoll(pollId, viewer);
 
-    if (!poll.allowChangeVote) {
-      throw new ConflictException('This poll does not allow changing a vote');
-    }
+    this.assertChangesAllowed(poll);
 
     const current = await this.myLiveVote(pollId, viewer);
     this.assertMayTouchOwnVote('update', current.id, poll, viewer);
@@ -115,10 +114,7 @@ export class ApiPollVoteService {
 
     const vote = await this.prisma.vote.update({
       where: { id: current.id },
-      data: {
-        freeField: freeFieldOf(ballot),
-        voteOptions: { deleteMany: {}, create: optionRowsOf(ballot) },
-      },
+      data: changedFields(ballot),
       select: VOTE_SELECT,
     });
 
@@ -191,7 +187,12 @@ export class ApiPollVoteService {
 
   private async myLiveVote(pollId: number, viewer: Viewer) {
     const vote = await this.prisma.vote.findFirst({
-      where: { pollId, createdById: viewer.id, deletedAt: null },
+      where: {
+        AND: [
+          accessibleBy(viewer.ability, 'read').ofType('Vote'),
+          { pollId, createdById: viewer.id, deletedAt: null },
+        ],
+      },
       select: VOTE_SELECT,
     });
 
@@ -200,6 +201,12 @@ export class ApiPollVoteService {
     }
 
     return vote;
+  }
+
+  private assertChangesAllowed(poll: PollForBallot): void {
+    if (!poll.allowChangeVote) {
+      throw new ConflictException('This poll does not allow changing a vote');
+    }
   }
 
   private assertMayVote(poll: PollForBallot, viewer: Viewer): void {
@@ -244,10 +251,14 @@ export class ApiPollVoteService {
 
   private async assertBallotFits(
     poll: PollForBallot,
-    ballot: ApiVoteCastDTO,
+    ballot: ApiVoteCastDTO | ApiVoteChangeDTO,
   ): Promise<void> {
     if (poll.type !== ballot.type) {
       throw new BadRequestException(`This poll takes a ${poll.type} vote`);
+    }
+
+    if (!ballot.optionIds) {
+      return;
     }
 
     const belonging = await this.prisma.option.count({
@@ -271,10 +282,27 @@ export class ApiPollVoteService {
   }
 }
 
-function freeFieldOf(ballot: ApiVoteCastDTO): string | null {
+function ballotValue(ballot: ApiVoteCastDTO): string | null {
   return ballot.type === 'slider' ? ballot.freeField : null;
 }
 
-function optionRowsOf(ballot: ApiVoteCastDTO): { optionId: number }[] {
+function chosenOptions(ballot: ApiVoteCastDTO): { optionId: number }[] {
   return ballot.optionIds.map((optionId) => ({ optionId }));
+}
+
+function changedFields(ballot: ApiVoteChangeDTO) {
+  const value =
+    ballot.type === 'slider' && ballot.freeField !== undefined
+      ? { freeField: ballot.freeField }
+      : {};
+  const options = ballot.optionIds
+    ? {
+        voteOptions: {
+          deleteMany: {},
+          create: ballot.optionIds.map((optionId) => ({ optionId })),
+        },
+      }
+    : {};
+
+  return { ...value, ...options };
 }

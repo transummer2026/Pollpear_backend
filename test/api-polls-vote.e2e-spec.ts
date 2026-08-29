@@ -202,6 +202,16 @@ describe('ApiPollVoteController (e2e)', () => {
     },
   );
 
+  it('400s a change that carries nothing to change', () => {
+    pollFindFirst.mockResolvedValue(openPoll);
+
+    return request(app.getHttpServer())
+      .patch('/v1/polls/42/vote')
+      .set(asUser(7))
+      .send({ type: 'single_choice' })
+      .expect(400);
+  });
+
   it('204s a withdrawal and answers nothing', () => {
     pollFindFirst.mockResolvedValue(openPoll);
     voteFindFirst.mockResolvedValue(storedVote);

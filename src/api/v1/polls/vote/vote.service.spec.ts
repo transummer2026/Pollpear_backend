@@ -283,6 +283,18 @@ describe('ApiPollVoteService', () => {
       expect(voteUpdate).not.toHaveBeenCalled();
     });
 
+    it('leaves the selection alone when the ballot carries none', async () => {
+      pollIs({ ...openPoll, type: 'slider' });
+      voteFindFirst.mockResolvedValue(storedVote);
+      voteUpdate.mockResolvedValue(storedVote);
+
+      await service.changeVote(42, { type: 'slider', freeField: '8' }, voter);
+
+      const { data } = voteUpdate.mock.calls[0][0];
+      expect(data).toEqual({ freeField: '8' });
+      expect(optionCount).not.toHaveBeenCalled();
+    });
+
     it('replaces the whole selection', async () => {
       pollIs(openPoll);
       voteFindFirst.mockResolvedValue(storedVote);
@@ -340,6 +352,21 @@ describe('ApiPollVoteService', () => {
       });
     });
 
+    it('scopes the lookup with the Vote policy, not a hand written clause', async () => {
+      pollIs(openPoll);
+      voteFindFirst.mockResolvedValue(storedVote);
+
+      await service.findMyVote(42, voter);
+
+      const where = voteFindFirst.mock.calls[0][0].where as { AND: unknown[] };
+      expect(where.AND[0]).toEqual(
+        accessibleBy(
+          new CaslAbilityFactory().createForUser(voter),
+          'read',
+        ).ofType('Vote'),
+      );
+    });
+
     it('answers only the callers own vote', async () => {
       pollIs(openPoll);
       voteFindFirst.mockResolvedValue(storedVote);
@@ -347,10 +374,8 @@ describe('ApiPollVoteService', () => {
       await expect(service.findMyVote(42, voter)).resolves.toMatchObject({
         id: 5,
       });
-      expect(voteFindFirst.mock.calls[0][0].where).toMatchObject({
-        createdById: 7,
-        deletedAt: null,
-      });
+      const where = voteFindFirst.mock.calls[0][0].where as { AND: unknown[] };
+      expect(where.AND[1]).toMatchObject({ createdById: 7, deletedAt: null });
     });
   });
 });
