@@ -17,13 +17,24 @@ const prismaSchema = readFileSync(
   'utf8',
 );
 
+const VARCHAR = '@db.VarChar(';
+
 function declaredLength(model: string, column: string): number | null {
-  const block = new RegExp(`model ${model} \\{[^}]*\\}`).exec(prismaSchema);
-  if (!block) return null;
-  const declared = new RegExp(
-    `\\b${column}\\s+\\S+\\s+[^\\n]*@db\\.VarChar\\((\\d+)\\)`,
-  ).exec(block[0]);
-  return declared ? Number(declared[1]) : null;
+  const start = prismaSchema.indexOf(`model ${model} {`);
+  if (start === -1) return null;
+
+  const closes = prismaSchema.indexOf('}', start);
+  const line = prismaSchema
+    .slice(start, closes === -1 ? undefined : closes)
+    .split('\n')
+    .find((row) => row.trim().startsWith(`${column} `));
+  if (!line) return null;
+
+  const opens = line.indexOf(VARCHAR);
+  if (opens === -1) return null;
+
+  const from = opens + VARCHAR.length;
+  return Number(line.slice(from, line.indexOf(')', from)));
 }
 
 const inTheFuture = new Date(Date.now() + 3600_000);
