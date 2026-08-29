@@ -185,7 +185,7 @@ export class ApiPollsService {
     const { options, roomId, ...poll } = body;
 
     if (roomId !== undefined && roomId !== null) {
-      await this.assertRoomIsOpenTo(roomId, ability);
+      await this.assertRoomAcceptsPolls(roomId, ability);
     }
 
     const created = await this.prisma.poll.create({
@@ -318,7 +318,7 @@ export class ApiPollsService {
     return poll;
   }
 
-  private async assertRoomIsOpenTo(
+  private async assertRoomAcceptsPolls(
     roomId: number,
     ability: AppAbility,
   ): Promise<void> {
@@ -326,11 +326,13 @@ export class ApiPollsService {
       where: {
         AND: [accessibleBy(ability, 'read').ofType('Room'), { id: roomId }],
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
-    if (!room) {
-      throw new ForbiddenException('This room is not open to you');
+    const filedThere = subject('Poll', { roomId, room } as unknown as Poll);
+
+    if (!room || ability.cannot('create', filedThere)) {
+      throw new ForbiddenException('This room does not accept new polls');
     }
   }
 

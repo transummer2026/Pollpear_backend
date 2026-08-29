@@ -46,6 +46,7 @@ describe('ApiPollsController (e2e)', () => {
   const voteGroupBy = jest.fn();
   const voteOptionGroupBy = jest.fn();
   const memberFindFirst = jest.fn();
+  const roomFindFirst = jest.fn();
 
   const pending = {
     id: 42,
@@ -105,6 +106,7 @@ describe('ApiPollsController (e2e)', () => {
           provide: PrismaService,
           useValue: {
             poll: { findMany, count, findFirst, create, update },
+            room: { findFirst: roomFindFirst },
             roomMember: { findFirst: memberFindFirst },
             vote: { count: voteCount, groupBy: voteGroupBy },
             voteOption: { groupBy: voteOptionGroupBy },
@@ -136,6 +138,7 @@ describe('ApiPollsController (e2e)', () => {
       update,
       transaction,
       memberFindFirst,
+      roomFindFirst,
       voteCount,
       voteGroupBy,
       voteOptionGroupBy,
@@ -205,6 +208,29 @@ describe('ApiPollsController (e2e)', () => {
             createdById: 7,
             status: 'pending',
           });
+        });
+    });
+
+    it('files the poll in an active room', () => {
+      roomFindFirst.mockResolvedValue({ id: 3, status: 'active' });
+
+      return request(app.getHttpServer())
+        .post('/v1/polls')
+        .set(asUser(7))
+        .send({ ...body, roomId: 3 })
+        .expect(201);
+    });
+
+    it('403s a room that no longer takes polls, though it stays readable', () => {
+      roomFindFirst.mockResolvedValue({ id: 3, status: 'closed' });
+
+      return request(app.getHttpServer())
+        .post('/v1/polls')
+        .set(asUser(7))
+        .send({ ...body, roomId: 3 })
+        .expect(403)
+        .expect(() => {
+          expect(create).not.toHaveBeenCalled();
         });
     });
 

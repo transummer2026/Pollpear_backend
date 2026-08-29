@@ -11,6 +11,7 @@ import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { accessibleBy } from 'src/casl/casl-prisma';
 import type { User } from 'src/generated/prisma/client';
 import { MAX_DISTRIBUTION } from '../common/schemas/api-polls.schema';
+import { RoomStatus } from 'src/generated/prisma/enums';
 
 const author = { id: 7, role: 'user' } as unknown as User;
 const other = { id: 8, role: 'user' } as unknown as User;
@@ -47,6 +48,10 @@ const pending = {
 };
 
 const active = { ...pending, status: 'active' };
+
+const ROOM_REFUSING_POLLS = Object.values(RoomStatus).filter(
+  (status) => status !== RoomStatus.active,
+);
 
 const page = { page: 1, limit: 20 };
 
@@ -248,8 +253,8 @@ describe('ApiPollsService', () => {
       expect(create).not.toHaveBeenCalled();
     });
 
-    it('accepts a room the caller may read, and asks casl which those are', async () => {
-      roomFindFirst.mockResolvedValue({ id: 3 });
+    it('accepts an active room, and asks casl which rooms it may look at', async () => {
+      roomFindFirst.mockResolvedValue({ id: 3, status: 'active' });
       create.mockResolvedValue(pending);
 
       await service.createPoll({ ...body, roomId: 3 }, author);
@@ -265,6 +270,38 @@ describe('ApiPollsService', () => {
         ).ofType('Room'),
         { id: 3 },
       ]);
+    });
+
+    it.each(ROOM_REFUSING_POLLS)(
+      'refuses a %s room the caller can still read',
+      async (status) => {
+        roomFindFirst.mockResolvedValue({ id: 3, status });
+
+        await expect(
+          service.createPoll({ ...body, roomId: 3 }, author),
+        ).rejects.toThrow(ForbiddenException);
+
+        expect(create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('refuses a closed room to a moderator too', async () => {
+      roomFindFirst.mockResolvedValue({ id: 3, status: 'closed' });
+
+      await expect(
+        service.createPoll({ ...body, roomId: 3 }, moderator),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it('files a poll in the feed without looking up any room', async () => {
+      create.mockResolvedValue(pending);
+
+      await service.createPoll(body, author);
+
+      expect(roomFindFirst).not.toHaveBeenCalled();
+      expect(create.mock.calls[0][0].data).toMatchObject({ roomId: null });
     });
   });
 

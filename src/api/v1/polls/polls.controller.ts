@@ -77,7 +77,7 @@ export class ApiPollsController {
   })
   @ApiForbiddenResponse({
     description:
-      'Banned account, or a room was named the caller does not belong to.',
+      'Banned account, or a room was named the caller cannot file a poll in.',
   })
   createPoll(
     @ValidatedBody(ApiPollCreateSchema) body: ApiPollCreateDTO,
