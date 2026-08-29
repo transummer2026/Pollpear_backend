@@ -24,6 +24,7 @@ const openPoll = {
   createdById: 9,
   roomId: null,
   allowChangeVote: true,
+  createdBy: { blocksGiven: [], blocksReceived: [] },
   room: null,
 };
 

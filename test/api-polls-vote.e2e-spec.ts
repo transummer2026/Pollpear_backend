@@ -41,6 +41,7 @@ describe('ApiPollVoteController (e2e)', () => {
     createdById: 9,
     roomId: null,
     allowChangeVote: true,
+    createdBy: { blocksGiven: [], blocksReceived: [] },
     room: null,
   };
 

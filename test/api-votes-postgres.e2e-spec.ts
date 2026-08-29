@@ -16,6 +16,7 @@ describe('Casting a vote, against postgres', () => {
   let voter: User;
   let pollId = 0;
   let optionIds: number[] = [];
+  let sliderPollId = 0;
 
   beforeAll(async () => {
     const vault = new VaultService();
@@ -60,10 +61,13 @@ describe('Casting a vote, against postgres', () => {
   });
 
   afterAll(async () => {
-    await prisma.voteOption.deleteMany({ where: { vote: { pollId } } });
-    await prisma.vote.deleteMany({ where: { pollId } });
-    await prisma.option.deleteMany({ where: { pollId } });
-    await prisma.poll.deleteMany({ where: { id: pollId } });
+    const mine = [pollId, sliderPollId];
+    await prisma.voteOption.deleteMany({
+      where: { vote: { pollId: { in: mine } } },
+    });
+    await prisma.vote.deleteMany({ where: { pollId: { in: mine } } });
+    await prisma.option.deleteMany({ where: { pollId: { in: mine } } });
+    await prisma.poll.deleteMany({ where: { id: { in: mine } } });
     await prisma.user.deleteMany({ where: { id: voter.id } });
     await prisma.$disconnect();
   });
@@ -127,6 +131,7 @@ describe('Casting a vote, against postgres', () => {
       },
       select: { id: true, options: { select: { id: true } } },
     });
+    sliderPollId = slider.id;
     const optionId = slider.options[0].id;
 
     await service.castVote(
@@ -143,13 +148,6 @@ describe('Casting a vote, against postgres', () => {
 
     expect(changed.freeField).toBe('9');
     expect(changed.optionIds).toEqual([optionId]);
-
-    await prisma.voteOption.deleteMany({
-      where: { vote: { pollId: slider.id } },
-    });
-    await prisma.vote.deleteMany({ where: { pollId: slider.id } });
-    await prisma.option.deleteMany({ where: { pollId: slider.id } });
-    await prisma.poll.deleteMany({ where: { id: slider.id } });
   });
 
   it('revives the same row when the voter comes back', async () => {

@@ -33,6 +33,18 @@ export const pollForBallot = (viewerId: number) =>
     createdById: true,
     roomId: true,
     allowChangeVote: true,
+    createdBy: {
+      select: {
+        blocksGiven: {
+          where: { blockedId: viewerId },
+          select: { blockedId: true },
+        },
+        blocksReceived: {
+          where: { blockerId: viewerId },
+          select: { blockerId: true },
+        },
+      },
+    },
     room: {
       select: {
         id: true,
