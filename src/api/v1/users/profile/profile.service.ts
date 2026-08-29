@@ -43,7 +43,7 @@ export class ApiUserProfileService {
 
   async findOneUser(id: number, caller: User): Promise<ApiUserDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    const viewer = viewerOf(caller);
+    const viewer = viewerOf(caller, ability);
 
     const user = await this.prisma.user.findFirst({
       where: {

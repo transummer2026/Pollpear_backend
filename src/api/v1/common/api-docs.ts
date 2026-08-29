@@ -1,6 +1,13 @@
 // src/api/v1/common/api-docs.ts
 import { applyDecorators } from '@nestjs/common';
-import { ApiParam, ApiQuery } from '@nestjs/swagger';
+import { z } from 'zod';
+import { toOpenApi } from './openapi';
+import {
+  ApiForbiddenResponse,
+  ApiParam,
+  ApiQuery,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import {
   DEFAULT_LIMIT,
   DEFAULT_PAGE,
@@ -42,4 +49,25 @@ export function ApiIdParamDocs(description: string) {
     description,
     schema: { type: 'integer', minimum: 1 },
   });
+}
+
+export function ApiFilterDocs(schema: z.ZodObject<z.ZodRawShape>) {
+  const { properties } = toOpenApi(schema) as {
+    properties?: Record<string, Record<string, unknown>>;
+  };
+
+  return applyDecorators(
+    ...Object.entries(properties ?? {}).map(([name, property]) =>
+      ApiQuery({ name, required: false, schema: property }),
+    ),
+  );
+}
+
+export function ApiGuardDocs() {
+  return applyDecorators(
+    ApiUnauthorizedResponse({
+      description: 'Missing, expired or revoked api key.',
+    }),
+    ApiForbiddenResponse({ description: 'Banned account.' }),
+  );
 }

@@ -84,3 +84,7 @@ export function documentRateLimit(
 
   return document;
 }
+
+export function toOpenApiOneOf(...schemas: z.ZodType[]): OpenApiSchema {
+  return { oneOf: schemas.map((schema) => toOpenApi(schema)) };
+}
