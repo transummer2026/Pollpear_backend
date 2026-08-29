@@ -1,19 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ApiV1Service } from './v1.service';
-import { prismaMock } from 'src/prisma/prisma.service.mock';
+import { ApiV1Module } from './v1.module';
+import { apiV1 } from './common/api-v1';
 
-describe('ApiV1Service', () => {
-  let service: ApiV1Service;
+/**
+ * La decouverte est un contrat : ce qu'elle annonce doit repondre. Compare la
+ * liste aux modules reellement enregistres, pour qu'une ressource retiree du
+ * cablage ne continue pas d'etre proposee a un client qui n'y trouvera qu'un
+ * 404 - et pour qu'une ressource ajoutee soit annoncee.
+ */
+describe('apiV1.resources', () => {
+  it('names exactly the modules v1 wires up', () => {
+    const imported = (Reflect.getMetadata('imports', ApiV1Module) ?? []) as {
+      name: string;
+    }[];
+    const wired = imported
+      .map((module) => module.name.replace(/^Api|Module$/g, '').toLowerCase())
+      .sort();
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [ApiV1Service, prismaMock],
-    }).compile();
-
-    service = module.get<ApiV1Service>(ApiV1Service);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect([...apiV1.resources].sort()).toEqual(wired);
   });
 });
