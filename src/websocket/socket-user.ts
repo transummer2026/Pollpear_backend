@@ -1,8 +1,10 @@
 import { Socket } from 'socket.io';
 import { extractUserId } from 'src/common/extract-user-id';
+import { User } from 'src/generated/prisma/client';
 
 interface SocketData {
   userId?: number;
+  user?: User;
 }
 
 /**
@@ -39,4 +41,16 @@ export function socketUserId(client: Socket): number | null {
  */
 export function userChannel(userId: number): string {
   return `user:${userId}`;
+}
+
+export function bindSocketAuthUser(client: Socket, user: User): void {
+  (client.data as SocketData).user = user;
+}
+
+export function socketAuthUser(client: Socket): User | null {
+  return (client.data as SocketData).user ?? null;
+}
+
+export function roomChannel(roomId: number): string {
+  return `room:${roomId}`;
 }

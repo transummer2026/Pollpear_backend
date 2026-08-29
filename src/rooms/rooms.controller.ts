@@ -21,6 +21,11 @@ import {
   RoomUpdateSchema,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import { MessagesService } from 'src/messages/messages.service';
+import {
+  MessageHistoryQuerySchema,
+  type MessageHistoryQueryDTO,
+} from 'Pollpear_shared/src/schemas/messages.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
@@ -31,6 +36,7 @@ export class RoomsController {
   constructor(
     private readonly roomsService: RoomsService,
     private readonly prisma: PrismaService,
+    private readonly messagesService: MessagesService,
     private logger: Logger,
   ) {}
 
@@ -116,10 +122,14 @@ export class RoomsController {
   }
 
   @Get(':id/messages')
-  @HttpCode(503)
   @CheckAbilities(['read', 'Message'])
-  getMessages(@Param('id', ParseIntPipe) id: number) {
-    return this.roomsService.getMessages(+id);
+  getMessages(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() viewer: User,
+    @Query(new ZodValidationPipe(MessageHistoryQuerySchema))
+    query: MessageHistoryQueryDTO,
+  ) {
+    return this.messagesService.listForRoom(id, viewer, query);
   }
 
   @Post(':id/messages')
