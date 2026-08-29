@@ -60,3 +60,63 @@ describe('ApiMeUpdateSchema', () => {
     );
   });
 });
+
+/**
+ * The shape is built by picking columns off the prisma model, never by
+ * omitting the ones to hide: a column added upstream stays out of the api
+ * until someone names it here. These two lists are the freeze that makes
+ * the choice visible - swapping `pick` for `omit` breaks them, and so does
+ * any field silently entering or leaving the contract.
+ */
+describe('ApiMeSchema fields', () => {
+  it('exposes exactly the agreed columns', () => {
+    expect(Object.keys(ApiMeSchema.shape).sort()).toEqual(
+      [
+        'avatarUrl',
+        'bannerUrl',
+        'bio',
+        'birthdate',
+        'city',
+        'company',
+        'country',
+        'createdAt',
+        'email',
+        'gender',
+        'isEmailVerified',
+        'isOnline',
+        'lastSeenAt',
+        'name',
+        'nationality',
+        'role',
+        'score',
+        'state',
+        'surname',
+        'updatedAt',
+        'userTheme',
+        'username',
+        'visibility',
+      ].sort(),
+    );
+  });
+
+  it.each(['passwordHash', 'deletedAt', 'id'])('never exposes %s', (column) => {
+    expect(Object.keys(ApiMeSchema.shape)).not.toContain(column);
+  });
+
+  it('lets a client write exactly the editable columns', () => {
+    expect(Object.keys(ApiMeUpdateSchema.shape).sort()).toEqual(
+      [
+        'bio',
+        'city',
+        'company',
+        'country',
+        'gender',
+        'name',
+        'state',
+        'surname',
+        'userTheme',
+        'visibility',
+      ].sort(),
+    );
+  });
+});

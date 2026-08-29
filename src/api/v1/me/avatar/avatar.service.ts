@@ -1,28 +1,36 @@
 // src/api/v1/me/avatar/avatar.service.ts
 import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenError, subject } from '@casl/ability';
 import { AvatarService } from 'src/file-upload/avatar.service';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import type { User } from 'src/generated/prisma/client';
 import {
   ApiMeAvatarSchema,
   type ApiMeAvatarDTO,
 } from '../../common/schemas/api-me.schema';
 
-/**
- * Storing the image is shared with the front facade so both write the same
- * object under the same key. Only the answer is narrowed: a client posting
- * an image wants the url back, not the whole profile.
- */
 @Injectable()
 export class ApiMeAvatarService {
   private readonly logger = new Logger(ApiMeAvatarService.name);
 
-  constructor(private readonly avatarService: AvatarService) {}
+  constructor(
+    private readonly avatarService: AvatarService,
+    private readonly abilityFactory: CaslAbilityFactory,
+  ) {}
 
   async replaceAvatar(
-    ownerId: number,
+    viewer: User,
     file: Express.Multer.File,
   ): Promise<ApiMeAvatarDTO> {
-    const user = await this.avatarService.replace(ownerId, file);
-    this.logger.log(`user ${ownerId} replaced their avatar through the api`);
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'update',
+      subject('User', viewer),
+      'avatarUrl',
+    );
+
+    const user = await this.avatarService.replace(viewer.id, file);
+    this.logger.log(`user ${viewer.id} replaced their avatar through the api`);
 
     return ApiMeAvatarSchema.parse({ avatarUrl: user.avatarUrl });
   }
