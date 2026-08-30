@@ -13,21 +13,29 @@ export type RoomActions =
 
 export type RoomAbilities = [RoomActions, 'Room'];
 
+function notBlockedByCreator(user: AuthorizationUser) {
+  return {
+    is: {
+      blocksGiven: { none: { blockedId: user.id } },
+      blocksReceived: { none: { blockerId: user.id } },
+    },
+  };
+}
+
+function activeMembership(user: AuthorizationUser) {
+  return { some: { userId: user.id, deletedAt: null } };
+}
+
 export function roomReadConditions(user: AuthorizationUser) {
   return [
     {
       deletedAt: null,
       visibility: 'public' as const,
-      createdBy: {
-        is: {
-          blocksGiven: { none: { blockedId: user.id } },
-          blocksReceived: { none: { blockerId: user.id } },
-        },
-      },
+      createdBy: notBlockedByCreator(user),
     },
     {
       deletedAt: null,
-      roomMembers: { some: { userId: user.id, deletedAt: null } },
+      roomMembers: activeMembership(user),
     },
   ];
 }
@@ -38,12 +46,7 @@ export function roomJoinConditions(user: AuthorizationUser) {
       deletedAt: null,
       status: 'active' as const,
       visibility: 'public' as const,
-      createdBy: {
-        is: {
-          blocksGiven: { none: { blockedId: user.id } },
-          blocksReceived: { none: { blockerId: user.id } },
-        },
-      },
+      createdBy: notBlockedByCreator(user),
     },
     {
       deletedAt: null,
@@ -61,7 +64,7 @@ export function roomInviteConditions(user: AuthorizationUser) {
       deletedAt: null,
       status: 'active' as const,
       visibility: 'public' as const,
-      roomMembers: { some: { userId: user.id, deletedAt: null } },
+      roomMembers: activeMembership(user),
     },
     {
       deletedAt: null,
@@ -118,7 +121,7 @@ export function defineRoomPermissions(
 
   allow('leave', 'Room', {
     deletedAt: null,
-    roomMembers: { some: { userId: user.id, deletedAt: null } },
+    roomMembers: activeMembership(user),
   });
 
   allow('kick', 'Room', {

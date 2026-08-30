@@ -84,23 +84,52 @@ export class NotificationService {
     );
   }
 
+  async notifyRoomInvitation(
+    recipientId: number,
+    actorId: number,
+    roomName: string,
+  ): Promise<void> {
+    await this.notifyRoomEvent(
+      recipientId,
+      actorId,
+      'room_invitation',
+      (username) => `${username} invited you to join ${roomName}.`,
+    );
+  }
+
+  async notifyRoomInvitationAccepted(
+    recipientId: number,
+    actorId: number,
+    roomName: string,
+  ): Promise<void> {
+    await this.notifyRoomEvent(
+      recipientId,
+      actorId,
+      'room_invitation_accepted',
+      (username) => `${username} accepted your invitation to join ${roomName}.`,
+    );
+  }
+
   async clearFriendRequest(
     addresseeId: number,
     requesterId: number,
   ): Promise<void> {
-    await this.clearFriendNotification(
-      addresseeId,
-      requesterId,
-      'friend_request',
-    );
+    await this.clearNotification(addresseeId, requesterId, 'friend_request');
   }
 
   async clearFriendNotifications(
     recipientId: number,
     actorId: number,
   ): Promise<void> {
-    await this.clearFriendNotification(recipientId, actorId, 'friend_request');
-    await this.clearFriendNotification(recipientId, actorId, 'friend_accepted');
+    await this.clearNotification(recipientId, actorId, 'friend_request');
+    await this.clearNotification(recipientId, actorId, 'friend_accepted');
+  }
+
+  async clearRoomInvitation(
+    recipientId: number,
+    actorId: number,
+  ): Promise<void> {
+    await this.clearNotification(recipientId, actorId, 'room_invitation');
   }
 
   private async notifyFriendEvent(
@@ -125,10 +154,32 @@ export class NotificationService {
     }
   }
 
-  private async clearFriendNotification(
+  private async notifyRoomEvent(
     recipientId: number,
     actorId: number,
-    type: 'friend_request' | 'friend_accepted',
+    type: 'room_invitation' | 'room_invitation_accepted',
+    message: (username: string) => string,
+  ): Promise<void> {
+    try {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { username: true },
+      });
+      if (!actor) return;
+      await this.notify(recipientId, type, message(actor.username), actorId);
+    } catch (error) {
+      this.logger.warn(
+        `failed to build ${type} notification for user ${recipientId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  private async clearNotification(
+    recipientId: number,
+    actorId: number,
+    type: NotificationTypeDTO,
   ): Promise<void> {
     try {
       const { count } = await this.prisma.notification.deleteMany({

@@ -82,6 +82,7 @@ enum NotificationType {
   friend_accepted
   poll_update
   room_invitation
+  room_invitation_accepted
   room_message
   other
 }

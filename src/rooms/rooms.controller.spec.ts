@@ -2,6 +2,7 @@ import {
   RoomCreateDTO,
   RoomUpdateDTO,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
+import type { InvitationCreateDTO } from 'Pollpear_shared/src/schemas/invitations.schema';
 import { Logger } from '@nestjs/common';
 import type { User } from 'src/generated/prisma/client';
 import { MessagesService } from 'src/messages/messages.service';
@@ -27,7 +28,7 @@ describe('RoomsController', () => {
   let invitationService: jest.Mocked<
     Pick<
       InvitationService,
-      'createRoomInvitation' | 'respondToInvitation' | 'removeInvitation'
+      'createRoomInvitation' | 'updateInvitation' | 'removeInvitation'
     >
   >;
 
@@ -42,7 +43,7 @@ describe('RoomsController', () => {
     messages = { listForRoom: jest.fn() };
     invitationService = {
       createRoomInvitation: jest.fn(),
-      respondToInvitation: jest.fn(),
+      updateInvitation: jest.fn(),
       removeInvitation: jest.fn(),
     };
     controller = new RoomsController(
@@ -88,13 +89,16 @@ describe('RoomsController', () => {
     expect(service.remove).toHaveBeenCalledWith(7, viewer);
   });
 
-  it('POST :id/invitations/:userId delegates to invitationService.createRoomInvitation with (viewer, id, userId)', async () => {
-    await controller.createInvitation(viewer, 7, 42);
+  it('POST :id/invitations/:userId delegates to invitationService.createRoomInvitation with (viewer, id, userId, body)', async () => {
+    const body: InvitationCreateDTO = {};
+
+    await controller.createInvitation(viewer, 7, 42, body);
 
     expect(invitationService.createRoomInvitation).toHaveBeenCalledWith(
       viewer,
       7,
       42,
+      body,
     );
   });
 
@@ -103,7 +107,7 @@ describe('RoomsController', () => {
       status: 'accepted',
     });
 
-    expect(invitationService.respondToInvitation).toHaveBeenCalledWith(
+    expect(invitationService.updateInvitation).toHaveBeenCalledWith(
       viewer,
       7,
       42,

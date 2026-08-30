@@ -20,8 +20,14 @@ import {
   RoomCreateSchema,
   RoomUpdateSchema,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
-import type { InvitationStatusUpdateDTO } from 'Pollpear_shared/src/schemas/invitations.schema';
-import { InvitationStatusUpdateSchema } from 'Pollpear_shared/src/schemas/invitations.schema';
+import type {
+  InvitationCreateDTO,
+  InvitationStatusUpdateDTO,
+} from 'Pollpear_shared/src/schemas/invitations.schema';
+import {
+  InvitationCreateSchema,
+  InvitationStatusUpdateSchema,
+} from 'Pollpear_shared/src/schemas/invitations.schema';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { MessagesService } from 'src/messages/messages.service';
 import {
@@ -103,8 +109,15 @@ export class RoomsController {
     @CurrentUser() viewer: User,
     @Param('id', ParseIntPipe) id: number,
     @Param('userId', ParseIntPipe) userId: number,
+    @Body(new ZodValidationPipe(InvitationCreateSchema))
+    body: InvitationCreateDTO,
   ) {
-    return this.invitationService.createRoomInvitation(viewer, id, userId);
+    return this.invitationService.createRoomInvitation(
+      viewer,
+      id,
+      userId,
+      body,
+    );
   }
 
   @Patch(':id/invitations/:userId')
@@ -116,7 +129,7 @@ export class RoomsController {
     @Body(new ZodValidationPipe(InvitationStatusUpdateSchema))
     body: InvitationStatusUpdateDTO,
   ) {
-    return this.invitationService.respondToInvitation(
+    return this.invitationService.updateInvitation(
       viewer,
       id,
       userId,
