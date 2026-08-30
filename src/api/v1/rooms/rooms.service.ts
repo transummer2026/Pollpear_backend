@@ -1,12 +1,239 @@
-import { Injectable } from '@nestjs/common';
+// src/api/v1/rooms/rooms.service.ts
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { subject } from '@casl/ability';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy, type AppAbility } from 'src/casl/casl-prisma';
+import type { Prisma, Room, User } from 'src/generated/prisma/client';
+import { RoomStatus } from 'src/generated/prisma/enums';
+import { selectOf, type AssertColumns } from '../common/select';
+import {
+  assertLimitAllowed,
+  assertPageWithin,
+  pageMeta,
+} from '../common/pagination';
+import { skipFor } from '../common/schemas/api-pagination.schema';
+import { matching } from './rooms.presentation';
+import {
+  ApiRoomOwnerSchema,
+  ApiRoomColumnsSchema,
+  ApiRoomListColumnsSchema,
+  ApiRoomPageSchema,
+  ApiRoomSchema,
+  type ApiRoomColumnsDTO,
+  type ApiRoomCreateDTO,
+  type ApiRoomDTO,
+  type ApiRoomListColumnsDTO,
+  type ApiRoomOwnerDTO,
+  type ApiRoomPageDTO,
+  type ApiRoomQueryDTO,
+  type ApiRoomUpdateDTO,
+} from '../common/schemas/api-rooms.schema';
+
+const OWNER_SELECT = { select: selectOf(ApiRoomOwnerSchema) };
+
+const LIVE_MEMBERS = { where: { deletedAt: null } };
+
+const LIST_SELECT = {
+  ...selectOf(ApiRoomListColumnsSchema),
+  _count: { select: { roomMembers: LIVE_MEMBERS } },
+} satisfies Prisma.RoomSelect;
+
+/**
+ * Le compte de sondages passe par la politique plutot que par un
+ * `deletedAt: null`: une room publique heberge des sondages prives que seuls
+ * ses membres peuvent lire, et un compte brut les revelerait par leur nombre.
+ */
+export const roomWithCounts = (ability: AppAbility) =>
+  ({
+    ...selectOf(ApiRoomColumnsSchema),
+    createdById: true,
+    deletedAt: true,
+    createdBy: OWNER_SELECT,
+    _count: {
+      select: {
+        roomMembers: LIVE_MEMBERS,
+        polls: { where: accessibleBy(ability, 'read').ofType('Poll') },
+      },
+    },
+  }) satisfies Prisma.RoomSelect;
+
+export const LIST_MATCHES_MODEL: AssertColumns<ApiRoomListColumnsDTO, Room> =
+  true;
+export const DETAIL_MATCHES_MODEL: AssertColumns<ApiRoomColumnsDTO, Room> =
+  true;
+export const OWNER_MATCHES_MODEL: AssertColumns<ApiRoomOwnerDTO, User> = true;
+
+type ListedRoom = Prisma.RoomGetPayload<{ select: typeof LIST_SELECT }>;
+type DetailedRoom = Prisma.RoomGetPayload<{
+  select: ReturnType<typeof roomWithCounts>;
+}>;
 
 @Injectable()
 export class ApiRoomsService {
-  findAllRooms() {
-    return 'Get all rooms - not implemented';
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly abilityFactory: CaslAbilityFactory,
+  ) {}
+
+  async findAllRooms(
+    query: ApiRoomQueryDTO,
+    caller: User,
+  ): Promise<ApiRoomPageDTO> {
+    const ability = this.abilityFactory.createForUser(caller);
+    assertLimitAllowed(query, ability);
+
+    const where: Prisma.RoomWhereInput = {
+      AND: [accessibleBy(ability, 'read').ofType('Room'), matching(query)],
+    };
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.room.findMany({
+        where,
+        select: LIST_SELECT,
+        orderBy: { id: 'desc' },
+        skip: skipFor(query),
+        take: query.limit,
+      }),
+      this.prisma.room.count({ where }),
+    ]);
+    assertPageWithin(query, total);
+
+    return ApiRoomPageSchema.parse({
+      data: rows.map((row) => this.listed(row)),
+      ...pageMeta(query, total),
+    });
   }
 
-  findOneRoom(id: number) {
-    return `Get room ${id} - not implemented`;
+  async findOneRoom(id: number, caller: User): Promise<ApiRoomDTO> {
+    const ability = this.abilityFactory.createForUser(caller);
+
+    return this.detailed(await this.readable(id, ability));
+  }
+
+  async createRoom(body: ApiRoomCreateDTO, caller: User): Promise<ApiRoomDTO> {
+    const ability = this.abilityFactory.createForUser(caller);
+
+    const created = await this.prisma.room.create({
+      data: {
+        ...body,
+        status: RoomStatus.active,
+        createdById: caller.id,
+        roomMembers: { create: { userId: caller.id, joinedAt: new Date() } },
+      },
+      select: roomWithCounts(ability),
+    });
+
+    return this.detailed(created);
+  }
+
+  async updateRoom(
+    id: number,
+    body: ApiRoomUpdateDTO,
+    caller: User,
+  ): Promise<ApiRoomDTO> {
+    const ability = this.abilityFactory.createForUser(caller);
+    const room = await this.readable(id, ability);
+
+    this.assertMayEdit(room, Object.keys(body), ability);
+
+    const updated = await this.prisma.room.update({
+      where: { id },
+      data: body,
+      select: roomWithCounts(ability),
+    });
+
+    return this.detailed(updated);
+  }
+
+  async removeRoom(id: number, caller: User): Promise<void> {
+    const ability = this.abilityFactory.createForUser(caller);
+    const room = await this.readable(id, ability);
+
+    this.assertMayDelete(room, ability);
+
+    if (room.deletedAt !== null) {
+      return;
+    }
+
+    await this.prisma.room.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  private async readable(
+    id: number,
+    ability: AppAbility,
+  ): Promise<DetailedRoom> {
+    const room = await this.prisma.room.findFirst({
+      where: {
+        AND: [accessibleBy(ability, 'read').ofType('Room'), { id }],
+      },
+      select: roomWithCounts(ability),
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    return room;
+  }
+
+  /**
+   * La politique restreint certaines regles a des champs precis, si bien
+   * qu'une question posee sans champ repondrait oui a un appelant qui n'a le
+   * droit d'ecrire que `status`. Chaque champ du corps est donc soumis
+   * separement.
+   */
+  private assertMayEdit(
+    room: DetailedRoom,
+    fields: string[],
+    ability: AppAbility,
+  ): void {
+    const refused = fields.filter((field) =>
+      ability.cannot('update', subject('Room', room), field),
+    );
+
+    if (refused.length === 0) {
+      return;
+    }
+
+    const whileActive = subject('Room', {
+      ...room,
+      status: RoomStatus.active,
+    });
+    const blockedByStatusOnly = refused.every((field) =>
+      ability.can('update', whileActive, field),
+    );
+
+    throw blockedByStatusOnly
+      ? new ConflictException('A room can only be edited while it is active')
+      : new ForbiddenException('Not allowed to edit this room');
+  }
+
+  private assertMayDelete(room: DetailedRoom, ability: AppAbility): void {
+    if (ability.cannot('delete', subject('Room', room))) {
+      throw new ForbiddenException('Not allowed to delete this room');
+    }
+  }
+
+  private listed(row: ListedRoom) {
+    const { _count, ...columns } = row;
+    return { ...columns, memberCount: _count.roomMembers };
+  }
+
+  private detailed(row: DetailedRoom): ApiRoomDTO {
+    const { _count, ...columns } = row;
+    return ApiRoomSchema.parse({
+      ...columns,
+      memberCount: _count.roomMembers,
+      pollCount: _count.polls,
+    });
   }
 }
