@@ -28,9 +28,10 @@ describe('MessagesService', () => {
   const messageFindMany = jest.fn();
   const messageCreate = jest.fn();
   const roomFindFirst = jest.fn();
+  const roomCount = jest.fn();
   const prisma = {
     message: { findMany: messageFindMany, create: messageCreate },
-    room: { findFirst: roomFindFirst },
+    room: { findFirst: roomFindFirst, count: roomCount },
   } as unknown as PrismaService;
   const abilityFactory = new CaslAbilityFactory();
   const service = new MessagesService(prisma, abilityFactory);
@@ -49,11 +50,12 @@ describe('MessagesService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     roomFindFirst.mockResolvedValue(room());
+    roomCount.mockResolvedValue(1);
   });
 
   describe('listForRoom', () => {
     it('reports a room the viewer cannot read as not found', async () => {
-      roomFindFirst.mockResolvedValue(null);
+      roomCount.mockResolvedValue(0);
 
       await expect(
         service.listForRoom(7, viewer, { limit: 50 }),

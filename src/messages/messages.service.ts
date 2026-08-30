@@ -8,11 +8,16 @@ import {
   MessageHistoryQueryDTO,
   MessageReadSchema,
 } from 'Pollpear_shared/src/schemas/messages.schema';
+import type { AppAbility } from 'src/casl/casl-prisma';
 import type { Message, Prisma, User } from 'src/generated/prisma/client';
 
 type RoomForAbility = Prisma.RoomGetPayload<{
   include: { roomMembers: true };
 }>;
+
+type MessageForAbility = Pick<Message, 'authorId' | 'roomId' | 'deletedAt'> & {
+  room: RoomForAbility;
+};
 
 @Injectable()
 export class MessagesService {
@@ -27,16 +32,15 @@ export class MessagesService {
     { before, after, limit }: MessageHistoryQueryDTO,
   ) {
     const ability = this.abilityFactory.createForUser(viewer);
-    const room = await this.prisma.room.findFirst({
+    const readable = await this.prisma.room.count({
       where: {
         AND: [
           accessibleBy(ability, 'read').ofType('Room'),
           { id: roomId, deletedAt: null },
         ],
       },
-      select: { id: true },
     });
-    if (!room) throw new NotFoundException('Room not found');
+    if (!readable) throw new NotFoundException('Room not found');
 
     const messages = await this.prisma.message.findMany({
       where: {
@@ -58,8 +62,9 @@ export class MessagesService {
   }
 
   async create(viewer: User, { roomId, content }: MessageCreateDTO) {
+    const ability = this.abilityFactory.createForUser(viewer);
     const room = await this.roomForAbility(roomId);
-    this.assertCan('create', viewer, room, { authorId: viewer.id, content });
+    this.assertCan('create', ability, room, viewer.id);
 
     const message = await this.prisma.message.create({
       data: { roomId, authorId: viewer.id, content },
@@ -70,34 +75,34 @@ export class MessagesService {
   }
 
   async assertCanJoin(viewer: User, roomId: number): Promise<void> {
+    const ability = this.abilityFactory.createForUser(viewer);
     const room = await this.roomForAbility(roomId);
-    this.assertCan('read', viewer, room, {});
+    this.assertCan('read', ability, room, viewer.id);
   }
 
   private assertCan(
     action: 'read' | 'create',
-    viewer: User,
+    ability: AppAbility,
     room: RoomForAbility,
-    fields: Partial<Message>,
+    authorId: number,
   ): void {
-    const ability = this.abilityFactory.createForUser(viewer);
-    const draft = {
-      ...fields,
+    const draft: MessageForAbility = {
+      authorId,
       roomId: room.id,
       deletedAt: null,
       room,
-    } as unknown as Message;
+    };
 
     ForbiddenError.from(ability).throwUnlessCan(
       action,
-      subject('Message', draft),
+      subject('Message', draft as unknown as Message),
     );
   }
 
   private async roomForAbility(roomId: number): Promise<RoomForAbility> {
     const room = await this.prisma.room.findFirst({
       where: { id: roomId, deletedAt: null },
-      include: { roomMembers: { where: { deletedAt: null } } },
+      include: { roomMembers: true },
     });
     if (!room) throw new NotFoundException('Room not found');
 
