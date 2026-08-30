@@ -586,6 +586,7 @@ async function main() {
     (u) => u.id,
   );
   const crewRoomMembers = new Map<number, number[]>();
+  let everyoneRoomId = 0;
   for (let i = 0; i < ROOM_COUNT; i++) {
     const plan = CREW_ROOM_PLAN[i];
     const creatorId = plan
@@ -594,6 +595,7 @@ async function main() {
     const room = await prisma.room.create({
       data: buildRoom(i, creatorId, plan),
     });
+    if (i === 0) everyoneRoomId = room.id;
     if (plan) {
       crewRoomMembers.set(
         room.id,
@@ -647,12 +649,15 @@ async function main() {
     }
     const seated = new Set(members.map((member) => member.userId));
     const pool = userIds.filter((id) => !seated.has(id));
-    const extraCount = crewRoomMembers.has(room.id)
-      ? 0
-      : Math.min(
-          faker.number.int({ min: MEMBERS_MIN, max: MEMBERS_MAX }),
-          pool.length,
-        );
+    const extraCount =
+      room.id === everyoneRoomId
+        ? pool.length
+        : crewRoomMembers.has(room.id)
+          ? 0
+          : Math.min(
+              faker.number.int({ min: MEMBERS_MIN, max: MEMBERS_MAX }),
+              pool.length,
+            );
     for (const uid of faker.helpers.arrayElements(pool, extraCount)) {
       members.push({
         userId: uid,
