@@ -6,6 +6,7 @@ import {
   PollUpdateDTO,
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { OptionsService } from 'src/options/options.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -91,6 +92,8 @@ describe('PollsService', () => {
   const pollFindFirst = jest.fn();
   const voteFindUnique = jest.fn();
   const voteFindMany = jest.fn();
+  const roomFindFirst = jest.fn();
+  const roomUpdateMany = jest.fn();
   const prisma = {
     poll: {
       create: pollCreate,
@@ -99,13 +102,15 @@ describe('PollsService', () => {
       findFirst: pollFindFirst,
     },
     vote: { findUnique: voteFindUnique, findMany: voteFindMany },
+    room: { findFirst: roomFindFirst, updateMany: roomUpdateMany },
   } as unknown as PrismaService;
   const buildOptionsNestedWrite = jest.fn();
   const buildHashtagsNestedWrite = jest.fn();
   const resolveHashtag = jest.fn();
+  const abilityFactory = new CaslAbilityFactory();
   const service = new PollsService(
     prisma,
-    new CaslAbilityFactory(),
+    abilityFactory,
     { buildOptionsNestedWrite } as unknown as OptionsService,
     {
       resolveHashtag,
@@ -129,6 +134,13 @@ describe('PollsService', () => {
     .mockImplementation(
       (value) => value as ReturnType<typeof PollReadSchema.parse>,
     );
+
+  // Rooms are fetched scoped to the CASL room-read policy; rather than
+  // re-typing its conditions, derive the expected `where` the same way the
+  // service does — run the real ability through `accessibleBy`.
+  function readableRoomWhere(v: User) {
+    return accessibleBy(abilityFactory.createForUser(v), 'read').ofType('Room');
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -185,6 +197,65 @@ describe('PollsService', () => {
       await service.create(viewer(), createBody());
 
       expect(resolveHashtag).not.toHaveBeenCalled();
+    });
+
+    describe('room-scoped poll', () => {
+      it('creates the poll when the target room is active', async () => {
+        roomFindFirst.mockResolvedValue({
+          id: 1,
+          status: 'active',
+          endsAt: null,
+        });
+
+        const caller = viewer();
+        await service.create(caller, createBody({ roomId: 1 }));
+
+        expect(roomFindFirst).toHaveBeenCalledWith({
+          where: {
+            AND: [readableRoomWhere(caller), { id: 1, deletedAt: null }],
+          },
+        });
+        expect(pollCreate).toHaveBeenCalled();
+      });
+
+      it('rejects the poll when the target room is closed', async () => {
+        roomFindFirst.mockResolvedValue({
+          id: 1,
+          status: 'closed',
+          endsAt: null,
+        });
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(ForbiddenError);
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
+
+      it('rejects the poll when the target room has passed its endsAt, flipping it closed', async () => {
+        roomFindFirst.mockResolvedValue({
+          id: 1,
+          status: 'active',
+          endsAt: new Date(Date.now() - 1_000),
+        });
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(ForbiddenError);
+        expect(roomUpdateMany).toHaveBeenCalledWith({
+          where: { id: { in: [1] }, status: 'active' },
+          data: { status: 'closed' },
+        });
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
+
+      it('404s when the target room does not exist', async () => {
+        roomFindFirst.mockResolvedValue(null);
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(NotFoundException);
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
     });
   });
 

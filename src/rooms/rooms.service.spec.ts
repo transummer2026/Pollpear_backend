@@ -42,6 +42,7 @@ const requesterViewer = { id: REQUESTER_ID, role: 'user' } as User;
 describe('RoomsService', () => {
   const roomCreate = jest.fn();
   const roomUpdate = jest.fn();
+  const roomUpdateMany = jest.fn();
   const roomFindFirst = jest.fn();
   const roomFindMany = jest.fn();
   const roomCount = jest.fn();
@@ -50,6 +51,7 @@ describe('RoomsService', () => {
     room: {
       create: roomCreate,
       update: roomUpdate,
+      updateMany: roomUpdateMany,
       findFirst: roomFindFirst,
       findMany: roomFindMany,
       count: roomCount,

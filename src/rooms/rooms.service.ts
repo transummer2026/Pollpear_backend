@@ -14,6 +14,7 @@ import {
   SEARCH_RESULTS_LIMIT,
   type SearchOptions,
 } from 'src/search/search-options';
+import { nextRoomStatus, syncRoomStatuses } from './room-status';
 
 type RoomSearchRow = { id: number; name: string };
 
@@ -113,10 +114,14 @@ export class RoomsService {
   }
 
   async update(id: number, viewer: User, body: RoomUpdateDTO) {
-    const room = await this.prisma.room.findFirst({
+    const found = await this.prisma.room.findFirst({
       where: { id, deletedAt: null },
     });
-    if (!room) throw new NotFoundException('Room not found');
+    if (!found) throw new NotFoundException('Room not found');
+
+    // Fold a lapsed `endsAt` into `status` before the check, so an ended
+    // room can no longer be edited (the `update` rule needs `status: 'active'`).
+    const [room] = await syncRoomStatuses(this.prisma, [found]);
 
     const ability = this.abilityFactory.createForUser(viewer);
     const guard = ForbiddenError.from(ability);
@@ -163,18 +168,12 @@ export class RoomsService {
 
   // Prisma helpers
 
-  /**
-   *
-   * @param userId
-   * @param body
-   * @returns
-   */
   async createRoom(userId: number, body: RoomCreateDTO) {
     return await this.prisma.room.create({
       data: {
         ...body,
         createdById: userId,
-        status: 'active',
+        status: nextRoomStatus({ endsAt: body.endsAt }),
         roomMembers: {
           create: {
             userId: userId,
@@ -222,10 +221,12 @@ export class RoomsService {
     ]);
     if (!room) throw new NotFoundException('Room not found');
 
+    const [synced] = await syncRoomStatuses(this.prisma, [room]);
+
     return RoomReadSchema.parse({
-      ...room,
+      ...synced,
       polls: this.pollsService.shapeManyPollsForUser(
-        room.polls,
+        synced.polls,
         votesMadeByUser,
       ),
     });
@@ -254,7 +255,8 @@ export class RoomsService {
       }),
     ]);
 
-    return rooms.map((room) =>
+    const syncedRooms = await syncRoomStatuses(this.prisma, rooms);
+    return syncedRooms.map((room) =>
       RoomReadSchema.parse({
         ...room,
         polls: this.pollsService.shapeManyPollsForUser(
@@ -285,7 +287,8 @@ export class RoomsService {
       }),
     ]);
 
-    return rooms.map((room) =>
+    const syncedRooms = await syncRoomStatuses(this.prisma, rooms);
+    return syncedRooms.map((room) =>
       RoomReadSchema.parse({
         ...room,
         polls: this.pollsService.shapeManyPollsForUser(
@@ -335,7 +338,8 @@ export class RoomsService {
       }),
     ]);
 
-    return rooms.map((room) =>
+    const syncedRooms = await syncRoomStatuses(this.prisma, rooms);
+    return syncedRooms.map((room) =>
       RoomReadSchema.parse({
         ...room,
         polls: this.pollsService.shapeManyPollsForUser(

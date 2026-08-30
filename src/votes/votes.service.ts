@@ -13,6 +13,7 @@ import {
   VoteUpdateDTO,
 } from 'Pollpear_shared/src/schemas/vote.schema';
 import { User, Vote } from 'src/generated/prisma/client';
+import { roomHasEnded } from 'src/rooms/room-status';
 
 @Injectable()
 export class VotesService {
@@ -202,6 +203,17 @@ export class VotesService {
       throw new ForbiddenException('Poll is not active.');
     if (poll.endsAt < new Date())
       throw new ForbiddenException('Poll is closed.');
+    if (
+      poll.room &&
+      poll.room.status === 'active' &&
+      roomHasEnded(poll.room.endsAt)
+    ) {
+      await this.prisma.room.update({
+        where: { id: poll.room.id },
+        data: { status: 'closed' },
+      });
+      poll.room.status = 'closed';
+    }
     if (poll.type !== body.type)
       throw new BadRequestException('Poll type does not match.');
     if (!body.optionsVoted) return poll;
