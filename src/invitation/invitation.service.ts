@@ -7,6 +7,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { NotificationService } from 'src/notification/notification.service';
+import { Prisma } from 'src/generated/prisma/client';
 import type { Invitation, User, Room } from 'src/generated/prisma/client';
 import {
   InvitationReadSchema,
@@ -161,12 +162,26 @@ export class InvitationService {
       );
     }
 
-    const outcome = await this.resolveInvitation(
-      viewer.id,
-      inviteeId,
-      roomId,
-      body,
-    );
+    let outcome: InvitationOutcome;
+    try {
+      outcome = await this.resolveInvitation(
+        viewer.id,
+        inviteeId,
+        roomId,
+        body,
+      );
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+      // Lost the race against a concurrent invite to the same (room, invitee):
+      // the other request already inserted the row, so re-read it instead of
+      // erroring out — this endpoint is meant to be idempotent.
+      outcome = await this.resolveInvitation(
+        viewer.id,
+        inviteeId,
+        roomId,
+        body,
+      );
+    }
 
     if (outcome.kind === 'created') {
       await this.notificationService.notifyRoomInvitation(
@@ -380,5 +395,12 @@ export class InvitationService {
     });
 
     return { invitation, kind: 'created' };
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }

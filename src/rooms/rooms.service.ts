@@ -6,10 +6,11 @@ import {
   RoomReadSchema,
   RoomUpdateDTO,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
+import { MESSAGE_PAGE_SIZE } from 'Pollpear_shared/src/schemas/messages.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { ForbiddenError, subject } from '@casl/ability';
 import { PollsService, getPollIncludeArgs } from 'src/polls/polls.service';
-import { accessibleBy } from 'src/casl/casl-prisma';
+import { accessibleBy, type AppAbility } from 'src/casl/casl-prisma';
 import {
   SEARCH_RESULTS_LIMIT,
   type SearchOptions,
@@ -158,6 +159,63 @@ export class RoomsService {
     return `remove message #${messageId} from room #${id} works`;
   }
 
+  /**
+   * Self-join only: the caller always joins as themselves. Room-level
+   * eligibility (public room, or an accepted invitation) is entirely
+   * expressed by the CASL `join` rule, so `accessibleBy` is the check —
+   * no extra instance-level guard needed once the row comes back.
+   */
+  async addParticipant(viewer: User, roomId: number) {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const room = await this.prisma.room.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, 'join').ofType('Room'),
+          { id: roomId, deletedAt: null },
+        ],
+      },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+
+    return await this.prisma.roomMember.upsert({
+      where: { roomId_userId: { roomId, userId: viewer.id } },
+      create: { roomId, userId: viewer.id, joinedAt: new Date() },
+      update: { deletedAt: null, joinedAt: new Date() },
+    });
+  }
+
+  /**
+   * Removing yourself is `leave`; removing someone else is `kick`
+   * (creator, or a moderator's blanket rule). `RoomMember` isn't a CASL
+   * subject, so the permission check runs against the Room via
+   * `accessibleBy`, then the target's membership row is looked up in
+   * plain Prisma.
+   */
+  async removeParticipant(viewer: User, roomId: number, targetUserId: number) {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const action = targetUserId === viewer.id ? 'leave' : 'kick';
+
+    const room = await this.prisma.room.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, action).ofType('Room'),
+          { id: roomId, deletedAt: null },
+        ],
+      },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const member = await this.prisma.roomMember.findFirst({
+      where: { roomId, userId: targetUserId, deletedAt: null },
+    });
+    if (!member) throw new NotFoundException('Participant not found');
+
+    return await this.prisma.roomMember.update({
+      where: { id: member.id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   // Prisma helpers
 
   async createRoom(userId: number, body: RoomCreateDTO) {
@@ -202,7 +260,7 @@ export class RoomsService {
             { id: roomId, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id),
+        include: getRoomIncludeArgs(viewer.id, ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -237,7 +295,7 @@ export class RoomsService {
             },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id),
+        include: getRoomIncludeArgs(viewer.id, ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -269,7 +327,7 @@ export class RoomsService {
             { createdById: targetId, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id),
+        include: getRoomIncludeArgs(viewer.id, ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -320,7 +378,7 @@ export class RoomsService {
             },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id),
+        include: getRoomIncludeArgs(viewer.id, ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -350,7 +408,7 @@ export class RoomsService {
  * `findOneRoom` and `findMeManyRooms` fetch this identically instead of
  * each hand-rolling their own `include`.
  */
-export function getRoomIncludeArgs(userId: number) {
+export function getRoomIncludeArgs(userId: number, ability: AppAbility) {
   return {
     roomMembers: {
       where: {
@@ -364,11 +422,19 @@ export function getRoomIncludeArgs(userId: number) {
       },
       include: getPollIncludeArgs(),
     },
+    messages: {
+      where: accessibleBy(ability, 'read').ofType('Message'),
+      include: { author: true },
+      orderBy: { id: 'asc' },
+      take: -MESSAGE_PAGE_SIZE,
+    },
     createdBy: true,
     invitations: {
       where: {
-        deletedAt: null,
-        status: 'pending',
+        AND: [
+          accessibleBy(ability, 'read').ofType('Invitation'),
+          { status: 'pending' },
+        ],
       },
       include: {
         invitee: true,
