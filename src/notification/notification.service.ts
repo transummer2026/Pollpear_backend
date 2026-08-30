@@ -64,7 +64,7 @@ export class NotificationService {
     recipientId: number,
     actorId: number,
   ): Promise<void> {
-    await this.notifyFriendEvent(
+    await this.notifyEvent(
       recipientId,
       actorId,
       'friend_request',
@@ -76,7 +76,7 @@ export class NotificationService {
     recipientId: number,
     actorId: number,
   ): Promise<void> {
-    await this.notifyFriendEvent(
+    await this.notifyEvent(
       recipientId,
       actorId,
       'friend_accepted',
@@ -84,29 +84,75 @@ export class NotificationService {
     );
   }
 
+  async notifyRoomInvitation(
+    recipientId: number,
+    actorId: number,
+    roomName: string,
+  ): Promise<void> {
+    await this.notifyEvent(
+      recipientId,
+      actorId,
+      'room_invitation',
+      (username) => `${username} invited you to join ${roomName}.`,
+    );
+  }
+
+  async notifyRoomInvitationAccepted(
+    recipientId: number,
+    actorId: number,
+    roomName: string,
+  ): Promise<void> {
+    await this.notifyEvent(
+      recipientId,
+      actorId,
+      'room_invitation_accepted',
+      (username) => `${username} accepted your invitation to join ${roomName}.`,
+    );
+  }
+
   async clearFriendRequest(
     addresseeId: number,
     requesterId: number,
   ): Promise<void> {
-    await this.clearFriendNotification(
-      addresseeId,
-      requesterId,
-      'friend_request',
-    );
+    await this.clearNotification(addresseeId, requesterId, 'friend_request');
   }
 
   async clearFriendNotifications(
     recipientId: number,
     actorId: number,
   ): Promise<void> {
-    await this.clearFriendNotification(recipientId, actorId, 'friend_request');
-    await this.clearFriendNotification(recipientId, actorId, 'friend_accepted');
+    await this.clearNotification(recipientId, actorId, 'friend_request');
+    await this.clearNotification(recipientId, actorId, 'friend_accepted');
   }
 
-  private async notifyFriendEvent(
+  async clearRoomInvitation(
     recipientId: number,
     actorId: number,
-    type: 'friend_request' | 'friend_accepted',
+  ): Promise<void> {
+    await this.clearNotification(recipientId, actorId, 'room_invitation');
+  }
+
+  /**
+   * Clears every notification tied to an invitation between two users,
+   * in both directions: the "you're invited" notice sent to the invitee
+   * and the "your invite was accepted" notice sent to the inviter.
+   */
+  async clearRoomNotifications(
+    inviteeId: number,
+    inviterId: number,
+  ): Promise<void> {
+    await this.clearNotification(inviteeId, inviterId, 'room_invitation');
+    await this.clearNotification(
+      inviterId,
+      inviteeId,
+      'room_invitation_accepted',
+    );
+  }
+
+  private async notifyEvent(
+    recipientId: number,
+    actorId: number,
+    type: NotificationTypeDTO,
     message: (username: string) => string,
   ): Promise<void> {
     try {
@@ -125,10 +171,10 @@ export class NotificationService {
     }
   }
 
-  private async clearFriendNotification(
+  private async clearNotification(
     recipientId: number,
     actorId: number,
-    type: 'friend_request' | 'friend_accepted',
+    type: NotificationTypeDTO,
   ): Promise<void> {
     try {
       const { count } = await this.prisma.notification.deleteMany({

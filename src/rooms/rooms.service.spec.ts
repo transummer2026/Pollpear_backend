@@ -70,11 +70,14 @@ describe('RoomsService', () => {
   // by hand here (which drifts the moment the policy changes), tests derive
   // the expected `where` clause the same way the service does: by running
   // the real ability through `accessibleBy`.
-  function readAccessibleWhere(u: ReturnType<typeof user>) {
-    const ability = abilityFactory.createForUser(
+  function abilityFor(u: ReturnType<typeof user>) {
+    return abilityFactory.createForUser(
       u as unknown as { id: number; role: 'user' | 'moderator' | 'admin' },
     );
-    return accessibleBy(ability, 'read').ofType('Room');
+  }
+
+  function readAccessibleWhere(u: ReturnType<typeof user>) {
+    return accessibleBy(abilityFor(u), 'read').ofType('Room');
   }
 
   // findOneRoom runs the fetched room through RoomReadSchema.parse, which
@@ -232,7 +235,7 @@ describe('RoomsService', () => {
             { id: 7, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(42),
+        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
       });
     });
 
@@ -269,7 +272,7 @@ describe('RoomsService', () => {
             { createdById: 42, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(42),
+        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
       });
     });
 
@@ -310,7 +313,7 @@ describe('RoomsService', () => {
             },
           ],
         },
-        include: getRoomIncludeArgs(42),
+        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
       });
     });
 
@@ -339,7 +342,7 @@ describe('RoomsService', () => {
             { createdById: 99, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(42),
+        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
       });
     });
 

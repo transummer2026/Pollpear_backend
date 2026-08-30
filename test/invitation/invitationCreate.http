@@ -1,0 +1,124 @@
+### create a public room to invite into (run first, then replace :id below with the returned id) -> 201
+### owner (user 1) is auto-added as the room's first member
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "invitations public room",
+	"visibility": "public"
+}
+
+### owner (member) invites user 6, who isn't a member yet -> 201
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"message": "come join our room!"
+}
+
+### same invite sent again while still pending -> 201, idempotent (no duplicate row, no duplicate notification)
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"message": "come join our room! (again)"
+}
+
+### inviting an existing room member -> 400 Bad Request (user 1 is already a member, being the creator)
+POST http://localhost:3000/rooms/:id/invitations/1 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### non-member (user 3) tries to invite into a public room they haven't joined -> 403 Forbidden
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{}
+
+### create a private room to invite into (run first, then replace :id2 below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "invitations private room",
+	"visibility": "private"
+}
+
+### owner of the private room invites user 6 -> 201
+POST http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### non-creator (user 6) tries to invite into someone else's private room -> 403 Forbidden
+### (private rooms only let the creator invite, membership doesn't matter)
+POST http://localhost:3000/rooms/:id2/invitations/3 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{}
+
+### room that doesn't exist -> 404 Not Found
+POST http://localhost:3000/rooms/999999/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### missing x-user-id header -> 401 Unauthorized
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+
+{}
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 999999
+
+{}
+
+### non-integer room id -> 400 Bad Request (ParseIntPipe)
+POST http://localhost:3000/rooms/abc/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### non-integer invitee id -> 400 Bad Request (ParseIntPipe)
+POST http://localhost:3000/rooms/:id/invitations/abc HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### message over 255 characters -> 400 Bad Request (zod max(255))
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"message": "lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor"
+}
+
+### extra/unknown fields are stripped, not persisted -> 201, roomId/inviterId/inviteeId always come
+### from the route params and the authenticated viewer, never from the body
+### (InvitationCreateSchema only accepts `message` -- see Pollpear_shared/src/schemas/invitations.schema.ts)
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"message": "still just a message",
+	"roomId": 999999,
+	"inviterId": 999999,
+	"inviteeId": 999999
+}
