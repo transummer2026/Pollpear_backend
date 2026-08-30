@@ -523,4 +523,76 @@ describe('PollsService', () => {
       );
     });
   });
+
+  describe('findMeVotedPolls', () => {
+    it('returns the voted polls in most-recent-vote-first order', async () => {
+      voteFindMany.mockResolvedValue([
+        makeVote({ pollId: 3 }),
+        makeVote({ pollId: 1 }),
+        makeVote({ pollId: 2 }),
+      ]);
+      pollFindMany.mockResolvedValue([
+        makePoll({ id: 1 }),
+        makePoll({ id: 2 }),
+        makePoll({ id: 3 }),
+      ]);
+
+      const polls = (await service.findMeVotedPolls(viewer())) as Array<{
+        id: number;
+        hasVoted: boolean;
+      }>;
+
+      expect(polls.map((poll) => poll.id)).toEqual([3, 1, 2]);
+      expect(polls.every((poll) => poll.hasVoted)).toBe(true);
+    });
+
+    it('orders the vote lookup by createdAt desc and scopes to live votes', async () => {
+      voteFindMany.mockResolvedValue([]);
+
+      await service.findMeVotedPolls(viewer());
+
+      expect(voteFindMany).toHaveBeenCalledWith({
+        where: { createdById: 42, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+      });
+    });
+
+    it('never hits the poll table when the viewer has no vote', async () => {
+      voteFindMany.mockResolvedValue([]);
+
+      await expect(service.findMeVotedPolls(viewer())).resolves.toEqual([]);
+      expect(pollFindMany).not.toHaveBeenCalled();
+    });
+
+    it('drops a voted poll the read policy no longer returns', async () => {
+      voteFindMany.mockResolvedValue([
+        makeVote({ pollId: 1 }),
+        makeVote({ pollId: 2 }),
+      ]);
+      pollFindMany.mockResolvedValue([makePoll({ id: 2 })]);
+
+      const polls = (await service.findMeVotedPolls(viewer())) as Array<{
+        id: number;
+      }>;
+
+      expect(polls.map((poll) => poll.id)).toEqual([2]);
+    });
+
+    it('scopes the poll read to the Poll policy, the voted ids and live rows', async () => {
+      voteFindMany.mockResolvedValue([makeVote({ pollId: 5 })]);
+      pollFindMany.mockResolvedValue([makePoll({ id: 5 })]);
+
+      await service.findMeVotedPolls(viewer());
+
+      expect(pollFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: expect.arrayContaining([
+              { id: { in: [5] }, deletedAt: null },
+            ]) as unknown,
+          },
+        }),
+      );
+    });
+  });
 });

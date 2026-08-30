@@ -61,7 +61,12 @@ export class PollsController {
   findManyPolls(
     @CurrentUser() viewer: User,
     @Query('userId') targetUserId?: string,
+    @Query('voted') voted?: string,
   ) {
+    if (voted === 'true') {
+      this.logger.debug('voted filter is captured in the url');
+      return this.pollsService.findMeVotedPolls(viewer);
+    }
     if (targetUserId) {
       this.logger.debug('targetId is captured in the url');
       return this.pollsService.findUsersManyPolls(viewer, +targetUserId);

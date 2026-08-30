@@ -47,6 +47,7 @@ export interface AppConfig {
   frontend_url: string;
   gateway_url: string;
   backend_port: string;
+  ai_url: string;
 }
 
 export interface WsConfig {

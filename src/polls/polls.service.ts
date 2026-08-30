@@ -314,6 +314,48 @@ export class PollsService {
   }
 
   /**
+   * Every poll the viewer has an active vote on, most recently voted first.
+   * Unlike {@link findMeManyPolls} this is not scoped to polls they own and
+   * it keeps closed ones on purpose: the tab exists to find a poll back by
+   * the fact that you voted on it, and read its result.
+   *
+   * The votes are fetched once and reused — for the `{ id: { in } }` filter,
+   * for the order, and as the `hasVoted` list the shaper needs.
+   *
+   * @param viewer - the account whose votes drive the list
+   * @returns polls parsed against `PollReadSchema`, newest vote first
+   */
+  async findMeVotedPolls(viewer: User) {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const votes = await this.prisma.vote.findMany({
+      where: { createdById: viewer.id, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const orderedPollIds = votes.map((vote) => vote.pollId);
+    if (orderedPollIds.length === 0) {
+      return [];
+    }
+
+    const polls = await this.prisma.poll.findMany({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('Poll'),
+          { id: { in: orderedPollIds }, deletedAt: null },
+        ],
+      },
+      include: getPollIncludeArgs(),
+    });
+
+    const shaped = this.shapeManyPollsForUser(polls, votes);
+    const byId = new Map(shaped.map((poll) => [poll.id, poll]));
+
+    return orderedPollIds
+      .map((id) => byId.get(id))
+      .filter((poll): poll is (typeof shaped)[number] => poll !== undefined);
+  }
+
+  /**
    * Bulk version of {@link shapePollForUser}: matches each poll to whether
    * `votesMadeByUser` contains a vote for it, then shapes it. Shared by
    * {@link findMeManyPolls}, {@link findUsersManyPolls}, and `RoomsService`
