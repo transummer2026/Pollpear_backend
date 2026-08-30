@@ -136,13 +136,13 @@ describe('Casting a vote, against postgres', () => {
 
     await service.castVote(
       slider.id,
-      { type: 'slider', optionIds: [optionId], freeField: '5' },
+      { type: 'slider', optionIds: [optionId], freeField: 5 },
       voter,
     );
 
     const changed = await service.changeVote(
       slider.id,
-      { type: 'slider', freeField: '9' },
+      { type: 'slider', freeField: 9 },
       voter,
     );
 

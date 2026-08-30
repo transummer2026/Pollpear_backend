@@ -51,7 +51,7 @@ export class ApiPollVoteController {
   @ApiOperation({
     summary: 'Vote in a poll',
     description:
-      'The ballot names the poll type it answers, and is refused when it does not match. Options must belong to the poll: exactly one for a single choice or a slider, at least one for a multiple choice. A slider vote carries its value in freeField. The first vote on a pending poll publishes it.',
+      'The ballot names the poll type it answers, and is refused when it does not match. Options must belong to the poll: exactly one for a single choice or a slider, at least one for a multiple choice. A slider vote carries its value in freeField. The first vote on a pending poll publishes it. The ballot is the API contract, not the one the web app posts: a choice vote carries optionIds, and a slider carries freeField as a number.',
   })
   @ApiBody({ schema: toOpenApi(ApiVoteCastSchema) })
   @ApiCreatedResponse({ schema: toOpenApi(ApiVoteSchema) })

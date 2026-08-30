@@ -12,6 +12,8 @@ import { accessibleBy } from 'src/casl/casl-prisma';
 import type { Prisma, User, Vote } from 'src/generated/prisma/client';
 import { type AssertColumns } from '../../common/select';
 import { PollStatus } from 'src/generated/prisma/enums';
+import { syncRoomStatuses } from 'src/rooms/room-status';
+import { syncPollStatuses } from 'src/polls/poll-status';
 import { viewerOf, type Viewer } from '../../common/viewer';
 import { ApiPollOfferedTypeSchema } from '../../common/schemas/api-polls.schema';
 import {
@@ -49,6 +51,7 @@ export const pollForBallot = (viewerId: number) =>
       select: {
         id: true,
         status: true,
+        endsAt: true,
         roomMembers: {
           where: { userId: viewerId, deletedAt: null },
           select: { userId: true, deletedAt: true },
@@ -85,27 +88,30 @@ export class ApiPollVoteService {
     const viewer = this.viewer(caller);
     const poll = await this.votablePoll(pollId, viewer);
 
-    this.assertMayVote(poll, viewer);
     await this.assertBallotFits(poll, ballot);
     await this.assertNotAlreadyVoted(pollId, viewer);
 
-    const vote = await this.prisma.vote.upsert({
-      where: { createdById_pollId: { createdById: viewer.id, pollId } },
-      create: {
-        createdById: viewer.id,
-        pollId,
-        freeField: ballotValue(ballot),
-        voteOptions: { create: chosenOptions(ballot) },
-      },
-      update: {
-        deletedAt: null,
-        freeField: ballotValue(ballot),
-        voteOptions: { deleteMany: {}, create: chosenOptions(ballot) },
-      },
-      select: VOTE_SELECT,
-    });
+    const vote = await this.prisma.$transaction(async (tx) => {
+      const stored = await tx.vote.upsert({
+        where: { createdById_pollId: { createdById: viewer.id, pollId } },
+        create: {
+          createdById: viewer.id,
+          pollId,
+          freeField: ballotValue(ballot),
+          voteOptions: { create: chosenOptions(ballot) },
+        },
+        update: {
+          deletedAt: null,
+          freeField: ballotValue(ballot),
+          voteOptions: { deleteMany: {}, create: chosenOptions(ballot) },
+        },
+        select: VOTE_SELECT,
+      });
 
-    await this.publishOnFirstVote(poll);
+      await this.publishOnFirstVote(tx, poll);
+
+      return stored;
+    });
 
     return presentVote(vote);
   }
@@ -156,7 +162,7 @@ export class ApiPollVoteService {
   ): Promise<PollForBallot> {
     const poll = await this.readablePoll(pollId, viewer);
 
-    if (poll.status === PollStatus.closed || poll.endsAt <= new Date()) {
+    if (poll.status === PollStatus.closed) {
       throw new ConflictException('This poll no longer takes votes');
     }
 
@@ -169,7 +175,7 @@ export class ApiPollVoteService {
   ): Promise<PollForBallot> {
     const poll = await this.readablePoll(pollId, viewer);
 
-    if (poll.status !== PollStatus.active || poll.endsAt <= new Date()) {
+    if (poll.status !== PollStatus.active) {
       throw new ConflictException('Only a running poll takes vote changes');
     }
 
@@ -194,7 +200,13 @@ export class ApiPollVoteService {
       throw new NotFoundException('Poll not found');
     }
 
-    return poll;
+    if (poll.room) {
+      [poll.room] = await syncRoomStatuses(this.prisma, [poll.room]);
+    }
+
+    const [synced] = await syncPollStatuses(this.prisma, [poll]);
+
+    return synced;
   }
 
   private async myLiveVote(pollId: number, viewer: Viewer) {
@@ -218,14 +230,6 @@ export class ApiPollVoteService {
   private assertChangesAllowed(poll: PollForBallot): void {
     if (!poll.allowChangeVote) {
       throw new ConflictException('This poll does not allow changing a vote');
-    }
-  }
-
-  private assertMayVote(poll: PollForBallot, viewer: Viewer): void {
-    const ballot = subject('Vote', { poll } as unknown as Vote);
-
-    if (viewer.ability.cannot('create', ballot)) {
-      throw new ForbiddenException('Not allowed to vote in this poll');
     }
   }
 
@@ -282,12 +286,15 @@ export class ApiPollVoteService {
     }
   }
 
-  private async publishOnFirstVote(poll: PollForBallot): Promise<void> {
+  private async publishOnFirstVote(
+    tx: Prisma.TransactionClient,
+    poll: PollForBallot,
+  ): Promise<void> {
     if (poll.status !== PollStatus.pending) {
       return;
     }
 
-    await this.prisma.poll.update({
+    await tx.poll.update({
       where: { id: poll.id },
       data: { status: PollStatus.active, publishedAt: new Date() },
     });
@@ -295,7 +302,7 @@ export class ApiPollVoteService {
 }
 
 function ballotValue(ballot: ApiVoteCastDTO): string | null {
-  return ballot.type === 'slider' ? ballot.freeField : null;
+  return ballot.type === 'slider' ? String(ballot.freeField) : null;
 }
 
 function chosenOptions(ballot: ApiVoteCastDTO): { optionId: number }[] {
@@ -305,7 +312,7 @@ function chosenOptions(ballot: ApiVoteCastDTO): { optionId: number }[] {
 function changedFields(ballot: ApiVoteChangeDTO) {
   const value =
     ballot.type === 'slider' && ballot.freeField !== undefined
-      ? { freeField: ballot.freeField }
+      ? { freeField: String(ballot.freeField) }
       : {};
   const options = ballot.optionIds
     ? {

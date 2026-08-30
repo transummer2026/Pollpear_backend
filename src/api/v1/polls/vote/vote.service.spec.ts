@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiPollVoteService } from './vote.service';
@@ -53,6 +52,36 @@ describe('ApiPollVoteService', () => {
   >();
   const voteUpdate = jest.fn<Promise<unknown>, [{ data: object }]>();
   const optionCount = jest.fn<Promise<number>, [{ where: object }]>();
+  const pollUpdateMany = jest.fn<
+    Promise<{ count: number }>,
+    [{ where: object; data: object }]
+  >();
+  const roomUpdateMany = jest.fn<
+    Promise<{ count: number }>,
+    [{ where: object; data: object }]
+  >();
+  const transaction = jest.fn((run: (tx: unknown) => unknown) => run(client));
+
+  /**
+   * `$transaction` dans sa forme interactive : il rend au callback le meme
+   * client, si bien qu'une ecriture faite dans la transaction se retrouve sur
+   * les memes mocks que celles faites en dehors.
+   */
+  const client: Record<string, unknown> = {
+    poll: {
+      findFirst: pollFindFirst,
+      update: pollUpdate,
+      updateMany: pollUpdateMany,
+    },
+    vote: {
+      findFirst: voteFindFirst,
+      upsert: voteUpsert,
+      update: voteUpdate,
+    },
+    option: { count: optionCount },
+    room: { updateMany: roomUpdateMany },
+    $transaction: (run: (tx: unknown) => unknown) => transaction(run),
+  };
 
   beforeEach(async () => {
     [
@@ -62,7 +91,11 @@ describe('ApiPollVoteService', () => {
       voteUpsert,
       voteUpdate,
       optionCount,
+      roomUpdateMany,
+      transaction,
     ].forEach((fn) => fn.mockReset());
+    transaction.mockImplementation((run) => run(client));
+    roomUpdateMany.mockResolvedValue({ count: 0 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -70,15 +103,7 @@ describe('ApiPollVoteService', () => {
         CaslAbilityFactory,
         {
           provide: PrismaService,
-          useValue: {
-            poll: { findFirst: pollFindFirst, update: pollUpdate },
-            vote: {
-              findFirst: voteFindFirst,
-              upsert: voteUpsert,
-              update: voteUpdate,
-            },
-            option: { count: optionCount },
-          },
+          useValue: client,
         },
       ],
     }).compile();
@@ -146,7 +171,7 @@ describe('ApiPollVoteService', () => {
       );
     });
 
-    it('403s a poll the policy does not open to voting', async () => {
+    it('409s a poll whose room no longer takes votes', async () => {
       pollIs({
         ...openPoll,
         roomId: 3,
@@ -154,7 +179,7 @@ describe('ApiPollVoteService', () => {
       });
 
       await expect(service.castVote(42, ballot, voter)).rejects.toThrow(
-        ForbiddenException,
+        ConflictException,
       );
       expect(voteUpsert).not.toHaveBeenCalled();
     });
@@ -289,7 +314,7 @@ describe('ApiPollVoteService', () => {
       voteFindFirst.mockResolvedValue(storedVote);
       voteUpdate.mockResolvedValue(storedVote);
 
-      await service.changeVote(42, { type: 'slider', freeField: '8' }, voter);
+      await service.changeVote(42, { type: 'slider', freeField: 8 }, voter);
 
       const { data } = voteUpdate.mock.calls[0][0];
       expect(data).toEqual({ freeField: '8' });
@@ -377,6 +402,70 @@ describe('ApiPollVoteService', () => {
       });
       const where = voteFindFirst.mock.calls[0][0].where as { AND: unknown[] };
       expect(where.AND[1]).toMatchObject({ createdById: 7, deletedAt: null });
+    });
+  });
+  describe('une room qui ne prend plus de votes', () => {
+    const membership = [{ userId: 7, deletedAt: null }];
+    const inAClosedRoom = {
+      ...openPoll,
+      roomId: 3,
+      room: { id: 3, status: 'closed', endsAt: null, roomMembers: membership },
+    };
+
+    it('409s a change of vote once the room is closed', async () => {
+      pollIs(inAClosedRoom);
+
+      await expect(service.changeVote(42, ballot, voter)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(voteUpdate).not.toHaveBeenCalled();
+    });
+
+    it('409s a withdrawal once the room is closed', async () => {
+      pollIs(inAClosedRoom);
+
+      await expect(service.withdrawVote(42, voter)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(voteUpdate).not.toHaveBeenCalled();
+    });
+
+    it('closes a lapsed room before deciding, then refuses the change', async () => {
+      pollIs({
+        ...inAClosedRoom,
+        room: {
+          id: 3,
+          status: 'active',
+          endsAt: new Date('2020-01-01'),
+          roomMembers: membership,
+        },
+      });
+      roomUpdateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.changeVote(42, ballot, voter)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(roomUpdateMany.mock.calls[0][0]).toEqual({
+        where: { id: { in: [3] }, status: 'active' },
+        data: { status: 'closed' },
+      });
+      expect(voteUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('l ecriture du bulletin', () => {
+    it('casts and publishes inside one transaction', async () => {
+      pollIs({ ...openPoll, status: 'pending' });
+      noVoteYet();
+      everyOptionBelongs();
+      voteUpsert.mockResolvedValue(storedVote);
+
+      await service.castVote(42, ballot, voter);
+
+      expect(transaction).toHaveBeenCalledTimes(1);
+      const opened = transaction.mock.invocationCallOrder[0];
+      expect(voteUpsert.mock.invocationCallOrder[0]).toBeGreaterThan(opened);
+      expect(pollUpdate.mock.invocationCallOrder[0]).toBeGreaterThan(opened);
     });
   });
 });

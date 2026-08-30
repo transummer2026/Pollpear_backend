@@ -56,6 +56,19 @@ describe('ApiPollVoteController (e2e)', () => {
 
   const ballot = { type: 'single_choice', optionIds: [1] };
 
+  const roomUpdateMany = jest.fn(() => Promise.resolve({ count: 0 }));
+  const client: Record<string, unknown> = {
+    poll: { findFirst: pollFindFirst, update: pollUpdate },
+    vote: {
+      findFirst: voteFindFirst,
+      upsert: voteUpsert,
+      update: voteUpdate,
+    },
+    option: { count: optionCount },
+    room: { updateMany: roomUpdateMany },
+    $transaction: (run: (tx: unknown) => unknown) => run(client),
+  };
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [ApiPollVoteController],
@@ -68,15 +81,7 @@ describe('ApiPollVoteController (e2e)', () => {
         { provide: UsersService, useValue: { findByUserId } },
         {
           provide: PrismaService,
-          useValue: {
-            poll: { findFirst: pollFindFirst, update: pollUpdate },
-            vote: {
-              findFirst: voteFindFirst,
-              upsert: voteUpsert,
-              update: voteUpdate,
-            },
-            option: { count: optionCount },
-          },
+          useValue: client,
         },
       ],
     }).compile();
@@ -155,7 +160,7 @@ describe('ApiPollVoteController (e2e)', () => {
     return post().set(asUser(7)).send(ballot).expect(404);
   });
 
-  it('403s a poll filed in a room that is no longer active', () => {
+  it('409s a poll filed in a room that is no longer active', () => {
     pollFindFirst.mockResolvedValue({
       ...openPoll,
       roomId: 3,
@@ -165,7 +170,7 @@ describe('ApiPollVoteController (e2e)', () => {
     return post()
       .set(asUser(7))
       .send(ballot)
-      .expect(403)
+      .expect(409)
       .expect(() => {
         expect(voteUpsert).not.toHaveBeenCalled();
       });

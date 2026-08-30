@@ -32,7 +32,7 @@ export const ApiVoteCastSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('slider'),
     optionIds: z.array(optionId()).length(1),
-    freeField: z.string().min(1).max(MAX_FREE_FIELD),
+    freeField: z.number(),
   }),
 ]);
 
@@ -49,7 +49,7 @@ export const ApiVoteChangeSchema = z
     z.strictObject({
       type: z.literal('slider'),
       optionIds: z.array(optionId()).length(1).optional(),
-      freeField: z.string().min(1).max(MAX_FREE_FIELD).optional(),
+      freeField: z.number().optional(),
     }),
   ])
   .refine((ballot) => Object.keys(ballot).length > 1, {

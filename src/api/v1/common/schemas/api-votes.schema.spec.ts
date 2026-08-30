@@ -1,10 +1,5 @@
 import { ApiPollOfferedTypeSchema } from './api-polls.schema';
-import {
-  ApiVoteCastSchema,
-  ApiVoteChangeSchema,
-  MAX_FREE_FIELD,
-} from './api-votes.schema';
-import { declaredLength } from './prisma-column.mock';
+import { ApiVoteCastSchema, ApiVoteChangeSchema } from './api-votes.schema';
 
 describe('ApiVoteCastSchema', () => {
   const ballotTypes = ApiVoteCastSchema.options.map(
@@ -34,7 +29,7 @@ describe('ApiVoteCastSchema', () => {
       ApiVoteCastSchema.safeParse({
         type: 'slider',
         optionIds: [1],
-        freeField: '7',
+        freeField: 7,
       }).success,
     ).toBe(true);
   });
@@ -43,7 +38,7 @@ describe('ApiVoteCastSchema', () => {
     const parsed = ApiVoteCastSchema.safeParse({
       type: 'single_choice',
       optionIds: [1],
-      freeField: '7',
+      freeField: 7,
     });
 
     expect(parsed.success).toBe(false);
@@ -53,7 +48,7 @@ describe('ApiVoteCastSchema', () => {
 describe('ApiVoteChangeSchema', () => {
   it('takes a ballot that only carries the slider value', () => {
     expect(
-      ApiVoteChangeSchema.safeParse({ type: 'slider', freeField: '8' }).success,
+      ApiVoteChangeSchema.safeParse({ type: 'slider', freeField: 8 }).success,
     ).toBe(true);
   });
 
@@ -83,19 +78,26 @@ describe('ApiVoteChangeSchema', () => {
 });
 
 describe('The slider value', () => {
-  it('is bounded by the column that stores it, not by an option label', () => {
-    expect(declaredLength('Vote', 'freeField')).toBe(MAX_FREE_FIELD);
+  const cast = (freeField: unknown) =>
+    ApiVoteCastSchema.safeParse({ type: 'slider', optionIds: [1], freeField })
+      .success;
+
+  it('takes a number, whole or fractional', () => {
+    expect(cast(7)).toBe(true);
+    expect(cast(3.5)).toBe(true);
+    expect(cast(0)).toBe(true);
   });
 
-  it('takes the longest value the column holds, and refuses one more', () => {
-    const at = (length: number) =>
-      ApiVoteCastSchema.safeParse({
-        type: 'slider',
-        optionIds: [1],
-        freeField: 'x'.repeat(length),
-      }).success;
+  it('refuses anything a slider could not have produced', () => {
+    expect(cast('banane')).toBe(false);
+    expect(cast('7')).toBe(false);
+    expect(cast(null)).toBe(false);
+    expect(cast('')).toBe(false);
+    expect(cast(true)).toBe(false);
+  });
 
-    expect(at(MAX_FREE_FIELD)).toBe(true);
-    expect(at(MAX_FREE_FIELD + 1)).toBe(false);
+  it('refuses a value no arithmetic survives', () => {
+    expect(cast(Number.NaN)).toBe(false);
+    expect(cast(Number.POSITIVE_INFINITY)).toBe(false);
   });
 });
