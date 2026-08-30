@@ -3,8 +3,8 @@ import {
   RoomUpdateDTO,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import { Logger } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import type { User } from 'src/generated/prisma/client';
+import { MessagesService } from 'src/messages/messages.service';
 import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
 
@@ -12,6 +12,7 @@ const viewer = { id: 42, role: 'user' } as User;
 
 describe('RoomsController', () => {
   let controller: RoomsController;
+  let messages: jest.Mocked<Pick<MessagesService, 'listForRoom'>>;
   let service: jest.Mocked<
     Pick<
       RoomsService,
@@ -21,8 +22,6 @@ describe('RoomsController', () => {
       | 'remove'
       | 'addParticipant'
       | 'removeParticipant'
-      | 'getMessages'
-      | 'createMessage'
       | 'removeMessage'
     >
   >;
@@ -35,13 +34,12 @@ describe('RoomsController', () => {
       remove: jest.fn(),
       addParticipant: jest.fn(),
       removeParticipant: jest.fn(),
-      getMessages: jest.fn(),
-      createMessage: jest.fn(),
       removeMessage: jest.fn(),
     };
+    messages = { listForRoom: jest.fn() };
     controller = new RoomsController(
       service as unknown as RoomsService,
-      {} as PrismaService,
+      messages as unknown as MessagesService,
       {} as Logger,
     );
   });
@@ -93,16 +91,12 @@ describe('RoomsController', () => {
     expect(service.removeParticipant).toHaveBeenCalledWith(7, 42);
   });
 
-  it('GET :id/messages delegates to roomsService.getMessages with (id)', () => {
-    controller.getMessages(7);
+  it('GET :id/messages delegates to messagesService.listForRoom with (id, viewer, query)', async () => {
+    const query = { limit: 50 };
 
-    expect(service.getMessages).toHaveBeenCalledWith(7);
-  });
+    await controller.getMessages(7, viewer, query);
 
-  it('POST :id/messages delegates to roomsService.createMessage with (id)', () => {
-    controller.createMessage(7);
-
-    expect(service.createMessage).toHaveBeenCalledWith(7);
+    expect(messages.listForRoom).toHaveBeenCalledWith(7, viewer, query);
   });
 
   it('DELETE :id/messages/:messageId delegates to roomsService.removeMessage with (id, messageId)', () => {

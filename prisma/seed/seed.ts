@@ -49,6 +49,30 @@ const API_ACCOUNTS: { username: string; role: UserRole }[] = [
 ];
 const JOJO_PENDING_REQUESTS = 30;
 
+type CrewName = 'jojo' | 'hygie' | 'pieric' | 'raph';
+
+const CREW_ROOM_PLAN: { members: CrewName[]; visibility: Visibility }[] = [
+  {
+    members: ['jojo', 'hygie', 'pieric', 'raph'],
+    visibility: Visibility.public,
+  },
+  { members: ['jojo', 'hygie'], visibility: Visibility.private },
+  { members: ['raph', 'pieric'], visibility: Visibility.private },
+  { members: ['jojo', 'raph', 'pieric'], visibility: Visibility.public },
+  { members: ['hygie', 'pieric'], visibility: Visibility.private },
+  { members: ['jojo', 'raph'], visibility: Visibility.public },
+];
+
+const BUSY_ROOM_MESSAGES = 120;
+const ROOM_MESSAGES_MIN = 6;
+const ROOM_MESSAGES_MAX = 30;
+const CHATTY_ROOM_COUNT = 6;
+const DELETED_MESSAGE_DEMO = 3;
+const VERIFIED_PROBABILITY = 0.85;
+const COMPANY_PROBABILITY = 0.6;
+const BIO_PROBABILITY = 0.7;
+const PRIVATE_PROFILE_PROBABILITY = 0.2;
+
 const HASHTAG_NAMES = [
   'tech',
   'ai',
@@ -116,18 +140,73 @@ function hashPassword(plain: string, pepper: string): Promise<string> {
   });
 }
 
+function buildProfile() {
+  const country = faker.location.country();
+  const lastSeenAt = faker.helpers.maybe(
+    () => faker.date.recent({ days: 30 }),
+    { probability: 0.8 },
+  );
+
+  return {
+    name: faker.person.firstName(),
+    surname: faker.person.lastName(),
+    nationality: country,
+    country,
+    city: faker.location.city(),
+    state: faker.location.state(),
+    company:
+      faker.helpers.maybe(() => faker.company.name(), {
+        probability: COMPANY_PROBABILITY,
+      }) ?? null,
+    bio:
+      faker.helpers.maybe(() => faker.person.bio().slice(0, 255), {
+        probability: BIO_PROBABILITY,
+      }) ?? null,
+    isEmailVerified: faker.datatype.boolean({
+      probability: VERIFIED_PROBABILITY,
+    }),
+    visibility: faker.datatype.boolean({
+      probability: PRIVATE_PROFILE_PROBABILITY,
+    })
+      ? Visibility.private
+      : Visibility.public,
+    lastSeenAt: lastSeenAt ?? null,
+  };
+}
+
+function buildCrewProfile(
+  name: string,
+  surname: string,
+  place: { nationality: string; country: string; state: string; city: string },
+) {
+  return {
+    name,
+    surname,
+    ...place,
+    company: 'Pollpear',
+    bio: faker.person.bio().slice(0, 255),
+    isEmailVerified: true,
+    visibility: Visibility.public,
+    lastSeenAt: faker.date.recent({ days: 3 }),
+  };
+}
+
 function buildJojo(i: number, passwordHash: string): Prisma.UserCreateInput {
   return {
     username: 'jojo' + i,
     email: 'jojo' + i + '@pollpear.com',
     birthdate: new Date('1998-12-01'),
     passwordHash,
-    isEmailVerified: true,
     createdAt: accountCreatedAt(),
     role: UserRole.admin,
     gender: Gender.female,
-    nationality: 'Irland',
     userTheme: UserTheme.dark,
+    ...buildCrewProfile('Joanne', 'Murphy', {
+      nationality: 'Irish',
+      country: 'Ireland',
+      state: 'Leinster',
+      city: 'Dublin',
+    }),
   };
 }
 
@@ -137,12 +216,16 @@ function buildHygie(i: number, passwordHash: string): Prisma.UserCreateInput {
     email: 'hygie' + i + '@pollpear.com',
     birthdate: new Date('1990-01-01'),
     passwordHash,
-    isEmailVerified: true,
     createdAt: accountCreatedAt(),
     role: UserRole.admin,
     gender: Gender.female,
-    nationality: 'Swiss',
     userTheme: UserTheme.dark,
+    ...buildCrewProfile('Hygie', 'Bernard', {
+      nationality: 'Swiss',
+      country: 'Switzerland',
+      state: 'Zürich',
+      city: 'Zürich',
+    }),
   };
 }
 
@@ -152,12 +235,16 @@ function buildPieric(i: number, passwordHash: string): Prisma.UserCreateInput {
     email: 'pieric' + i + '@pollpear.com',
     birthdate: new Date('1990-01-01'),
     passwordHash,
-    isEmailVerified: true,
     createdAt: accountCreatedAt(),
     role: UserRole.admin,
     gender: Gender.other,
-    nationality: 'Valais',
     userTheme: UserTheme.dark,
+    ...buildCrewProfile('Pieric', 'Emonet', {
+      nationality: 'Swiss',
+      country: 'Switzerland',
+      state: 'Valais',
+      city: 'Sion',
+    }),
   };
 }
 
@@ -167,12 +254,16 @@ function buildRaph(i: number, passwordHash: string): Prisma.UserCreateInput {
     email: 'raph' + i + '@pollpear.com',
     birthdate: new Date('1990-01-01'),
     passwordHash,
-    isEmailVerified: true,
     createdAt: accountCreatedAt(),
     role: UserRole.admin,
     gender: Gender.other,
-    nationality: 'Geneve',
     userTheme: UserTheme.dark,
+    ...buildCrewProfile('Raphaël', 'Stoll', {
+      nationality: 'Swiss',
+      country: 'Switzerland',
+      state: 'Genève',
+      city: 'Genève',
+    }),
   };
 }
 
@@ -190,7 +281,7 @@ function buildUser(i: number, passwordHash: string): Prisma.UserCreateInput {
       Gender.other,
       Gender.prefer_not_to_say,
     ]),
-    nationality: faker.location.country(),
+    ...buildProfile(),
     userTheme: faker.helpers.arrayElement([
       UserTheme.light,
       UserTheme.dark,
@@ -217,7 +308,8 @@ function buildModerator(
       Gender.other,
       Gender.prefer_not_to_say,
     ]),
-    nationality: faker.location.country(),
+    ...buildProfile(),
+    isEmailVerified: true,
     userTheme: faker.helpers.arrayElement([
       UserTheme.light,
       UserTheme.dark,
@@ -229,11 +321,14 @@ function buildModerator(
 
 // Fake Rooms seeding
 
-function buildRoom(i: number, creatorId: number): Prisma.RoomCreateInput {
-  const status = faker.helpers.arrayElement([
-    RoomStatus.active,
-    RoomStatus.closed,
-  ]);
+function buildRoom(
+  i: number,
+  creatorId: number,
+  plan?: { members: CrewName[]; visibility: Visibility },
+): Prisma.RoomCreateInput {
+  const status = plan
+    ? RoomStatus.active
+    : faker.helpers.arrayElement([RoomStatus.active, RoomStatus.closed]);
 
   const createdAt = faker.date.past({ years: 1 });
 
@@ -241,14 +336,45 @@ function buildRoom(i: number, creatorId: number): Prisma.RoomCreateInput {
     name: 'room' + i,
     description: faker.lorem.sentence(),
     bannerUrl: '/uploads/banners/default.svg',
-    visibility: faker.helpers.arrayElement([
-      Visibility.public,
-      Visibility.private,
-    ]),
+    visibility:
+      plan?.visibility ??
+      faker.helpers.arrayElement([Visibility.public, Visibility.private]),
     status,
     createdAt,
     createdBy: { connect: { id: creatorId } },
   };
+}
+
+function buildConversation(
+  roomId: number,
+  members: { userId: number; joinedAt: Date }[],
+  count: number,
+  from: Date,
+): Prisma.MessageCreateManyInput[] {
+  const start = from.getTime();
+  const span = Math.max(now.getTime() - start, DAY_MS);
+
+  return Array.from({ length: count }, (_, i) => {
+    const at = new Date(
+      Math.min(
+        start +
+          Math.round((span * (i + 1)) / (count + 1)) +
+          faker.number.int({ min: 0, max: 60_000 }),
+        now.getTime(),
+      ),
+    );
+    const spoken = members.filter((member) => member.joinedAt <= at);
+    const author = faker.helpers.arrayElement(
+      spoken.length > 0 ? spoken : members,
+    );
+
+    return {
+      roomId,
+      authorId: author.userId,
+      content: faker.lorem.sentence({ min: 3, max: 20 }),
+      createdAt: at,
+    };
+  });
 }
 
 // Fake Polls / Options / Votes seeding
@@ -355,12 +481,17 @@ function buildApiAccount(
     email: username + '@pollpear.com',
     birthdate: new Date('1990-01-01'),
     passwordHash,
-    isEmailVerified: true,
     createdAt: accountCreatedAt(),
     role,
     gender: Gender.prefer_not_to_say,
-    nationality: 'Switzerland',
     userTheme: UserTheme.dark,
+    ...buildProfile(),
+    nationality: 'Switzerland',
+    country: 'Switzerland',
+    state: 'Genève',
+    city: 'Genève',
+    isEmailVerified: true,
+    visibility: Visibility.public,
   };
 }
 
@@ -427,9 +558,19 @@ async function main() {
   );
 
   const jojo = await prisma.user.create({ data: buildJojo(0, passwordHash) });
-  await prisma.user.create({ data: buildHygie(1, passwordHash) });
-  await prisma.user.create({ data: buildPieric(2, passwordHash) });
-  await prisma.user.create({ data: buildRaph(3, passwordHash) });
+  const hygie = await prisma.user.create({
+    data: buildHygie(1, passwordHash),
+  });
+  const pieric = await prisma.user.create({
+    data: buildPieric(2, passwordHash),
+  });
+  const raph = await prisma.user.create({ data: buildRaph(3, passwordHash) });
+  const crewIds: Record<CrewName, number> = {
+    jojo: jojo.id,
+    hygie: hygie.id,
+    pieric: pieric.id,
+    raph: raph.id,
+  };
   await prisma.user.create({ data: buildModerator(4, passwordHash) });
   await prisma.user.create({ data: buildUser(5, passwordHash) });
 
@@ -444,11 +585,27 @@ async function main() {
   const userIds = (await prisma.user.findMany({ select: { id: true } })).map(
     (u) => u.id,
   );
+  const crewRoomMembers = new Map<number, number[]>();
+  let everyoneRoomId = 0;
   for (let i = 0; i < ROOM_COUNT; i++) {
-    const creatorId = faker.helpers.arrayElement(userIds);
-    await prisma.room.create({ data: buildRoom(i, creatorId) });
+    const plan = CREW_ROOM_PLAN[i];
+    const creatorId = plan
+      ? crewIds[plan.members[0]]
+      : faker.helpers.arrayElement(userIds);
+    const room = await prisma.room.create({
+      data: buildRoom(i, creatorId, plan),
+    });
+    if (i === 0) everyoneRoomId = room.id;
+    if (plan) {
+      crewRoomMembers.set(
+        room.id,
+        plan.members.map((member) => crewIds[member]),
+      );
+    }
   }
-  console.log(`Done — ${ROOM_COUNT} rooms seeded.`);
+  console.log(
+    `Done — ${ROOM_COUNT} rooms seeded, ${crewRoomMembers.size} of them shared by the team accounts.`,
+  );
 
   const bump = (m: Map<number, number>, id: number) =>
     m.set(id, (m.get(id) ?? 0) + 1);
@@ -483,17 +640,31 @@ async function main() {
   for (const room of rooms) {
     const base = room.createdAt;
     const members = [{ userId: room.createdById, joinedAt: base }];
-    const pool = userIds.filter((id) => id !== room.createdById);
-    const extraCount = Math.min(
-      faker.number.int({ min: MEMBERS_MIN, max: MEMBERS_MAX }),
-      pool.length,
-    );
+    for (const crewId of crewRoomMembers.get(room.id) ?? []) {
+      if (members.some((member) => member.userId === crewId)) continue;
+      members.push({
+        userId: crewId,
+        joinedAt: faker.date.between({ from: base, to: now }),
+      });
+    }
+    const seated = new Set(members.map((member) => member.userId));
+    const pool = userIds.filter((id) => !seated.has(id));
+    const extraCount =
+      room.id === everyoneRoomId
+        ? pool.length
+        : crewRoomMembers.has(room.id)
+          ? 0
+          : Math.min(
+              faker.number.int({ min: MEMBERS_MIN, max: MEMBERS_MAX }),
+              pool.length,
+            );
     for (const uid of faker.helpers.arrayElements(pool, extraCount)) {
       members.push({
         userId: uid,
         joinedAt: faker.date.between({ from: base, to: now }),
       });
     }
+    members.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
     roomMembers.set(room.id, members);
     for (const member of members) {
       roomMemberRows.push({
@@ -505,6 +676,43 @@ async function main() {
     }
   }
   await prisma.roomMember.createMany({ data: roomMemberRows });
+
+  const roomById = new Map(rooms.map((room) => [room.id, room]));
+  const crewRoomIds = [...crewRoomMembers.keys()];
+  const chattyRoomIds = [
+    ...crewRoomIds,
+    ...faker.helpers.arrayElements(
+      rooms.filter((room) => !crewRoomMembers.has(room.id)).map((r) => r.id),
+      CHATTY_ROOM_COUNT,
+    ),
+  ];
+  const messageRows: Prisma.MessageCreateManyInput[] = [];
+  for (const roomId of chattyRoomIds) {
+    const members = roomMembers.get(roomId) ?? [];
+    if (members.length === 0) continue;
+    const count =
+      roomId === crewRoomIds[0]
+        ? BUSY_ROOM_MESSAGES
+        : faker.number.int({ min: ROOM_MESSAGES_MIN, max: ROOM_MESSAGES_MAX });
+    messageRows.push(
+      ...buildConversation(
+        roomId,
+        members,
+        count,
+        roomById.get(roomId)!.createdAt,
+      ),
+    );
+  }
+  for (const row of faker.helpers.arrayElements(
+    messageRows,
+    Math.min(DELETED_MESSAGE_DEMO, messageRows.length),
+  )) {
+    row.deletedAt = faker.date.between({ from: row.createdAt!, to: now });
+  }
+  await prisma.message.createMany({ data: messageRows });
+  console.log(
+    `Done — ${messageRows.length} messages seeded across ${chattyRoomIds.length} rooms.`,
+  );
 
   const friendshipStatuses = faker.helpers.shuffle(FRIENDSHIP_STATUS_PLAN);
   const usedPairs = new Set<string>();

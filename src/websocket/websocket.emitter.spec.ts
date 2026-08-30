@@ -6,9 +6,10 @@ describe('WebsocketEmitter', () => {
   const emit = jest.fn();
   const disconnectSockets = jest.fn();
   const fetchSockets = jest.fn();
+  const except = jest.fn().mockReturnValue({ emit });
   const to = jest
     .fn()
-    .mockReturnValue({ emit, fetchSockets, disconnectSockets });
+    .mockReturnValue({ emit, except, fetchSockets, disconnectSockets });
   const server = { to } as unknown as Server;
 
   beforeAll(() => {
@@ -31,6 +32,27 @@ describe('WebsocketEmitter', () => {
 
     expect(to).toHaveBeenCalledWith('user:42');
     expect(emit).toHaveBeenCalledWith('some:event', { a: 1 });
+  });
+
+  it('sends an event to the room channel', () => {
+    const emitter = new WebsocketEmitter();
+    emitter.server = server;
+
+    emitter.toRoom(7, 'message:new', { id: 1 });
+
+    expect(to).toHaveBeenCalledWith('room:7');
+    expect(emit).toHaveBeenCalledWith('message:new', { id: 1 });
+  });
+
+  it('leaves the sender out of a room broadcast when asked', () => {
+    const emitter = new WebsocketEmitter();
+    emitter.server = server;
+
+    emitter.toRoom(7, 'message:new', { id: 1 }, 'socket-1');
+
+    expect(to).toHaveBeenCalledWith('room:7');
+    expect(except).toHaveBeenCalledWith('socket-1');
+    expect(emit).toHaveBeenCalledWith('message:new', { id: 1 });
   });
 
   it('sends an event to every listed user room at once', () => {

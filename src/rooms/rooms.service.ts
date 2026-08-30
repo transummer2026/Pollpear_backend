@@ -157,14 +157,6 @@ export class RoomsService {
     return `remove user #${userId} from room #${id} works`;
   }
 
-  getMessages(id: number) {
-    return `get messages from room #${id} works`;
-  }
-
-  createMessage(id: number) {
-    return `create message in room #${id} works`;
-  }
-
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
   }
@@ -357,7 +349,7 @@ export class RoomsService {
 
 /**
  * The relations a room needs loaded to satisfy `RoomReadSchema`: other
- * active members, undeleted messages, undeleted polls (with their own
+ * active members, undeleted polls (with their own
  * `getPollIncludeArgs`), the creator, and pending invitations. Shared so
  * `findOneRoom` and `findMeManyRooms` fetch this identically instead of
  * each hand-rolling their own `include`.
@@ -368,11 +360,6 @@ export function getRoomIncludeArgs(userId: number) {
       where: {
         deletedAt: null,
         userId: { not: userId },
-      },
-    },
-    messages: {
-      where: {
-        deletedAt: null,
       },
     },
     polls: {

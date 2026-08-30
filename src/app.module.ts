@@ -31,6 +31,7 @@ import { CaslModule } from './casl/casl.module';
 import { AuthorizationGuard } from './casl/authorization.guard';
 import { WebsocketModule } from './websocket/websocket.module';
 import { PresenceModule } from './presence/presence.module';
+import { MessagesModule } from './messages/messages.module';
 
 /**
  * module is used by Nest to organise the application structure
@@ -79,6 +80,7 @@ import { PresenceModule } from './presence/presence.module';
     CaslModule,
     WebsocketModule,
     PresenceModule,
+    MessagesModule,
     BanModule,
     NotificationModule,
   ],

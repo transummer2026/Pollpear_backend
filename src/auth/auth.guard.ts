@@ -12,7 +12,7 @@ import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { extractUserId } from 'src/common/extract-user-id';
 import { User } from 'src/generated/prisma/client';
 import { UsersService } from 'src/users/users.service';
-import { socketUserId } from 'src/websocket/socket-user';
+import { bindSocketAuthUser, socketUserId } from 'src/websocket/socket-user';
 import { refuseWs } from 'src/websocket/ws-refuse';
 
 /**
@@ -64,6 +64,7 @@ export class AuthGuard implements CanActivate {
         context.switchToWs().getData<unknown>(),
       );
     }
+    bindSocketAuthUser(client, user);
     return true;
   }
 
