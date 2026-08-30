@@ -14,6 +14,7 @@ import {
 } from 'Pollpear_shared/src/schemas/vote.schema';
 import { User, Vote } from 'src/generated/prisma/client';
 import { roomHasEnded } from 'src/rooms/room-status';
+import { pollHasEnded, syncPollStatuses } from 'src/polls/poll-status';
 
 @Injectable()
 export class VotesService {
@@ -199,10 +200,21 @@ export class VotesService {
       },
     });
     if (!poll) throw new NotFoundException('Poll not found');
-    if (poll.status === 'closed')
+
+    const wasClosed = poll.status === 'closed';
+    // Reconcile the poll's `status` with its own `endsAt` and its room's
+    // before deciding. A terminal closure (either date lapsed) is written
+    // through so the row stops advertising a poll that cannot take votes.
+    const [synced] = await syncPollStatuses(this.prisma, [poll], new Date());
+    poll.status = synced.status;
+
+    // Reject here when the poll is closed on its own account — it was
+    // already closed, or its own `endsAt` lapsed. A closure that only comes
+    // from the room (closed by hand, or its `endsAt` lapsed) falls through
+    // to the CASL vote rule, which gates on `room.status` and rejects it
+    // the same way every other closed-room path does.
+    if (wasClosed || pollHasEnded(poll.endsAt))
       throw new ForbiddenException('Poll is not active.');
-    if (poll.endsAt < new Date())
-      throw new ForbiddenException('Poll is closed.');
     if (
       poll.room &&
       poll.room.status === 'active' &&

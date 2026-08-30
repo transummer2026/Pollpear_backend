@@ -15,6 +15,7 @@ import {
   type SearchOptions,
 } from 'src/search/search-options';
 import { nextRoomStatus, syncRoomStatuses } from './room-status';
+import { syncPollStatuses } from 'src/polls/poll-status';
 
 type RoomSearchRow = { id: number; name: string };
 
@@ -226,7 +227,7 @@ export class RoomsService {
     return RoomReadSchema.parse({
       ...synced,
       polls: this.pollsService.shapeManyPollsForUser(
-        synced.polls,
+        await syncPollStatuses(this.prisma, synced.polls),
         votesMadeByUser,
       ),
     });
@@ -256,14 +257,16 @@ export class RoomsService {
     ]);
 
     const syncedRooms = await syncRoomStatuses(this.prisma, rooms);
-    return syncedRooms.map((room) =>
-      RoomReadSchema.parse({
-        ...room,
-        polls: this.pollsService.shapeManyPollsForUser(
-          room.polls,
-          votesMadeByUser,
-        ),
-      }),
+    return Promise.all(
+      syncedRooms.map(async (room) =>
+        RoomReadSchema.parse({
+          ...room,
+          polls: this.pollsService.shapeManyPollsForUser(
+            await syncPollStatuses(this.prisma, room.polls),
+            votesMadeByUser,
+          ),
+        }),
+      ),
     );
   }
 
@@ -288,14 +291,16 @@ export class RoomsService {
     ]);
 
     const syncedRooms = await syncRoomStatuses(this.prisma, rooms);
-    return syncedRooms.map((room) =>
-      RoomReadSchema.parse({
-        ...room,
-        polls: this.pollsService.shapeManyPollsForUser(
-          room.polls,
-          votesMadeByUser,
-        ),
-      }),
+    return Promise.all(
+      syncedRooms.map(async (room) =>
+        RoomReadSchema.parse({
+          ...room,
+          polls: this.pollsService.shapeManyPollsForUser(
+            await syncPollStatuses(this.prisma, room.polls),
+            votesMadeByUser,
+          ),
+        }),
+      ),
     );
   }
 
@@ -339,14 +344,16 @@ export class RoomsService {
     ]);
 
     const syncedRooms = await syncRoomStatuses(this.prisma, rooms);
-    return syncedRooms.map((room) =>
-      RoomReadSchema.parse({
-        ...room,
-        polls: this.pollsService.shapeManyPollsForUser(
-          room.polls,
-          votesMadeByUser,
-        ),
-      }),
+    return Promise.all(
+      syncedRooms.map(async (room) =>
+        RoomReadSchema.parse({
+          ...room,
+          polls: this.pollsService.shapeManyPollsForUser(
+            await syncPollStatuses(this.prisma, room.polls),
+            votesMadeByUser,
+          ),
+        }),
+      ),
     );
   }
 }
