@@ -18,11 +18,7 @@ describe('RoomsController', () => {
   let service: jest.Mocked<
     Pick<
       RoomsService,
-      | 'findOneRoom'
-      | 'create'
-      | 'update'
-      | 'remove'
-      | 'removeMessage'
+      'findOneRoom' | 'create' | 'update' | 'remove' | 'removeMessage'
     >
   >;
   let invitationService: jest.Mocked<

@@ -222,7 +222,7 @@ export class InvitationService {
     });
 
     if (existing && existing.deletedAt === null) {
-      if (existing.status === 'pending')
+      if (existing.status === 'pending' || existing.status === 'accepted')
         return { invitation: existing, kind: 'unchanged' };
     }
 
@@ -246,6 +246,8 @@ export class InvitationService {
         status: 'pending',
       },
       update: {
+        message: body.message,
+        inviterId: viewerId,
         deletedAt: null,
         createdAt: new Date(),
         status: 'pending',
