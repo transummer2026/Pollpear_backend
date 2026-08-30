@@ -7,6 +7,7 @@ import type { Request, Response } from 'express';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filters';
 import cookieParser from 'cookie-parser';
 import { CaslExceptionFilter } from './common/filters/casl-exception.filters';
+import { ZodExceptionFilter } from './common/filters/zod-exception.filters';
 import { WebsocketAdapter } from './websocket/websocket.adapter';
 import { ApiModule } from './api/api.module';
 import { ApiV1Module } from './api/v1/v1.module';
@@ -52,7 +53,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('query parser', 'extended');
   app.use(cookieParser());
-  app.useGlobalFilters(new PrismaExceptionFilter(), new CaslExceptionFilter());
+  app.useGlobalFilters(
+    new PrismaExceptionFilter(),
+    new CaslExceptionFilter(),
+    new ZodExceptionFilter(),
+  );
   app.useWebSocketAdapter(new WebsocketAdapter(app));
   const vault = app.get(VaultService);
   setupApiDocs(app, vault.app.gateway_url, vault.rateLimit);

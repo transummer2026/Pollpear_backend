@@ -56,22 +56,17 @@ export class InvitationService {
     roomId: number,
     inviteeId: number,
   ): Promise<InvitationReadDTO | null> {
-    const invitation = await this.prisma.invitation.findUnique({
+    const ability = this.abilityFactory.createForUser(viewer);
+    const invitation = await this.prisma.invitation.findFirst({
       where: {
-        inviteeId_roomId: {
-          roomId,
-          inviteeId,
-        },
+        AND: [
+          accessibleBy(ability, 'read').ofType('Invitation'),
+          { roomId, inviteeId, deletedAt: null },
+        ],
       },
       include: { invitee: true, inviter: true, room: true },
     });
-    if (!invitation || invitation.deletedAt !== null) return null;
-
-    const ability = this.abilityFactory.createForUser(viewer);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'read',
-      subject('Invitation', invitation),
-    );
+    if (!invitation) return null;
 
     return InvitationReadSchema.parse(invitation);
   }
@@ -191,7 +186,9 @@ export class InvitationService {
    * Once the invitation has already been responded to (status isn't
    * "pending" anymore), this returns it as-is instead of re-processing:
    * that keeps repeated calls (e.g. a double-tap on the client) safe, and
-   * avoids re-sending the accepted/cleared notifications below.
+   * avoids re-sending the accepted/cleared notifications below. The write
+   * itself is guarded on status: "pending" too, so two concurrent requests
+   * can't both fire the notifications.
    */
   async updateRoomInvitation(
     viewer: User,
@@ -199,43 +196,67 @@ export class InvitationService {
     inviteeId: number,
     status: InvitationStatusUpdateDTO['status'],
   ): Promise<InvitationReadDTO> {
-    const invitation = await this.prisma.invitation.findUnique({
+    const ability = this.abilityFactory.createForUser(viewer);
+    const invitation = await this.prisma.invitation.findFirst({
       where: {
-        inviteeId_roomId: {
-          roomId,
-          inviteeId,
-        },
+        AND: [
+          accessibleBy(ability, 'read').ofType('Invitation'),
+          { roomId, inviteeId, deletedAt: null },
+        ],
       },
+      include: { invitee: true, inviter: true, room: true },
     });
-    if (!invitation || invitation.deletedAt !== null) {
+    if (!invitation) {
       throw new NotFoundException(
         'No invitation sent to this user for this room.',
       );
     }
-    if (invitation.inviteeId !== viewer.id) {
-      throw new ForbiddenException('Cannot update this invitation.');
-    }
 
-    if (invitation.status !== 'pending') {
+    // Already responded → idempotent no-op. Only the invitee gets this
+    // shortcut; the inviter (who can also read the row) falls through to
+    // the CASL check below and is refused.
+    if (invitation.status !== 'pending' && invitation.inviteeId === viewer.id) {
       return InvitationReadSchema.parse(invitation);
     }
 
-    const ability = this.abilityFactory.createForUser(viewer);
     ForbiddenError.from(ability).throwUnlessCan(
       'update',
       subject('Invitation', invitation),
     );
 
-    const updated = await this.prisma.invitation.update({
+    // Conditional write driven by the CASL "update" rule (deletedAt: null,
+    // status: 'pending', inviteeId: viewer). Only the request that actually
+    // flips the row (count === 1) fires the notifications below; a
+    // concurrent double-tap loses the race (count === 0) and just gets the
+    // current state back.
+    const { count } = await this.prisma.invitation.updateMany({
+      where: {
+        AND: [
+          accessibleBy(ability, 'update').ofType('Invitation'),
+          { roomId, inviteeId },
+        ],
+      },
+      data: { status },
+    });
+
+    const updated = await this.prisma.invitation.findUnique({
       where: {
         inviteeId_roomId: {
           roomId,
           inviteeId,
         },
       },
-      data: { status },
-      include: { room: true },
+      include: { invitee: true, inviter: true, room: true },
     });
+    if (!updated) {
+      throw new NotFoundException(
+        'No invitation sent to this user for this room.',
+      );
+    }
+
+    if (count === 0) {
+      return InvitationReadSchema.parse(updated);
+    }
 
     await this.notificationService.clearRoomInvitation(
       updated.inviteeId,
@@ -264,32 +285,30 @@ export class InvitationService {
     roomId: number,
     inviteeId: number,
   ): Promise<void> {
-    const invitation = await this.prisma.invitation.findUnique({
+    const ability = this.abilityFactory.createForUser(viewer);
+    const invitation = await this.prisma.invitation.findFirst({
       where: {
-        inviteeId_roomId: {
-          roomId,
-          inviteeId,
-        },
+        AND: [
+          accessibleBy(ability, 'delete').ofType('Invitation'),
+          { roomId, inviteeId, deletedAt: null },
+        ],
       },
     });
-    if (!invitation || invitation.deletedAt !== null) {
+    if (!invitation) {
       throw new NotFoundException(
         'No invitation sent to this user for this room.',
       );
     }
-
-    const ability = this.abilityFactory.createForUser(viewer);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'delete',
-      subject('Invitation', invitation),
-    );
 
     await this.prisma.invitation.update({
       where: { id: invitation.id },
       data: { deletedAt: new Date() },
     });
 
-    await this.notificationService.clearRoomInvitation(
+    // Clear both sides: the pending invite shown to the invitee *and* any
+    // "X accepted your invitation" notification already delivered to the
+    // inviter, so nothing lingers pointing at a now-deleted invitation.
+    await this.notificationService.clearRoomNotifications(
       invitation.inviteeId,
       invitation.inviterId,
     );

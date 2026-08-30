@@ -64,7 +64,7 @@ export class NotificationService {
     recipientId: number,
     actorId: number,
   ): Promise<void> {
-    await this.notifyFriendEvent(
+    await this.notifyEvent(
       recipientId,
       actorId,
       'friend_request',
@@ -76,7 +76,7 @@ export class NotificationService {
     recipientId: number,
     actorId: number,
   ): Promise<void> {
-    await this.notifyFriendEvent(
+    await this.notifyEvent(
       recipientId,
       actorId,
       'friend_accepted',
@@ -89,7 +89,7 @@ export class NotificationService {
     actorId: number,
     roomName: string,
   ): Promise<void> {
-    await this.notifyRoomEvent(
+    await this.notifyEvent(
       recipientId,
       actorId,
       'room_invitation',
@@ -102,7 +102,7 @@ export class NotificationService {
     actorId: number,
     roomName: string,
   ): Promise<void> {
-    await this.notifyRoomEvent(
+    await this.notifyEvent(
       recipientId,
       actorId,
       'room_invitation_accepted',
@@ -132,32 +132,27 @@ export class NotificationService {
     await this.clearNotification(recipientId, actorId, 'room_invitation');
   }
 
-  private async notifyFriendEvent(
-    recipientId: number,
-    actorId: number,
-    type: 'friend_request' | 'friend_accepted',
-    message: (username: string) => string,
+  /**
+   * Clears every notification tied to an invitation between two users,
+   * in both directions: the "you're invited" notice sent to the invitee
+   * and the "your invite was accepted" notice sent to the inviter.
+   */
+  async clearRoomNotifications(
+    inviteeId: number,
+    inviterId: number,
   ): Promise<void> {
-    try {
-      const actor = await this.prisma.user.findUnique({
-        where: { id: actorId },
-        select: { username: true },
-      });
-      if (!actor) return;
-      await this.notify(recipientId, type, message(actor.username), actorId);
-    } catch (error) {
-      this.logger.warn(
-        `failed to build ${type} notification for user ${recipientId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
+    await this.clearNotification(inviteeId, inviterId, 'room_invitation');
+    await this.clearNotification(
+      inviterId,
+      inviteeId,
+      'room_invitation_accepted',
+    );
   }
 
-  private async notifyRoomEvent(
+  private async notifyEvent(
     recipientId: number,
     actorId: number,
-    type: 'room_invitation' | 'room_invitation_accepted',
+    type: NotificationTypeDTO,
     message: (username: string) => string,
   ): Promise<void> {
     try {
