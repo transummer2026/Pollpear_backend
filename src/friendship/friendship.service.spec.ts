@@ -53,12 +53,17 @@ type UpsertArgs = {
   update: Record<string, unknown>;
 };
 type UpdateArgs = { where: { id: number }; data: Record<string, unknown> };
+type UpdateManyArgs = {
+  where: Record<string, unknown>;
+  data: Record<string, unknown>;
+};
 
 describe('FriendshipService', () => {
   let service: FriendshipService;
   let notifications: {
     notify: jest.Mock;
     clearFriendRequest: jest.Mock;
+    clearFriendNotifications: jest.Mock;
     notifyFriendRequest: jest.Mock;
     notifyFriendAccepted: jest.Mock;
   };
@@ -74,6 +79,7 @@ describe('FriendshipService', () => {
       findMany: jest.Mock<Promise<unknown[]>, [FindManyArgs]>;
       upsert: jest.Mock<Promise<unknown>, [UpsertArgs]>;
       update: jest.Mock<Promise<unknown>, [UpdateArgs]>;
+      updateMany: jest.Mock<Promise<{ count: number }>, [UpdateManyArgs]>;
       create: jest.Mock<Promise<unknown>, [{ data: Record<string, unknown> }]>;
     };
   };
@@ -97,6 +103,9 @@ describe('FriendshipService', () => {
         findMany: jest.fn<Promise<unknown[]>, [FindManyArgs]>(),
         upsert: jest.fn<Promise<unknown>, [UpsertArgs]>(),
         update: jest.fn<Promise<unknown>, [UpdateArgs]>(),
+        updateMany: jest
+          .fn<Promise<{ count: number }>, [UpdateManyArgs]>()
+          .mockResolvedValue({ count: 1 }),
         create: jest.fn<
           Promise<unknown>,
           [{ data: Record<string, unknown> }]
@@ -106,6 +115,7 @@ describe('FriendshipService', () => {
     notifications = {
       notify: jest.fn(),
       clearFriendRequest: jest.fn(),
+      clearFriendNotifications: jest.fn(),
       notifyFriendRequest: jest.fn(),
       notifyFriendAccepted: jest.fn(),
     };
@@ -126,8 +136,14 @@ describe('FriendshipService', () => {
 
       const result = await service.getFriendshipWith(viewer(1), 2);
 
+      const ability = new CaslAbilityFactory().createForUser(viewer(1));
       expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
-        where: { userAId: 1, userBId: 2, deletedAt: null },
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Friendship'),
+            { userAId: 1, userBId: 2, deletedAt: null },
+          ],
+        },
       });
       expect(result).toBeNull();
     });
@@ -393,21 +409,34 @@ describe('FriendshipService', () => {
         status: 'pending',
         addresseeId: 1,
       });
-      lookup(incoming);
-      prisma.friendship.update.mockResolvedValue({
-        ...incoming,
-        status: 'accepted',
-      });
+      lookup(incoming, { ...incoming, status: 'accepted' });
+      prisma.friendship.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.createFriendRequest(viewer(1), 2);
 
-      expect(prisma.friendship.update).toHaveBeenCalledWith({
-        where: { id: 10 },
+      expect(prisma.friendship.updateMany).toHaveBeenCalledWith({
+        where: { id: 10, status: 'pending', deletedAt: null },
         data: { status: 'accepted' },
       });
       expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
       expect(notifications.notifyFriendAccepted).toHaveBeenCalledWith(2, 1);
       expect(result.status).toBe('accepted');
+    });
+
+    it('does not double-notify when a concurrent accept won the race', async () => {
+      const incoming = makeFriendship({
+        id: 10,
+        status: 'pending',
+        addresseeId: 1,
+      });
+      lookup(incoming, { ...incoming, status: 'accepted' });
+      prisma.friendship.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.createFriendRequest(viewer(1), 2);
+
+      expect(result.status).toBe('accepted');
+      expect(notifications.notifyFriendAccepted).not.toHaveBeenCalled();
+      expect(notifications.clearFriendRequest).not.toHaveBeenCalled();
     });
 
     it('creates the row and notifies the addressee when no relation exists', async () => {
@@ -484,12 +513,10 @@ describe('FriendshipService', () => {
       });
       prisma.friendship.findUnique
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mirror);
+        .mockResolvedValueOnce(mirror)
+        .mockResolvedValueOnce({ ...mirror, status: 'accepted' });
       prisma.friendship.upsert.mockRejectedValue(uniqueViolation());
-      prisma.friendship.update.mockResolvedValue({
-        ...mirror,
-        status: 'accepted',
-      });
+      prisma.friendship.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.createFriendRequest(viewer(1), 2);
 
@@ -615,7 +642,8 @@ describe('FriendshipService', () => {
         addresseeId: 1,
       });
       prisma.friendship.findFirst.mockResolvedValue(pending);
-      prisma.friendship.update.mockResolvedValue({
+      prisma.friendship.updateMany.mockResolvedValue({ count: 1 });
+      prisma.friendship.findUnique.mockResolvedValue({
         ...pending,
         status: 'accepted',
       });
@@ -626,11 +654,44 @@ describe('FriendshipService', () => {
         'accepted',
       );
 
-      expect(prisma.friendship.update).toHaveBeenCalledWith({
-        where: { id: 10 },
+      const ability = new CaslAbilityFactory().createForUser(viewer(1));
+      expect(prisma.friendship.updateMany).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            accessibleBy(ability, 'update').ofType('Friendship'),
+            { id: 10 },
+          ],
+        },
         data: { status: 'accepted' },
       });
       expect(result.status).toBe('accepted');
+      expect(notifications.notifyFriendAccepted).toHaveBeenCalledWith(2, 1);
+    });
+
+    it('does not re-notify when a concurrent request already responded', async () => {
+      const pending = makeFriendship({
+        id: 10,
+        status: 'pending',
+        userAId: 1,
+        userBId: 2,
+        addresseeId: 1,
+      });
+      prisma.friendship.findFirst.mockResolvedValue(pending);
+      prisma.friendship.updateMany.mockResolvedValue({ count: 0 });
+      prisma.friendship.findUnique.mockResolvedValue({
+        ...pending,
+        status: 'accepted',
+      });
+
+      const result = await service.updateFriendRequest(
+        viewer(1),
+        2,
+        'accepted',
+      );
+
+      expect(result.status).toBe('accepted');
+      expect(notifications.notifyFriendAccepted).not.toHaveBeenCalled();
+      expect(notifications.clearFriendRequest).not.toHaveBeenCalled();
     });
 
     it('rejects the pending request when the addressee declines', async () => {
@@ -642,7 +703,8 @@ describe('FriendshipService', () => {
         addresseeId: 1,
       });
       prisma.friendship.findFirst.mockResolvedValue(pending);
-      prisma.friendship.update.mockResolvedValue({
+      prisma.friendship.updateMany.mockResolvedValue({ count: 1 });
+      prisma.friendship.findUnique.mockResolvedValue({
         ...pending,
         status: 'rejected',
       });
@@ -653,11 +715,18 @@ describe('FriendshipService', () => {
         'rejected',
       );
 
-      expect(prisma.friendship.update).toHaveBeenCalledWith({
-        where: { id: 10 },
+      const ability = new CaslAbilityFactory().createForUser(viewer(1));
+      expect(prisma.friendship.updateMany).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            accessibleBy(ability, 'update').ofType('Friendship'),
+            { id: 10 },
+          ],
+        },
         data: { status: 'rejected' },
       });
       expect(result.status).toBe('rejected');
+      expect(notifications.notifyFriendAccepted).not.toHaveBeenCalled();
     });
   });
 
@@ -680,10 +749,38 @@ describe('FriendshipService', () => {
       const [args] = prisma.friendship.update.mock.calls[0];
       expect(args.where).toEqual({ id: 10 });
       expect(args.data.deletedAt).toBeInstanceOf(Date);
-      expect(notifications.clearFriendRequest).toHaveBeenCalledWith(2, 1);
     });
 
-    it('clears the notification of the addressee sitting in the first slot', async () => {
+    it('fetches only friendships the caller may delete', async () => {
+      prisma.friendship.findFirst.mockResolvedValue(makeFriendship({ id: 10 }));
+      prisma.friendship.update.mockResolvedValue(undefined);
+
+      await service.removeFriendship(viewer(1), 2);
+
+      const ability = new CaslAbilityFactory().createForUser(viewer(1));
+      expect(prisma.friendship.findFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            accessibleBy(ability, 'delete').ofType('Friendship'),
+            { userAId: 1, userBId: 2, deletedAt: null },
+          ],
+        },
+      });
+    });
+
+    it('clears notifications for both users in both directions', async () => {
+      // default pair: userAId 1, userBId 2, addresseeId 2 → requester is userA (1)
+      prisma.friendship.findFirst.mockResolvedValue(makeFriendship({ id: 10 }));
+      prisma.friendship.update.mockResolvedValue(undefined);
+
+      await service.removeFriendship(viewer(1), 2);
+
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(2, 1);
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(1, 2);
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledTimes(2);
+    });
+
+    it('derives the requester from whichever slot the addressee sits in', async () => {
       prisma.friendship.findFirst.mockResolvedValue(
         makeFriendship({ id: 10, addresseeId: 1 }),
       );
@@ -691,7 +788,8 @@ describe('FriendshipService', () => {
 
       await service.removeFriendship(viewer(1), 2);
 
-      expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(1, 2);
+      expect(notifications.clearFriendNotifications).toHaveBeenCalledWith(2, 1);
     });
   });
 

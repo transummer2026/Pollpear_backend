@@ -45,14 +45,16 @@ export class FriendshipService {
     viewer: User,
     otherId: number,
   ): Promise<FriendshipDTO | null> {
-    const friendship = await this.findFriendshipBetween(viewer.id, otherId);
-    if (!friendship) return null;
-
     const ability = this.abilityFactory.createForUser(viewer);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'read',
-      subject('Friendship', friendship),
-    );
+    const friendship = await this.prisma.friendship.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('Friendship'),
+          { ...canonicalPair(viewer.id, otherId), deletedAt: null },
+        ],
+      },
+    });
+    if (!friendship) return null;
 
     return FriendshipSchema.parse(friendship);
   }
@@ -211,10 +213,31 @@ export class FriendshipService {
       subject('Friendship', friendship),
     );
 
-    const updated = await this.prisma.friendship.update({
-      where: { id: friendship.id },
+    // Conditional write driven by the CASL "update" rule (deletedAt: null,
+    // status: 'pending', addresseeId: viewer). Only the request that
+    // actually flips the row (count === 1) fires the notifications below; a
+    // concurrent double-tap loses the race (count === 0) and just gets the
+    // current state back.
+    const { count } = await this.prisma.friendship.updateMany({
+      where: {
+        AND: [
+          accessibleBy(ability, 'update').ofType('Friendship'),
+          { id: friendship.id },
+        ],
+      },
       data: { status },
     });
+
+    const updated = await this.prisma.friendship.findUnique({
+      where: { id: friendship.id },
+    });
+    if (!updated) {
+      throw new NotFoundException('No pending friend request from this user.');
+    }
+
+    if (count === 0) {
+      return FriendshipSchema.parse(updated);
+    }
 
     await this.notificationService.clearFriendRequest(viewer.id, otherId);
     if (status === 'accepted') {
@@ -225,27 +248,38 @@ export class FriendshipService {
   }
 
   async removeFriendship(viewer: User, otherId: number): Promise<void> {
-    const friendship = await this.findFriendshipBetween(viewer.id, otherId);
+    const ability = this.abilityFactory.createForUser(viewer);
+    const friendship = await this.prisma.friendship.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, 'delete').ofType('Friendship'),
+          { ...canonicalPair(viewer.id, otherId), deletedAt: null },
+        ],
+      },
+    });
     if (!friendship) {
       throw new NotFoundException('No friendship found with this user.');
     }
-
-    const ability = this.abilityFactory.createForUser(viewer);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'delete',
-      subject('Friendship', friendship),
-    );
 
     await this.prisma.friendship.update({
       where: { id: friendship.id },
       data: { deletedAt: new Date() },
     });
 
-    await this.notificationService.clearFriendRequest(
-      friendship.addresseeId,
+    const requesterId =
       friendship.addresseeId === friendship.userAId
         ? friendship.userBId
-        : friendship.userAId,
+        : friendship.userAId;
+    // Clear both directions: the pending "friend request" shown to the
+    // addressee *and* any "accepted your friend request" already delivered
+    // to the requester, so nothing lingers pointing at a deleted row.
+    await this.notificationService.clearFriendNotifications(
+      friendship.addresseeId,
+      requesterId,
+    );
+    await this.notificationService.clearFriendNotifications(
+      requesterId,
+      friendship.addresseeId,
     );
   }
 
@@ -281,11 +315,19 @@ export class FriendshipService {
       }
 
       if (existing.status === 'pending' && existing.addresseeId === userId) {
-        const accepted = await this.prisma.friendship.update({
-          where: { id: existing.id },
+        // Guard on status: 'pending' so a concurrent accept can't make both
+        // callers report "accepted" and fire the notification twice.
+        const { count } = await this.prisma.friendship.updateMany({
+          where: { id: existing.id, status: 'pending', deletedAt: null },
           data: { status: 'accepted' },
         });
-        return { friendship: accepted, kind: 'accepted' };
+        const accepted = await this.prisma.friendship.findUnique({
+          where: { id: existing.id },
+        });
+        return {
+          friendship: accepted ?? existing,
+          kind: count === 1 ? 'accepted' : 'unchanged',
+        };
       }
 
       if (existing.status === 'pending') {
