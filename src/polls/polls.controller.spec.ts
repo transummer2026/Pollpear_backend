@@ -7,6 +7,7 @@ import { caslAbilityFactoryMock } from 'src/casl/casl-ability.factory.mock';
 import { optionsServiceMock } from 'src/options/options.service.mock';
 import { hashtagsServiceMock } from 'src/hashtags/hashtags.service.mock';
 import { votesServiceMock } from 'src/votes/votes.service.mock';
+import { VotedFilterSchema } from './polls.query';
 
 describe('PollsController', () => {
   let controller: PollsController;
@@ -30,5 +31,22 @@ describe('PollsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+});
+
+describe('VotedFilterSchema', () => {
+  it('reads an absent param as not filtering', () => {
+    expect(VotedFilterSchema.parse(undefined)).toBe(false);
+  });
+
+  it('maps "true" / "false" to a boolean', () => {
+    expect(VotedFilterSchema.parse('true')).toBe(true);
+    expect(VotedFilterSchema.parse('false')).toBe(false);
+  });
+
+  it('rejects any other value instead of ignoring it', () => {
+    for (const value of ['1', 'TRUE', 'oui', '']) {
+      expect(VotedFilterSchema.safeParse(value).success).toBe(false);
+    }
   });
 });

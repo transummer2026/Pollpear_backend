@@ -4,6 +4,7 @@ export const vaultServiceMock = {
   provide: VaultService,
   useValue: {
     session: { pepper: 'test-pepper' },
+    app: { ai_url: 'http://ai:3002' },
     oauth: {
       google: {
         client_id: 'test-client-id',
