@@ -13,6 +13,7 @@ import {
 import { Poll, Prisma, User } from 'src/generated/prisma/client';
 import { Logger } from '@nestjs/common';
 import { syncRoomStatuses } from 'src/rooms/room-status';
+import { syncPollStatuses } from './poll-status';
 
 @Injectable()
 export class PollsService {
@@ -245,7 +246,12 @@ export class PollsService {
     if (!poll) throw new NotFoundException('Poll not found');
     const hasVoted = userVote !== null;
 
-    return this.shapePollForUser(poll, hasVoted);
+    // Fold a lapsed `endsAt` (the poll's own, or its room's) into `status`
+    // so the row — and this response — stop advertising a poll that can no
+    // longer take votes.
+    const [synced] = await syncPollStatuses(this.prisma, [poll]);
+
+    return this.shapePollForUser(synced, hasVoted);
   }
 
   /**
@@ -285,7 +291,10 @@ export class PollsService {
       }),
     ]);
 
-    return this.shapeManyPollsForUser(polls, votesMadeByUser);
+    return this.shapeManyPollsForUser(
+      await syncPollStatuses(this.prisma, polls),
+      votesMadeByUser,
+    );
   }
 
   // differences with me many polls.
@@ -310,7 +319,10 @@ export class PollsService {
       }),
     ]);
 
-    return this.shapeManyPollsForUser(polls, votesMadeByUser);
+    return this.shapeManyPollsForUser(
+      await syncPollStatuses(this.prisma, polls),
+      votesMadeByUser,
+    );
   }
 
   /**
@@ -347,7 +359,10 @@ export class PollsService {
       include: getPollIncludeArgs(),
     });
 
-    const shaped = this.shapeManyPollsForUser(polls, votes);
+    const shaped = this.shapeManyPollsForUser(
+      await syncPollStatuses(this.prisma, polls),
+      votes,
+    );
     const byId = new Map(shaped.map((poll) => [poll.id, poll]));
 
     return orderedPollIds

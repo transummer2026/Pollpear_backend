@@ -54,13 +54,16 @@ function storedVote(...optionIds: number[]) {
 
 describe('VotesService', () => {
   const pollFindFirst = jest.fn();
+  const pollUpdateMany = jest.fn();
   const optionFindMany = jest.fn();
+  const roomUpdate = jest.fn();
   const voteFindUnique = jest.fn();
   const voteFindFirst = jest.fn();
   const voteUpsert = jest.fn();
   const voteUpdate = jest.fn();
   const prisma = {
-    poll: { findFirst: pollFindFirst },
+    poll: { findFirst: pollFindFirst, updateMany: pollUpdateMany },
+    room: { update: roomUpdate },
     option: { findMany: optionFindMany },
     vote: {
       findUnique: voteFindUnique,
@@ -98,7 +101,7 @@ describe('VotesService', () => {
       await expect(act).rejects.toThrow('Poll is not active.');
     });
 
-    it('rejects a poll past its end date', async () => {
+    it('rejects a poll past its end date and writes the closure through', async () => {
       pollFindFirst.mockResolvedValue(
         poll({ endsAt: new Date(Date.now() - 1_000) }),
       );
@@ -106,7 +109,11 @@ describe('VotesService', () => {
       const act = service.validateVote(7, 42, choiceBody(1));
 
       await expect(act).rejects.toThrow(ForbiddenException);
-      await expect(act).rejects.toThrow('Poll is closed.');
+      await expect(act).rejects.toThrow('Poll is not active.');
+      expect(pollUpdateMany).toHaveBeenCalledWith({
+        where: { id: { in: [7] }, status: { not: 'closed' } },
+        data: { status: 'closed' },
+      });
     });
 
     it('rejects a body whose type differs from the poll type', async () => {
