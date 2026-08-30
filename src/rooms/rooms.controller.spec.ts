@@ -3,7 +3,6 @@ import {
   RoomUpdateDTO,
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import { Logger } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import type { User } from 'src/generated/prisma/client';
 import { MessagesService } from 'src/messages/messages.service';
 import { RoomsController } from './rooms.controller';
@@ -23,7 +22,6 @@ describe('RoomsController', () => {
       | 'remove'
       | 'addParticipant'
       | 'removeParticipant'
-      | 'createMessage'
       | 'removeMessage'
     >
   >;
@@ -36,13 +34,11 @@ describe('RoomsController', () => {
       remove: jest.fn(),
       addParticipant: jest.fn(),
       removeParticipant: jest.fn(),
-      createMessage: jest.fn(),
       removeMessage: jest.fn(),
     };
     messages = { listForRoom: jest.fn() };
     controller = new RoomsController(
       service as unknown as RoomsService,
-      {} as PrismaService,
       messages as unknown as MessagesService,
       {} as Logger,
     );
@@ -101,12 +97,6 @@ describe('RoomsController', () => {
     await controller.getMessages(7, viewer, query);
 
     expect(messages.listForRoom).toHaveBeenCalledWith(7, viewer, query);
-  });
-
-  it('POST :id/messages delegates to roomsService.createMessage with (id)', () => {
-    controller.createMessage(7);
-
-    expect(service.createMessage).toHaveBeenCalledWith(7);
   });
 
   it('DELETE :id/messages/:messageId delegates to roomsService.removeMessage with (id, messageId)', () => {

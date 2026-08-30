@@ -157,14 +157,6 @@ export class RoomsService {
     return `remove user #${userId} from room #${id} works`;
   }
 
-  getMessages(id: number) {
-    return `get messages from room #${id} works`;
-  }
-
-  createMessage(id: number) {
-    return `create message in room #${id} works`;
-  }
-
   removeMessage(id: number, messageId: number) {
     return `remove message #${messageId} from room #${id} works`;
   }
