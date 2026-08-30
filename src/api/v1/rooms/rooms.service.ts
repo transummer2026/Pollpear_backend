@@ -207,8 +207,9 @@ export class ApiRoomsService {
     fields: string[],
     ability: AppAbility,
   ): void {
+    const target = subject('Room', room);
     const refused = fields.filter((field) =>
-      ability.cannot('update', subject('Room', room), field),
+      ability.cannot('update', target, field),
     );
 
     if (refused.length === 0) {

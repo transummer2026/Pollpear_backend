@@ -4,6 +4,7 @@ import { UserSchema as UserModel } from 'Pollpear_shared/src/prisma/schemas/mode
 import { OptionSchema as OptionModel } from 'Pollpear_shared/src/prisma/schemas/models/Option.schema';
 import { PollStatus, PollType, Visibility } from 'src/generated/prisma/enums';
 import { apiPageOf, ApiPageQuerySchema } from './api-pagination.schema';
+import { endsInTheFuture } from './api-dates.schema';
 
 export const MAX_OPTIONS = 20;
 export const MAX_TITLE = 255;
@@ -87,11 +88,6 @@ export const ApiPollSchema = ApiPollColumnsSchema.extend({
   options: z.array(ApiPollOptionSchema),
   voterCount: z.number().int(),
 });
-
-const endsInTheFuture = () =>
-  z.coerce.date().refine((date) => date.getTime() > Date.now(), {
-    error: 'endsAt must be in the future',
-  });
 
 const OptionInput = z.strictObject({
   text: z.string().min(1).max(MAX_LABEL),

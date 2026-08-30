@@ -25,6 +25,12 @@ describe('The room routes, against postgres', () => {
   const pollIds: number[] = [];
 
   const asUser = (id: number) => ({ id, role: 'user' }) as User;
+  const asAdmin = (id: number) => ({ id, role: 'admin' }) as User;
+  const lapse = (id: number) =>
+    prisma.room.update({
+      where: { id },
+      data: { endsAt: new Date(Date.now() - 1000) },
+    });
 
   const addUser = async (name: string) => {
     const user = await prisma.user.create({
@@ -184,5 +190,58 @@ describe('The room routes, against postgres', () => {
 
     expect(seen.status).toBe('closed');
     expect(stored).toEqual({ status: 'closed' });
+  });
+  it('keeps the status filter and the payload in agreement once a room lapses', async () => {
+    const room = await createRoom('public');
+    await lapse(room.id);
+
+    const paging = { page: 1, limit: 1000 };
+    const active = await service.findAllRooms(
+      { ...paging, status: 'active' },
+      asAdmin(ownerId),
+    );
+    const closed = await service.findAllRooms(
+      { ...paging, status: 'closed' },
+      asAdmin(ownerId),
+    );
+
+    expect(active.data.map((row) => row.id)).not.toContain(room.id);
+    expect(closed.data.find((row) => row.id === room.id)?.status).toBe(
+      'closed',
+    );
+  });
+
+  it('reconciles a lapsed room the bulk sweep skips because it is deleted', async () => {
+    const room = await createRoom('public');
+    await prisma.room.update({
+      where: { id: room.id },
+      data: { endsAt: new Date(Date.now() - 1000), deletedAt: new Date() },
+    });
+
+    const page = await service.findAllRooms(
+      { page: 1, limit: 1000 },
+      asAdmin(ownerId),
+    );
+    const stored = await prisma.room.findUnique({
+      where: { id: room.id },
+      select: { status: true },
+    });
+
+    expect(page.data.find((row) => row.id === room.id)?.status).toBe('closed');
+    expect(stored).toEqual({ status: 'closed' });
+  });
+
+  it('deletes a room whose deadline has already passed', async () => {
+    const room = await createRoom('public');
+    await lapse(room.id);
+
+    await service.removeRoom(room.id, asUser(ownerId));
+
+    const stored = await prisma.room.findUnique({
+      where: { id: room.id },
+      select: { status: true, deletedAt: true },
+    });
+    expect(stored?.status).toBe('closed');
+    expect(stored?.deletedAt).not.toBeNull();
   });
 });

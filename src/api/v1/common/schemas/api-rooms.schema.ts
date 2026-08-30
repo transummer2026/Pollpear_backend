@@ -3,6 +3,7 @@ import { RoomSchema as RoomModel } from 'Pollpear_shared/src/prisma/schemas/mode
 import { UserSchema as UserModel } from 'Pollpear_shared/src/prisma/schemas/models/User.schema';
 import { RoomStatus, Visibility } from 'src/generated/prisma/enums';
 import { apiPageOf, ApiPageQuerySchema } from './api-pagination.schema';
+import { endsInTheFuture } from './api-dates.schema';
 
 export const MAX_NAME = 255;
 export const MAX_DESCRIPTION = 3000;
@@ -53,11 +54,6 @@ export const ApiRoomSchema = ApiRoomColumnsSchema.extend({
   memberCount: z.number().int(),
   pollCount: z.number().int(),
 });
-
-const endsInTheFuture = () =>
-  z.coerce.date().refine((date) => date.getTime() > Date.now(), {
-    error: 'endsAt must be in the future',
-  });
 
 export const ApiRoomCreateSchema = z.strictObject({
   name: z.string().min(1).max(MAX_NAME),

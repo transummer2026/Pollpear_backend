@@ -46,7 +46,7 @@ export class ApiRoomsController {
   @ApiOperation({
     summary: 'List the rooms the caller may see',
     description:
-      'Public rooms, and the private ones you belong to. A room whose owner blocked you, or whom you blocked, stays out. A moderator sees every live room, an admin the deleted ones too. Newest first: pages are ordered by descending id.',
+      'Public rooms, and the private ones you belong to. A room whose owner blocked you, or whom you blocked, stays out. A moderator sees every live room, an admin the deleted ones too. Newest first: pages are ordered by descending id. Every row carries its deadline, and a room past that deadline already reads as closed, filters included. Deleted rooms are the one exception, and only an admin sees those: they are filtered on the status they were stored with, while the row itself reports the truth.',
   })
   @ApiPageQueryDocs()
   @ApiFilterDocs(ApiRoomFilterSchema)
@@ -66,7 +66,7 @@ export class ApiRoomsController {
   @ApiOperation({
     summary: 'Create a room',
     description:
-      'The owner is the key owner, never the body. A new room is always active, and its owner joins it as a member in the same write. The banner is not taken from the body: every room starts on the default one.',
+      'The owner is the key owner, never the body. A room opens active and its owner joins it as a member in the same write. endsAt is optional and schedules the close: leave it out for a room that stays open until someone deletes it. The banner is not taken from the body: every room starts on the default one.',
   })
   @ApiBody({ schema: toOpenApi(ApiRoomCreateSchema) })
   @ApiCreatedResponse({ schema: toOpenApi(ApiRoomSchema) })
@@ -83,7 +83,7 @@ export class ApiRoomsController {
   @ApiOperation({
     summary: 'One room, with its member and poll counts',
     description:
-      'A room the caller may not see answers 404, like a missing one. The poll count follows the same rules as the poll routes: it counts the polls you could actually read, so a private poll in a public room is never revealed by the tally.',
+      'A room the caller may not see answers 404, like a missing one. A room past its deadline reads as closed, whether or not anything has touched it since. The poll count follows the same rules as the poll routes: it counts the polls you could actually read, so a private poll in a public room is never revealed by the tally.',
   })
   @ApiOkResponse({ schema: toOpenApi(ApiRoomSchema) })
   @ApiNotFoundResponse({ description: 'No such room, or not visible to you.' })
@@ -97,7 +97,7 @@ export class ApiRoomsController {
   @ApiOperation({
     summary: 'Edit a room that is still open',
     description:
-      'The owner only, and only while the room is active: a closed room keeps the settings it was closed with.',
+      'The owner only, and only while the room is active. A room closes on its own once endsAt passes, and a closed room is final: every field is refused from then on, endsAt included, so a deadline cannot be pushed back to reopen it. Closing is one way — a room that has ended is replaced, not revived.',
   })
   @ApiBody({ schema: toOpenApi(ApiRoomUpdateSchema) })
   @ApiOkResponse({ schema: toOpenApi(ApiRoomSchema) })
@@ -122,7 +122,7 @@ export class ApiRoomsController {
   @ApiOperation({
     summary: 'Delete a room',
     description:
-      'Soft delete, by the owner or a moderator. Whatever the room already holds stays where it is: nothing is erased, the room simply stops being served.',
+      'Soft delete, by the owner or a moderator. A closed room can still be deleted: no deadline stands in the way here. Whatever the room already holds stays where it is — nothing is erased, the room simply stops being served.',
   })
   @ApiNoContentResponse({ description: 'Room deleted.' })
   @ApiForbiddenResponse({ description: 'Banned account, or not your room.' })
