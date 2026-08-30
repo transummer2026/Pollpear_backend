@@ -448,11 +448,6 @@ export function getRoomIncludeArgs(userId: number, ability: AppAbility) {
         inviter: true,
         room: true,
       },
-      include: {
-        invitee: true,
-        inviter: true,
-        room: true,
-      },
     },
   } satisfies Prisma.RoomInclude;
 }
