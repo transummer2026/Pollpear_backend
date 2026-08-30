@@ -91,6 +91,8 @@ describe('PollsService', () => {
   const pollFindFirst = jest.fn();
   const voteFindUnique = jest.fn();
   const voteFindMany = jest.fn();
+  const roomFindFirst = jest.fn();
+  const roomUpdateMany = jest.fn();
   const prisma = {
     poll: {
       create: pollCreate,
@@ -99,6 +101,7 @@ describe('PollsService', () => {
       findFirst: pollFindFirst,
     },
     vote: { findUnique: voteFindUnique, findMany: voteFindMany },
+    room: { findFirst: roomFindFirst, updateMany: roomUpdateMany },
   } as unknown as PrismaService;
   const buildOptionsNestedWrite = jest.fn();
   const buildHashtagsNestedWrite = jest.fn();
@@ -185,6 +188,62 @@ describe('PollsService', () => {
       await service.create(viewer(), createBody());
 
       expect(resolveHashtag).not.toHaveBeenCalled();
+    });
+
+    describe('room-scoped poll', () => {
+      it('creates the poll when the target room is active', async () => {
+        roomFindFirst.mockResolvedValue({
+          id: 1,
+          status: 'active',
+          endsAt: null,
+        });
+
+        await service.create(viewer(), createBody({ roomId: 1 }));
+
+        expect(roomFindFirst).toHaveBeenCalledWith({
+          where: { id: 1, deletedAt: null },
+        });
+        expect(pollCreate).toHaveBeenCalled();
+      });
+
+      it('rejects the poll when the target room is closed', async () => {
+        roomFindFirst.mockResolvedValue({
+          id: 1,
+          status: 'closed',
+          endsAt: null,
+        });
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(ForbiddenError);
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
+
+      it('rejects the poll when the target room has passed its endsAt, flipping it closed', async () => {
+        roomFindFirst.mockResolvedValue({
+          id: 1,
+          status: 'active',
+          endsAt: new Date(Date.now() - 1_000),
+        });
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(ForbiddenError);
+        expect(roomUpdateMany).toHaveBeenCalledWith({
+          where: { id: { in: [1] }, status: 'active' },
+          data: { status: 'closed' },
+        });
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
+
+      it('404s when the target room does not exist', async () => {
+        roomFindFirst.mockResolvedValue(null);
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(NotFoundException);
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
     });
   });
 

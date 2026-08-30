@@ -12,6 +12,7 @@ import {
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { Poll, Prisma, User } from 'src/generated/prisma/client';
 import { Logger } from '@nestjs/common';
+import { syncRoomStatuses } from 'src/rooms/room-status';
 
 @Injectable()
 export class PollsService {
@@ -109,6 +110,21 @@ export class PollsService {
     { options, hashtags, ...body }: PollCreateDTO,
     ability: AppAbility,
   ): Promise<Poll> {
+    if (body.roomId != null) {
+      const found = await this.prisma.room.findFirst({
+        where: { id: body.roomId, deletedAt: null },
+      });
+      if (!found) throw new NotFoundException('Room not found');
+      // A poll only attaches to a live room. Fold a lapsed `endsAt` into
+      // `status` first, then let the CASL `create Poll` rule (which needs
+      // `room.status: 'active'`) reject a closed one.
+      const [room] = await syncRoomStatuses(this.prisma, [found]);
+      ForbiddenError.from(ability).throwUnlessCan(
+        'create',
+        subject('Poll', { roomId: body.roomId, room } as unknown as Poll),
+      );
+    }
+
     const pollHashtags = hashtags
       ? await Promise.all(
           hashtags.map((hashtag) =>
