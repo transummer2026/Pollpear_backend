@@ -71,4 +71,30 @@ describe('AiService', () => {
       ServiceUnavailableException,
     );
   });
+
+  it('cuts the result to the requested limit when the recommender over-returns', async () => {
+    const feed = Array.from({ length: 9 }, (_, i) => ({
+      poll_id: i + 1,
+      title: `p${i + 1}`,
+      score: 1 - i / 10,
+    }));
+    fetchSpy.mockResolvedValue(jsonResponse({ user_id: 7, feed }));
+
+    const result = await makeService().getFeed(7, 5);
+
+    expect(result.map((entry) => entry.poll_id)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('turns a grossly oversized response into a 503', async () => {
+    const feed = Array.from({ length: 51 }, (_, i) => ({
+      poll_id: i + 1,
+      title: `p${i + 1}`,
+      score: 0.5,
+    }));
+    fetchSpy.mockResolvedValue(jsonResponse({ user_id: 7, feed }));
+
+    await expect(makeService().getFeed(7, 50)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+  });
 });

@@ -57,6 +57,8 @@ export class AiService {
       throw new ServiceUnavailableException('Feed is temporarily unavailable');
     }
 
-    return parsed.data.feed;
+    // The recommender is asked for `limit` but is not trusted to honour it
+    // exactly — cut to the contract the caller expects.
+    return parsed.data.feed.slice(0, limit);
   }
 }

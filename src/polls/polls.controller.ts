@@ -29,6 +29,7 @@ import {
   VoteUpdateSchema,
 } from 'Pollpear_shared/src/schemas/vote.schema';
 import { VotesService } from 'src/votes/votes.service';
+import { VotedFilterSchema } from './polls.query';
 
 @Controller('polls')
 export class PollsController {
@@ -61,10 +62,9 @@ export class PollsController {
   findManyPolls(
     @CurrentUser() viewer: User,
     @Query('userId') targetUserId?: string,
-    @Query('voted') voted?: string,
+    @Query('voted', new ZodValidationPipe(VotedFilterSchema)) voted?: boolean,
   ) {
-    if (voted === 'true') {
-      this.logger.debug('voted filter is captured in the url');
+    if (voted) {
       return this.pollsService.findMeVotedPolls(viewer);
     }
     if (targetUserId) {

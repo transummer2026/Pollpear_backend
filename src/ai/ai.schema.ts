@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FEED_MAX_LIMIT } from '../feed/feed.query';
 
 /**
  * Wire shape of the AI recommender response (`GET {ai_url}/feed/{userId}`).
@@ -15,7 +16,11 @@ export const FeedEntrySchema = z.object({
 
 export const FeedResponseSchema = z.object({
   user_id: z.number().int(),
-  feed: z.array(FeedEntrySchema),
+  // We trust the recommender enough to validate its shape, so bound its
+  // size too: the backend never asks for more than FEED_MAX_LIMIT, a
+  // well-behaved recommender never returns more, and getFeed slices to the
+  // exact `limit` on top of this.
+  feed: z.array(FeedEntrySchema).max(FEED_MAX_LIMIT),
 });
 
 export type FeedEntry = z.infer<typeof FeedEntrySchema>;
