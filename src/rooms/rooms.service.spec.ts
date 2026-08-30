@@ -130,15 +130,27 @@ describe('RoomsService', () => {
       expect(roomUpdate).not.toHaveBeenCalled();
     });
 
-    it('lets the owner update a closed room', async () => {
+    // The `['status']`-scoped update rule (permissions/room.ts) is the only
+    // thing an owner may change on a closed room — to reopen it.
+    it('lets the owner reopen a closed room by touching only status', async () => {
       roomFindFirst.mockResolvedValue(room({ status: 'closed' }));
+      const reopen = { status: 'active' } as unknown as RoomUpdateDTO;
 
-      await service.update(7, viewer(), body);
+      await service.update(7, viewer(), reopen);
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
-        data: body,
+        data: reopen,
       });
+    });
+
+    it('refuses the owner editing a non-status field on a closed room', async () => {
+      roomFindFirst.mockResolvedValue(room({ status: 'closed' }));
+
+      await expect(service.update(7, viewer(), body)).rejects.toThrow(
+        ForbiddenError,
+      );
+      expect(roomUpdate).not.toHaveBeenCalled();
     });
 
     it('lets the owner update an active room', async () => {
