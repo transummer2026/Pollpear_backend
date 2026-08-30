@@ -10,7 +10,9 @@ import {
   Body,
   Query,
   Logger,
+  Res,
 } from '@nestjs/common';
+import { type Response } from 'express';
 import { RoomsService } from './rooms.service';
 import type {
   RoomCreateDTO,
@@ -102,6 +104,35 @@ export class RoomsController {
     return this.roomsService.remove(id, viewer);
   }
 
+  @Get(':id/invitations')
+  @CheckAbilities(['read', 'Invitation'])
+  getRoomInvitations(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.invitationService.getRoomInvitations(viewer, id);
+  }
+
+  @Get(':id/invitations/:userId')
+  @CheckAbilities(['read', 'Invitation'])
+  async getRoomInvitation(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const invitation = await this.invitationService.getRoomInvitation(
+      viewer,
+      id,
+      userId,
+    );
+    if (!invitation) {
+      res.status(204);
+      return;
+    }
+    return invitation;
+  }
+
   @Post(':id/invitations/:userId')
   @HttpCode(201)
   @CheckAbilities(['invite', 'Room'])
@@ -129,7 +160,7 @@ export class RoomsController {
     @Body(new ZodValidationPipe(InvitationStatusUpdateSchema))
     body: InvitationStatusUpdateDTO,
   ) {
-    return this.invitationService.updateInvitation(
+    return this.invitationService.updateRoomInvitation(
       viewer,
       id,
       userId,

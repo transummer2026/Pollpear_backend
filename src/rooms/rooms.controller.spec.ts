@@ -4,11 +4,17 @@ import {
 } from 'Pollpear_shared/src/schemas/rooms.schema';
 import type { InvitationCreateDTO } from 'Pollpear_shared/src/schemas/invitations.schema';
 import { Logger } from '@nestjs/common';
+import type { Response } from 'express';
 import type { User } from 'src/generated/prisma/client';
 import { MessagesService } from 'src/messages/messages.service';
 import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
 import { InvitationService } from 'src/invitation/invitation.service';
+
+function mockResponse() {
+  const status = jest.fn();
+  return { res: { status } as unknown as Response, status };
+}
 
 const viewer = { id: 42, role: 'user' } as User;
 
@@ -24,7 +30,11 @@ describe('RoomsController', () => {
   let invitationService: jest.Mocked<
     Pick<
       InvitationService,
-      'createRoomInvitation' | 'updateInvitation' | 'removeInvitation'
+      | 'getRoomInvitation'
+      | 'getRoomInvitations'
+      | 'createRoomInvitation'
+      | 'updateRoomInvitation'
+      | 'removeInvitation'
     >
   >;
 
@@ -38,8 +48,10 @@ describe('RoomsController', () => {
     };
     messages = { listForRoom: jest.fn() };
     invitationService = {
+      getRoomInvitation: jest.fn(),
+      getRoomInvitations: jest.fn(),
       createRoomInvitation: jest.fn(),
-      updateInvitation: jest.fn(),
+      updateRoomInvitation: jest.fn(),
       removeInvitation: jest.fn(),
     };
     controller = new RoomsController(
@@ -85,6 +97,41 @@ describe('RoomsController', () => {
     expect(service.remove).toHaveBeenCalledWith(7, viewer);
   });
 
+  it('GET :id/invitations delegates to invitationService.getRoomInvitations with (viewer, id)', async () => {
+    await controller.getRoomInvitations(viewer, 7);
+
+    expect(invitationService.getRoomInvitations).toHaveBeenCalledWith(
+      viewer,
+      7,
+    );
+  });
+
+  it('GET :id/invitations/:userId returns 204 with no body when there is no invitation', async () => {
+    invitationService.getRoomInvitation.mockResolvedValue(null);
+    const { res, status } = mockResponse();
+
+    const result = await controller.getRoomInvitation(viewer, 7, 42, res);
+
+    expect(invitationService.getRoomInvitation).toHaveBeenCalledWith(
+      viewer,
+      7,
+      42,
+    );
+    expect(status).toHaveBeenCalledWith(204);
+    expect(result).toBeUndefined();
+  });
+
+  it('GET :id/invitations/:userId returns the invitation without touching the status when found', async () => {
+    const invitation = { id: 1, status: 'pending' } as never;
+    invitationService.getRoomInvitation.mockResolvedValue(invitation);
+    const { res, status } = mockResponse();
+
+    const result = await controller.getRoomInvitation(viewer, 7, 42, res);
+
+    expect(status).not.toHaveBeenCalled();
+    expect(result).toEqual(invitation);
+  });
+
   it('POST :id/invitations/:userId delegates to invitationService.createRoomInvitation with (viewer, id, userId, body)', async () => {
     const body: InvitationCreateDTO = {};
 
@@ -103,7 +150,7 @@ describe('RoomsController', () => {
       status: 'accepted',
     });
 
-    expect(invitationService.updateInvitation).toHaveBeenCalledWith(
+    expect(invitationService.updateRoomInvitation).toHaveBeenCalledWith(
       viewer,
       7,
       42,

@@ -13,6 +13,8 @@ import {
   type InvitationReadDTO,
   type InvitationCreateDTO,
   type InvitationStatusUpdateDTO,
+  InvitationListSchema,
+  type InvitationListDTO,
 } from 'Pollpear_shared/src/schemas/invitations.schema';
 import { ForbiddenError, subject } from '@casl/ability';
 import { accessibleBy } from '@casl/prisma';
@@ -26,6 +28,16 @@ type InvitationOutcome = {
   kind: 'created' | 'accepted' | 'unchanged';
 };
 
+/**
+ * Handles room invitations: sending, reading, responding to, and cancelling
+ * them. An invitation is uniquely identified by the (roomId, inviteeId)
+ * pair, so a room can only ever have one live invitation per invitee.
+ *
+ * Note: accepting an invitation only flips its status to "accepted" here.
+ * There is currently no code that turns that into an actual `roomMembers`
+ * row (the join flow isn't built yet), so "accepted" has no functional
+ * effect on room membership today.
+ */
 @Injectable()
 export class InvitationService {
   constructor(
@@ -34,6 +46,74 @@ export class InvitationService {
     private notificationService: NotificationService,
   ) {}
 
+  /**
+   * Fetches the invitation for one specific (room, invitee) pair.
+   * Returns null if it doesn't exist, is soft-deleted, or the viewer isn't
+   * allowed to see it (only the inviter or the invitee can).
+   */
+  async getRoomInvitation(
+    viewer: User,
+    roomId: number,
+    inviteeId: number,
+  ): Promise<InvitationReadDTO | null> {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: {
+        inviteeId_roomId: {
+          roomId,
+          inviteeId,
+        },
+      },
+      include: { invitee: true, inviter: true, room: true },
+    });
+    if (!invitation || invitation.deletedAt !== null) return null;
+
+    const ability = this.abilityFactory.createForUser(viewer);
+    ForbiddenError.from(ability).throwUnlessCan(
+      'read',
+      subject('Invitation', invitation),
+    );
+
+    return InvitationReadSchema.parse(invitation);
+  }
+
+  /**
+   * Lists the invitations for a room that the viewer is allowed to see
+   */
+  async getRoomInvitations(
+    viewer: User,
+    roomId: number,
+  ): Promise<InvitationListDTO[]> {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const invitations = await this.prisma.invitation.findMany({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('Invitation'),
+          { roomId, deletedAt: null },
+        ],
+      },
+      include: { invitee: true },
+    });
+
+    return invitations.map((invitation) =>
+      InvitationListSchema.parse({
+        inviteeName: invitation.invitee.name,
+        status: invitation.status,
+      }),
+    );
+  }
+
+  /**
+   * Invites a user to a room. Idempotent by design: calling this again for
+   * the same (room, invitee) while an invitation is already pending or
+   * accepted just returns that invitation unchanged, rather than erroring
+   * or resetting it — see resolveInvitation() for why "accepted" is
+   * protected the same way as "pending".
+   *
+   * Order of checks matters here: room existence, then room-level "invite"
+   * permission, then whether the target user can even be interacted with
+   * (blocks), then whether they're already a member — each one throws a
+   * different error so the caller knows exactly what went wrong.
+   */
   async createRoomInvitation(
     viewer: User,
     roomId: number,
@@ -104,13 +184,21 @@ export class InvitationService {
     return InvitationReadSchema.parse(outcome.invitation);
   }
 
-  async updateInvitation(
+  /**
+   * Lets the invitee accept or reject their own invitation. Only the
+   * invitee can call this — not the inviter, not anyone else.
+   *
+   * Once the invitation has already been responded to (status isn't
+   * "pending" anymore), this returns it as-is instead of re-processing:
+   * that keeps repeated calls (e.g. a double-tap on the client) safe, and
+   * avoids re-sending the accepted/cleared notifications below.
+   */
+  async updateRoomInvitation(
     viewer: User,
     roomId: number,
     inviteeId: number,
     status: InvitationStatusUpdateDTO['status'],
   ): Promise<InvitationReadDTO> {
-    // now the invitation is available
     const invitation = await this.prisma.invitation.findUnique({
       where: {
         inviteeId_roomId: {
@@ -165,6 +253,12 @@ export class InvitationService {
     return InvitationReadSchema.parse(updated);
   }
 
+  /**
+   * Cancels/removes an invitation (soft delete). Either side can do this —
+   * the inviter revoking it, or the invitee dismissing it — per the CASL
+   * rules in casl/permissions/invitation.ts. A removed invitation can later
+   * be re-created via createRoomInvitation(), which revives the same row.
+   */
   async removeInvitation(
     viewer: User,
     roomId: number,
@@ -201,6 +295,18 @@ export class InvitationService {
     );
   }
 
+  /**
+   * Creates the invitation row, or revives/refreshes an existing one via
+   * upsert on the (inviteeId, roomId) unique key.
+   *
+   * "pending" and "accepted" existing invitations are left untouched
+   * (kind: "unchanged") — re-inviting someone who already said yes must
+   * not silently bounce their invitation back to "pending". A "rejected"
+   * or soft-deleted one, though, is fair game: the upsert's `update`
+   * branch resets it to a fresh "pending" invite, and — importantly —
+   * overwrites `message` and `inviterId` too, so the invitation reflects
+   * whoever is sending *this* invite, not whoever sent the original one.
+   */
   private async resolveInvitation(
     viewerId: number,
     inviteeId: number,

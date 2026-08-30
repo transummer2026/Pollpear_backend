@@ -370,6 +370,11 @@ export function getRoomIncludeArgs(userId: number) {
         deletedAt: null,
         status: 'pending',
       },
+      include: {
+        invitee: true,
+        inviter: true,
+        room: true,
+      },
     },
   } satisfies Prisma.RoomInclude;
 }

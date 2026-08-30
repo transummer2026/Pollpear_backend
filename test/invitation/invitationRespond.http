@@ -1,0 +1,148 @@
+### create a public room to invite into (run first, then replace :id below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "respond flow room",
+	"visibility": "public"
+}
+
+### owner (user 1) invites user 6 -> 201
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### invitee (user 6) accepts -> 200, status becomes "accepted"
+PATCH http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"status": "accepted"
+}
+
+### invitee accepts again while already accepted -> 200, idempotent no-op (returns as-is, no re-processing)
+PATCH http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"status": "accepted"
+}
+
+### re-inviting user 6 after they already accepted -> 201, status stays "accepted"
+### regression check: resolveInvitation() must NOT reset an accepted invitation back to
+### "pending" just because someone sends another invite (see invitation.service.ts)
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### create a second room to test the decline path (run first, then replace :id2 below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "decline flow room",
+	"visibility": "public"
+}
+
+### owner invites user 6 into the second room -> 201
+POST http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### invitee (user 6) declines -> 200, status becomes "rejected"
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"status": "rejected"
+}
+
+### re-inviting user 6 after they declined -> 201, status resets to "pending" (a fresh invite is allowed)
+POST http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### inviter (user 1) tries to respond to the invitation they sent -> 403 Forbidden (only the invitee can respond)
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"status": "accepted"
+}
+
+### unrelated third party (user 3) tries to respond -> 403 Forbidden
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"status": "accepted"
+}
+
+### trying to set status back to "pending" -> 400 Bad Request (zod excludes "pending" from the update schema)
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"status": "pending"
+}
+
+### invalid status value -> 400 Bad Request (zod enum mismatch)
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"status": "maybe"
+}
+
+### responding to an invitation that doesn't exist for this room/user pair -> 404 Not Found
+### (user 3 was never invited to this room)
+PATCH http://localhost:3000/rooms/:id2/invitations/3 HTTP/1.1
+Content-Type: application/json
+x-user-id: 3
+
+{
+	"status": "accepted"
+}
+
+### missing x-user-id header -> 401 Unauthorized
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+
+{
+	"status": "accepted"
+}
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+PATCH http://localhost:3000/rooms/:id2/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 999999
+
+{
+	"status": "accepted"
+}
+
+### non-integer room id -> 400 Bad Request (ParseIntPipe)
+PATCH http://localhost:3000/rooms/abc/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 6
+
+{
+	"status": "accepted"
+}

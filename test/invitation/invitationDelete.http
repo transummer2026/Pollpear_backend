@@ -1,0 +1,66 @@
+### create a public room to invite into (run first, then replace :id below with the returned id) -> 201
+POST http://localhost:3000/rooms/new HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{
+	"name": "delete flow room",
+	"visibility": "public"
+}
+
+### owner (user 1) invites user 6 -> 201
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### inviter cancels the invitation they sent -> 204
+DELETE http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+x-user-id: 1
+
+### deleting the same invitation again -> 404 Not Found (already soft-deleted)
+DELETE http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+x-user-id: 1
+
+### owner invites user 6 again for the invitee-deletes-it case -> 201
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### invitee (user 6) removes the invitation themselves -> 204
+DELETE http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+x-user-id: 6
+
+### owner invites user 6 a third time, for the forbidden-delete check -> 201
+POST http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+Content-Type: application/json
+x-user-id: 1
+
+{}
+
+### unrelated third party (user 3) tries to delete someone else's invitation -> 403 Forbidden
+DELETE http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+x-user-id: 3
+
+### deleting an invitation that doesn't exist for this room/user pair -> 404 Not Found
+### (user 3 was never invited to this room)
+DELETE http://localhost:3000/rooms/:id/invitations/3 HTTP/1.1
+x-user-id: 3
+
+### missing x-user-id header -> 401 Unauthorized
+DELETE http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+
+### x-user-id with no matching user in DB -> 401 Unauthorized
+DELETE http://localhost:3000/rooms/:id/invitations/6 HTTP/1.1
+x-user-id: 999999
+
+### non-integer room id -> 400 Bad Request (ParseIntPipe)
+DELETE http://localhost:3000/rooms/abc/invitations/6 HTTP/1.1
+x-user-id: 1
+
+### non-integer invitee id -> 400 Bad Request (ParseIntPipe)
+DELETE http://localhost:3000/rooms/:id/invitations/abc HTTP/1.1
+x-user-id: 1
