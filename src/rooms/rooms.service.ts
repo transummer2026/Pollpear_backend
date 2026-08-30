@@ -119,10 +119,17 @@ export class RoomsService {
     if (!room) throw new NotFoundException('Room not found');
 
     const ability = this.abilityFactory.createForUser(viewer);
-    ForbiddenError.from(ability).throwUnlessCan(
-      'update',
-      subject('Room', room),
-    );
+    const guard = ForbiddenError.from(ability);
+    const target = subject('Room', room);
+
+    // `can('update', room)` only asks whether *some* update rule matches the
+    // subject. On a closed room the `['status']`-scoped rule matches, so the
+    // bare check passes and the whole body would be written. Re-check every
+    // field the body actually touches against the field-scoped rules.
+    guard.throwUnlessCan('update', target);
+    for (const field of Object.keys(body)) {
+      guard.throwUnlessCan('update', target, field);
+    }
 
     return await this.updateRoom(id, body);
   }
