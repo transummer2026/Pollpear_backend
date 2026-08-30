@@ -1,6 +1,7 @@
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { RoomsService } from 'src/rooms/rooms.service';
 import { InvitationService } from './invitation.service';
 
 describe('InvitationService', () => {
@@ -27,11 +28,14 @@ describe('InvitationService', () => {
     notifyRoomInvitationAccepted,
     clearRoomInvitation,
   } as unknown as NotificationService;
+  const addParticipant = jest.fn();
+  const roomsService = { addParticipant } as unknown as RoomsService;
 
   const service = new InvitationService(
     prisma,
     abilityFactory,
     notificationService,
+    roomsService,
   );
 
   beforeEach(() => jest.clearAllMocks());

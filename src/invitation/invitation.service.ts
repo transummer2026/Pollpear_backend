@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  forwardRef,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +10,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { NotificationService } from 'src/notification/notification.service';
 import { Prisma } from 'src/generated/prisma/client';
+import { RoomsService } from 'src/rooms/rooms.service';
 import type { Invitation, User, Room } from 'src/generated/prisma/client';
 import {
   InvitationReadSchema,
@@ -34,10 +37,10 @@ type InvitationOutcome = {
  * them. An invitation is uniquely identified by the (roomId, inviteeId)
  * pair, so a room can only ever have one live invitation per invitee.
  *
- * Note: accepting an invitation only flips its status to "accepted" here.
- * There is currently no code that turns that into an actual `roomMembers`
- * row (the join flow isn't built yet), so "accepted" has no functional
- * effect on room membership today.
+ * Note: accepting an invitation also calls `RoomsService#addParticipant`,
+ * which re-checks the CASL `join` rule (now satisfiable thanks to the
+ * just-written "accepted" status) and creates/reactivates the
+ * `roomMembers` row.
  */
 @Injectable()
 export class InvitationService {
@@ -45,6 +48,8 @@ export class InvitationService {
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
     private notificationService: NotificationService,
+    @Inject(forwardRef(() => RoomsService))
+    private roomsService: RoomsService,
   ) {}
 
   /**
@@ -279,6 +284,7 @@ export class InvitationService {
     );
 
     if (status === 'accepted') {
+      await this.roomsService.addParticipant(viewer, roomId);
       await this.notificationService.notifyRoomInvitationAccepted(
         updated.inviterId,
         updated.inviteeId,
