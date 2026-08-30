@@ -111,8 +111,16 @@ export class PollsService {
     ability: AppAbility,
   ): Promise<Poll> {
     if (body.roomId != null) {
+      // Scope the lookup to rooms the caller can read, same as every other
+      // id-based fetch (RoomsService.findOneRoom, findMeOnePoll): a room the
+      // caller can't see reports 404 rather than leaking that it exists.
       const found = await this.prisma.room.findFirst({
-        where: { id: body.roomId, deletedAt: null },
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').ofType('Room'),
+            { id: body.roomId, deletedAt: null },
+          ],
+        },
       });
       if (!found) throw new NotFoundException('Room not found');
       // A poll only attaches to a live room. Fold a lapsed `endsAt` into

@@ -6,6 +6,7 @@ import {
   PollUpdateDTO,
 } from 'Pollpear_shared/src/schemas/polls.schema';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { accessibleBy } from 'src/casl/casl-prisma';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { OptionsService } from 'src/options/options.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -106,9 +107,10 @@ describe('PollsService', () => {
   const buildOptionsNestedWrite = jest.fn();
   const buildHashtagsNestedWrite = jest.fn();
   const resolveHashtag = jest.fn();
+  const abilityFactory = new CaslAbilityFactory();
   const service = new PollsService(
     prisma,
-    new CaslAbilityFactory(),
+    abilityFactory,
     { buildOptionsNestedWrite } as unknown as OptionsService,
     {
       resolveHashtag,
@@ -132,6 +134,13 @@ describe('PollsService', () => {
     .mockImplementation(
       (value) => value as ReturnType<typeof PollReadSchema.parse>,
     );
+
+  // Rooms are fetched scoped to the CASL room-read policy; rather than
+  // re-typing its conditions, derive the expected `where` the same way the
+  // service does — run the real ability through `accessibleBy`.
+  function readableRoomWhere(v: User) {
+    return accessibleBy(abilityFactory.createForUser(v), 'read').ofType('Room');
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -198,10 +207,13 @@ describe('PollsService', () => {
           endsAt: null,
         });
 
-        await service.create(viewer(), createBody({ roomId: 1 }));
+        const caller = viewer();
+        await service.create(caller, createBody({ roomId: 1 }));
 
         expect(roomFindFirst).toHaveBeenCalledWith({
-          where: { id: 1, deletedAt: null },
+          where: {
+            AND: [readableRoomWhere(caller), { id: 1, deletedAt: null }],
+          },
         });
         expect(pollCreate).toHaveBeenCalled();
       });
