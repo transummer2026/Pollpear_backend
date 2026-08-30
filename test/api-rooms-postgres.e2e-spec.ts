@@ -168,4 +168,21 @@ describe('The room routes, against postgres', () => {
       'Room not found',
     );
   });
+  it('closes a room past its deadline on the next read, and stores the flip', async () => {
+    const room = await createRoom('public');
+
+    await prisma.room.update({
+      where: { id: room.id },
+      data: { endsAt: new Date(Date.now() - 1000) },
+    });
+
+    const seen = await service.findOneRoom(room.id, asUser(ownerId));
+    const stored = await prisma.room.findUnique({
+      where: { id: room.id },
+      select: { status: true },
+    });
+
+    expect(seen.status).toBe('closed');
+    expect(stored).toEqual({ status: 'closed' });
+  });
 });

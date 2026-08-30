@@ -22,6 +22,7 @@ const listedRoom = {
   bannerUrl: '/uploads/banners/default.svg',
   visibility: 'public',
   status: 'active',
+  endsAt: null,
   _count: { roomMembers: 3 },
 };
 
@@ -42,6 +43,7 @@ const activeRoom = {
 };
 
 const closedRoom = { ...activeRoom, status: 'closed' };
+const expiredRoom = { ...activeRoom, endsAt: new Date('2020-01-01') };
 const goneRoom = { ...activeRoom, deletedAt: new Date('2026-02-01') };
 
 const page = { page: 1, limit: 20 };
@@ -61,12 +63,23 @@ describe('ApiRoomsService', () => {
     Promise<unknown>,
     [{ data: Record<string, unknown> }]
   >();
+  const updateMany = jest.fn<
+    Promise<{ count: number }>,
+    [{ where: object; data: object }]
+  >();
   const transaction = jest.fn<Promise<unknown[]>, [unknown[]]>();
 
   beforeEach(async () => {
-    [findMany, count, findFirst, create, update, transaction].forEach((fn) =>
-      fn.mockReset(),
-    );
+    [
+      findMany,
+      count,
+      findFirst,
+      create,
+      update,
+      updateMany,
+      transaction,
+    ].forEach((fn) => fn.mockReset());
+    updateMany.mockResolvedValue({ count: 0 });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ApiRoomsService,
@@ -74,7 +87,7 @@ describe('ApiRoomsService', () => {
         {
           provide: PrismaService,
           useValue: {
-            room: { findMany, count, findFirst, create, update },
+            room: { findMany, count, findFirst, create, update, updateMany },
             $transaction: transaction,
           },
         },
@@ -96,6 +109,7 @@ describe('ApiRoomsService', () => {
             bannerUrl: '/uploads/banners/default.svg',
             visibility: 'public',
             status: 'active',
+            endsAt: null,
             memberCount: 3,
           },
         ],
@@ -335,6 +349,73 @@ describe('ApiRoomsService', () => {
       await service.removeRoom(42, owner);
 
       expect(update).toHaveBeenCalled();
+    });
+  });
+  describe('the status reconciliation', () => {
+    it('reports a room past its deadline as closed, and writes the flip', async () => {
+      findFirst.mockResolvedValue(expiredRoom);
+      updateMany.mockResolvedValue({ count: 1 });
+
+      const answer = await service.findOneRoom(42, owner);
+
+      expect(answer.status).toBe('closed');
+      expect(updateMany.mock.calls[0][0]).toEqual({
+        where: { id: { in: [42] }, status: 'active' },
+        data: { status: 'closed' },
+      });
+    });
+
+    it('writes nothing while the deadline is still ahead', async () => {
+      findFirst.mockResolvedValue({
+        ...activeRoom,
+        endsAt: new Date('2030-01-01'),
+      });
+
+      await service.findOneRoom(42, owner);
+
+      expect(updateMany).not.toHaveBeenCalled();
+    });
+
+    it('409s the owner editing a room past its deadline', async () => {
+      findFirst.mockResolvedValue(expiredRoom);
+      updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        service.updateRoom(42, { name: 'Renamed' }, owner),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('reconciles the rows of the list too', async () => {
+      transaction.mockResolvedValue([
+        [{ ...listedRoom, endsAt: new Date('2020-01-01') }],
+        1,
+      ]);
+      updateMany.mockResolvedValue({ count: 1 });
+
+      const answer = await service.findAllRooms(page, owner);
+
+      expect(answer.data[0].status).toBe('closed');
+    });
+  });
+  describe('the bulk sweep on the list', () => {
+    it('closes every expired room before the filter reads the column', async () => {
+      transaction.mockResolvedValue([[], 0]);
+      updateMany.mockResolvedValue({ count: 2 });
+
+      await service.findAllRooms({ ...page, status: 'active' }, owner);
+
+      expect(updateMany.mock.calls[0][0]).toMatchObject({
+        where: {
+          status: 'active',
+          deletedAt: null,
+          endsAt: { not: null },
+        },
+        data: { status: 'closed' },
+      });
+      expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        transaction.mock.invocationCallOrder[0],
+      );
     });
   });
 });

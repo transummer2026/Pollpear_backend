@@ -39,6 +39,10 @@ describe('ApiRoomsController (e2e)', () => {
     Promise<unknown>,
     [{ data: Record<string, unknown> }]
   >();
+  const updateMany = jest.fn<
+    Promise<{ count: number }>,
+    [{ where: object; data: object }]
+  >();
   const transaction = jest.fn();
 
   const activeRoom = {
@@ -65,6 +69,7 @@ describe('ApiRoomsController (e2e)', () => {
     bannerUrl: '/uploads/banners/default.svg',
     visibility: 'public',
     status: 'active',
+    endsAt: null,
     _count: { roomMembers: 3 },
   };
 
@@ -83,7 +88,7 @@ describe('ApiRoomsController (e2e)', () => {
         {
           provide: PrismaService,
           useValue: {
-            room: { findMany, count, findFirst, create, update },
+            room: { findMany, count, findFirst, create, update, updateMany },
             $transaction: transaction,
           },
         },
@@ -110,8 +115,10 @@ describe('ApiRoomsController (e2e)', () => {
       findFirst,
       create,
       update,
+      updateMany,
       transaction,
     ].forEach((fn) => fn.mockClear());
+    updateMany.mockResolvedValue({ count: 0 });
   });
 
   const asUser = (id: number) => ({ 'x-user-id': String(id) });
@@ -137,6 +144,7 @@ describe('ApiRoomsController (e2e)', () => {
                 bannerUrl: '/uploads/banners/default.svg',
                 visibility: 'public',
                 status: 'active',
+                endsAt: null,
                 memberCount: 3,
               },
             ],

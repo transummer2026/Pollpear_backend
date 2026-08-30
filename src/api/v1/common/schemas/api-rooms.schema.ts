@@ -18,7 +18,9 @@ export const ApiRoomListColumnsSchema = RoomModel.pick({
   bannerUrl: true,
   visibility: true,
   status: true,
+  endsAt: true,
 }).extend({
+  endsAt: z.date().nullable(),
   visibility: z.enum(Visibility),
   status: z.enum(RoomStatus),
 });

@@ -11,6 +11,11 @@ import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { accessibleBy, type AppAbility } from 'src/casl/casl-prisma';
 import type { Prisma, Room, User } from 'src/generated/prisma/client';
 import { RoomStatus } from 'src/generated/prisma/enums';
+import {
+  closeExpiredRooms,
+  nextRoomStatus,
+  syncRoomStatuses,
+} from 'src/rooms/room-status';
 import { selectOf, type AssertColumns } from '../common/select';
 import {
   assertLimitAllowed,
@@ -39,7 +44,7 @@ const OWNER_SELECT = { select: selectOf(ApiRoomOwnerSchema) };
 
 const LIVE_MEMBERS = { where: { deletedAt: null } };
 
-const LIST_SELECT = {
+export const LIST_SELECT = {
   ...selectOf(ApiRoomListColumnsSchema),
   _count: { select: { roomMembers: LIVE_MEMBERS } },
 } satisfies Prisma.RoomSelect;
@@ -92,6 +97,8 @@ export class ApiRoomsService {
       AND: [accessibleBy(ability, 'read').ofType('Room'), matching(query)],
     };
 
+    await closeExpiredRooms(this.prisma);
+
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.room.findMany({
         where,
@@ -104,8 +111,10 @@ export class ApiRoomsService {
     ]);
     assertPageWithin(query, total);
 
+    const synced = await syncRoomStatuses(this.prisma, rows);
+
     return ApiRoomPageSchema.parse({
-      data: rows.map((row) => this.listed(row)),
+      data: synced.map((row) => this.listed(row)),
       ...pageMeta(query, total),
     });
   }
@@ -122,7 +131,7 @@ export class ApiRoomsService {
     const created = await this.prisma.room.create({
       data: {
         ...body,
-        status: RoomStatus.active,
+        status: nextRoomStatus({ endsAt: body.endsAt }),
         createdById: caller.id,
         roomMembers: { create: { userId: caller.id, joinedAt: new Date() } },
       },
@@ -182,7 +191,9 @@ export class ApiRoomsService {
       throw new NotFoundException('Room not found');
     }
 
-    return room;
+    const [synced] = await syncRoomStatuses(this.prisma, [room]);
+
+    return synced;
   }
 
   /**

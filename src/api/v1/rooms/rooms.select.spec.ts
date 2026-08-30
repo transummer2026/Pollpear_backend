@@ -1,4 +1,4 @@
-import { roomWithCounts } from './rooms.service';
+import { LIST_SELECT, roomWithCounts } from './rooms.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { UserRole } from 'src/generated/prisma/enums';
 import type { User } from 'src/generated/prisma/client';
@@ -31,6 +31,24 @@ describe('roomWithCounts', () => {
   it('knows what it is comparing, rather than passing on an empty set', () => {
     expect(needed()).toEqual(
       expect.arrayContaining(['status', 'createdById', 'deletedAt']),
+    );
+  });
+});
+
+/**
+ * La reconciliation du statut lit l'echeance sur les lignes deja chargees:
+ * retirer `endsAt` d'un des deux selects la rendrait muette sans casser la
+ * compilation, et une room echue continuerait d'etre servie comme active.
+ */
+describe('les colonnes exigees par syncRoomStatuses', () => {
+  const ability = new CaslAbilityFactory().createForUser(owner);
+
+  it.each([
+    ['la liste', () => LIST_SELECT as Record<string, unknown>],
+    ['le detail', () => roomWithCounts(ability) as Record<string, unknown>],
+  ])('%s les porte toutes', (unused, select) => {
+    expect(Object.keys(select())).toEqual(
+      expect.arrayContaining(['id', 'status', 'endsAt']),
     );
   });
 });
