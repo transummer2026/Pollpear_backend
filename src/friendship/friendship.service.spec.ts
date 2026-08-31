@@ -633,6 +633,44 @@ describe('FriendshipService', () => {
       expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
     });
 
+    it('is idempotent when rejecting an already rejected request', async () => {
+      const rejected = makeFriendship({
+        id: 10,
+        status: 'rejected',
+        userAId: 1,
+        userBId: 2,
+        addresseeId: 1,
+      });
+      prisma.friendship.findFirst.mockResolvedValue(rejected);
+
+      const result = await service.updateFriendRequest(
+        viewer(1),
+        2,
+        'rejected',
+      );
+
+      expect(result.status).toBe('rejected');
+      expect(prisma.friendship.updateMany).not.toHaveBeenCalled();
+      expect(prisma.friendship.update).not.toHaveBeenCalled();
+      expect(notifications.clearFriendRequest).toHaveBeenCalledWith(1, 2);
+    });
+
+    it('still refuses flipping an already rejected request to accepted', async () => {
+      const rejected = makeFriendship({
+        id: 10,
+        status: 'rejected',
+        userAId: 1,
+        userBId: 2,
+        addresseeId: 1,
+      });
+      prisma.friendship.findFirst.mockResolvedValue(rejected);
+
+      await expect(
+        service.updateFriendRequest(viewer(1), 2, 'accepted'),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(prisma.friendship.updateMany).not.toHaveBeenCalled();
+    });
+
     it('updates the status when a pending request exists', async () => {
       const pending = makeFriendship({
         id: 10,

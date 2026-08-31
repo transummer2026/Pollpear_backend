@@ -198,11 +198,13 @@ export class FriendshipService {
       throw new NotFoundException('No pending friend request from this user.');
     }
 
-    if (
-      status === 'accepted' &&
-      friendship.status === 'accepted' &&
-      friendship.addresseeId === viewer.id
-    ) {
+    // The addressee re-submitting the response they already gave is an
+    // idempotent no-op (client double-tap) — for `rejected` as well as
+    // `accepted` (`status` is never `pending`). Without the `rejected`
+    // case a second tap falls through to the CASL `update` check, which
+    // needs `status: 'pending'`, and 403s. `clearFriendRequest` repeats
+    // safely.
+    if (friendship.status === status && friendship.addresseeId === viewer.id) {
       await this.notificationService.clearFriendRequest(viewer.id, otherId);
       return FriendshipSchema.parse(friendship);
     }
