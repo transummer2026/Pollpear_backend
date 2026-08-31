@@ -158,7 +158,27 @@ export class VotesService {
   async deleteVote(pollId: number, viewer: User) {
     const vote = await this.prisma.vote.findFirst({
       where: { pollId, createdById: viewer.id, deletedAt: null },
-      include: { poll: true },
+      // Load the poll with the viewer-scoped room membership and block rows
+      // the `delete Vote` rule needs — the same shape `validateVote` builds
+      // for updateVote — so leaving the poll's room takes the delete right
+      // with it, instead of just checking "mine and not closed".
+      include: {
+        poll: {
+          include: {
+            room: {
+              include: {
+                roomMembers: { where: { userId: viewer.id, deletedAt: null } },
+              },
+            },
+            createdBy: {
+              include: {
+                blocksGiven: { where: { blockedId: viewer.id } },
+                blocksReceived: { where: { blockerId: viewer.id } },
+              },
+            },
+          },
+        },
+      },
     });
     if (!vote) throw new NotFoundException('Vote not found');
 

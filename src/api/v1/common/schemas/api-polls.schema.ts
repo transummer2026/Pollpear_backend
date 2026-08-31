@@ -98,7 +98,7 @@ export const ApiPollCreateSchema = z
     title: z.string().min(1).max(MAX_TITLE),
     description: z.string().max(MAX_DESCRIPTION).nullable().optional(),
     type: ApiPollOfferedTypeSchema,
-    visibility: z.enum(Visibility),
+    visibility: z.enum(Visibility).default('public'),
     allowChangeVote: z.boolean(),
     isAnonymous: z.boolean(),
     endsAt: endsInTheFuture(),

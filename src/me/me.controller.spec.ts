@@ -7,6 +7,7 @@ import { avatarServiceMock } from 'src/file-upload/avatar.service.mock';
 import { apiKeyServiceMock } from 'src/api-key/api-key.service.mock';
 import { revocationServiceMock } from 'src/revocation/revocation.service.mock';
 import { authServiceMock } from 'src/auth/auth.service.mock';
+import { invitationServiceMock } from 'src/invitation/invitation.service.mock';
 
 describe('MeController', () => {
   let controller: MeController;
@@ -22,6 +23,7 @@ describe('MeController', () => {
         apiKeyServiceMock,
         revocationServiceMock,
         authServiceMock,
+        invitationServiceMock,
       ],
     }).compile();
 

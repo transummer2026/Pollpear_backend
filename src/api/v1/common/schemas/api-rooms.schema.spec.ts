@@ -89,13 +89,13 @@ describe('ApiRoomCreateSchema', () => {
     expect(ApiRoomCreateSchema.safeParse(body()).success).toBe(true);
   });
 
-  it('needs a visibility, since the column has no default', () => {
+  it('defaults visibility to public when omitted', () => {
     const { visibility, ...withoutVisibility } = body();
     void visibility;
 
-    expect(ApiRoomCreateSchema.safeParse(withoutVisibility).success).toBe(
-      false,
-    );
+    const parsed = ApiRoomCreateSchema.safeParse(withoutVisibility);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.visibility).toBe('public');
   });
 
   it('refuses a visibility outside the enum', () => {

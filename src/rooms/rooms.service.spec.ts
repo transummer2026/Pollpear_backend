@@ -10,6 +10,7 @@ import type { User } from 'src/generated/prisma/client';
 import { accessibleBy } from 'src/casl/casl-prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PollsService } from 'src/polls/polls.service';
+import { NotificationService } from 'src/notification/notification.service';
 import { RoomsService, getRoomIncludeArgs } from './rooms.service';
 
 function user(overrides: Record<string, unknown> = {}) {
@@ -52,6 +53,7 @@ describe('RoomsService', () => {
   const roomMemberUpdate = jest.fn();
   const roomMemberCreate = jest.fn();
   const invitationUpdateMany = jest.fn();
+  const invitationFindFirst = jest.fn();
   const transaction = jest.fn((ops: Promise<unknown>[]) => Promise.all(ops));
   const prisma = {
     room: {
@@ -70,6 +72,7 @@ describe('RoomsService', () => {
     },
     invitation: {
       updateMany: invitationUpdateMany,
+      findFirst: invitationFindFirst,
     },
     vote: { findMany: voteFindMany },
     $transaction: transaction,
@@ -79,7 +82,16 @@ describe('RoomsService', () => {
     shapeManyPollsForUser,
   } as unknown as PollsService;
   const abilityFactory = new CaslAbilityFactory();
-  const service = new RoomsService(prisma, abilityFactory, pollsService);
+  const clearRoomNotifications = jest.fn();
+  const notificationService = {
+    clearRoomNotifications,
+  } as unknown as NotificationService;
+  const service = new RoomsService(
+    prisma,
+    abilityFactory,
+    pollsService,
+    notificationService,
+  );
 
   // The CASL room-read policy (permissions/room.ts) is the single source of
   // truth for "what can this user see". Rather than re-typing its conditions
@@ -215,7 +227,7 @@ describe('RoomsService', () => {
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
-        data: { deletedAt: expect.any(Date) as Date },
+        data: { deletedAt: expect.any(Date) as Date, status: 'closed' },
       });
     });
 
@@ -235,7 +247,7 @@ describe('RoomsService', () => {
 
       expect(roomUpdate).toHaveBeenCalledWith({
         where: { id: 7 },
-        data: { deletedAt: expect.any(Date) as Date },
+        data: { deletedAt: expect.any(Date) as Date, status: 'closed' },
       });
     });
 
@@ -351,6 +363,7 @@ describe('RoomsService', () => {
       roomMemberFindFirst.mockResolvedValue({ id: 55 });
       roomMemberUpdate.mockResolvedValue({ id: 55, deletedAt: new Date() });
       invitationUpdateMany.mockResolvedValue({ count: 1 });
+      invitationFindFirst.mockResolvedValue({ inviterId: 9 });
     });
 
     // targetUserId !== viewer.id -> "kick": the room lookup is gated by the
@@ -386,6 +399,8 @@ describe('RoomsService', () => {
         },
         data: { deletedAt: expect.any(Date) as Date },
       });
+      // both sides' room notifications are cleared: (formerMember, inviter)
+      expect(clearRoomNotifications).toHaveBeenCalledWith(99, 9);
       // returns the member row, not the invitation updateMany result
       expect(result).toEqual({ id: 55, deletedAt: expect.any(Date) as Date });
     });
@@ -417,27 +432,61 @@ describe('RoomsService', () => {
       expect(invitationUpdateMany).not.toHaveBeenCalled();
     });
 
-    // targetUserId === viewer.id -> "leave": no invitation is touched, so a
-    // member who leaves can still re-join a room they're invited to.
-    it('leaves a room: soft-deletes only the caller membership, no invitation revoked', async () => {
-      const self = viewer({ id: 42 });
+    it('refuses to let the owner leave their own room', async () => {
+      const owner = viewer({ id: 42 });
 
-      await service.removeParticipant(self, 7, 42);
+      await expect(service.removeParticipant(owner, 7, 42)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(roomMemberFindFirst).not.toHaveBeenCalled();
+      expect(transaction).not.toHaveBeenCalled();
+      expect(roomMemberUpdate).not.toHaveBeenCalled();
+      expect(invitationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    // targetUserId === viewer.id -> "leave": gated by the CASL `leave` rule,
+    // and — like a kick — it revokes the caller's accepted invitation too, so
+    // coming back to a private room needs a fresh invitation.
+    it('leaves a room: soft-deletes the membership and revokes the accepted invitation in one transaction', async () => {
+      const self = viewer({ id: 77 });
+
+      const result = await service.removeParticipant(self, 7, 77);
 
       expect(roomFindFirst).toHaveBeenCalledWith({
         where: {
           AND: [
-            leaveAccessibleWhere(user({ id: 42 })),
+            leaveAccessibleWhere(user({ id: 77 })),
             { id: 7, deletedAt: null },
           ],
         },
       });
+      expect(roomMemberFindFirst).toHaveBeenCalledWith({
+        where: { roomId: 7, userId: 77, deletedAt: null },
+      });
+      expect(transaction).toHaveBeenCalledTimes(1);
       expect(roomMemberUpdate).toHaveBeenCalledWith({
         where: { id: 55 },
         data: { deletedAt: expect.any(Date) as Date },
       });
-      expect(transaction).not.toHaveBeenCalled();
-      expect(invitationUpdateMany).not.toHaveBeenCalled();
+      expect(invitationUpdateMany).toHaveBeenCalledWith({
+        where: {
+          roomId: 7,
+          inviteeId: 77,
+          status: 'accepted',
+          deletedAt: null,
+        },
+        data: { deletedAt: expect.any(Date) as Date },
+      });
+      expect(clearRoomNotifications).toHaveBeenCalledWith(77, 9);
+      expect(result).toEqual({ id: 55, deletedAt: expect.any(Date) as Date });
+    });
+
+    it('skips notification clearing when the member had no accepted invitation', async () => {
+      invitationFindFirst.mockResolvedValue(null);
+
+      await service.removeParticipant(viewer({ id: 77 }), 7, 77);
+
+      expect(clearRoomNotifications).not.toHaveBeenCalled();
     });
 
     it('throws not-found when the room is not accessible for the action', async () => {
@@ -477,7 +526,7 @@ describe('RoomsService', () => {
             { id: 7, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
+        include: getRoomIncludeArgs(abilityFor(user({ id: 42 }))),
       });
     });
 
@@ -514,7 +563,7 @@ describe('RoomsService', () => {
             { createdById: 42, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
+        include: getRoomIncludeArgs(abilityFor(user({ id: 42 }))),
       });
     });
 
@@ -555,7 +604,7 @@ describe('RoomsService', () => {
             },
           ],
         },
-        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
+        include: getRoomIncludeArgs(abilityFor(user({ id: 42 }))),
       });
     });
 
@@ -584,7 +633,7 @@ describe('RoomsService', () => {
             { createdById: 99, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(42, abilityFor(user({ id: 42 }))),
+        include: getRoomIncludeArgs(abilityFor(user({ id: 42 }))),
       });
     });
 

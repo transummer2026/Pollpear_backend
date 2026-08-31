@@ -202,22 +202,59 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('delete', 'Vote')).toBe(true);
     });
 
-    it('grants update/delete on the user own vote while the poll is open, denies once closed', () => {
+    it('grants update/delete on the user own vote while the poll is still votable, denies once closed', () => {
       const open = voteSubject({
         deletedAt: null,
         createdById: 1,
-        poll: { status: 'active' },
+        poll: {
+          status: 'active',
+          deletedAt: null,
+          visibility: 'private',
+          createdById: 1,
+          roomId: null,
+        },
       });
       const closed = voteSubject({
         deletedAt: null,
         createdById: 1,
-        poll: { status: 'closed' },
+        poll: {
+          status: 'closed',
+          deletedAt: null,
+          visibility: 'private',
+          createdById: 1,
+          roomId: null,
+        },
       });
 
       expect(ability.can('update', open)).toBe(true);
       expect(ability.can('delete', open)).toBe(true);
       expect(ability.can('update', closed)).toBe(false);
       expect(ability.can('delete', closed)).toBe(false);
+    });
+
+    it('denies update/delete on the user own vote once they leave the poll’s room', () => {
+      const roomVote = (isMember: boolean) =>
+        voteSubject({
+          deletedAt: null,
+          createdById: 1,
+          poll: {
+            status: 'active',
+            deletedAt: null,
+            visibility: 'private',
+            createdById: 1,
+            roomId: 5,
+            room: {
+              status: 'active',
+              roomMembers: isMember
+                ? [{ userId: 1, deletedAt: null }]
+                : [{ userId: 2, deletedAt: null }],
+            },
+          },
+        });
+
+      expect(ability.can('update', roomVote(true))).toBe(true);
+      expect(ability.can('update', roomVote(false))).toBe(false);
+      expect(ability.can('delete', roomVote(false))).toBe(false);
     });
 
     it('denies update/delete on another user own vote', () => {
@@ -231,23 +268,50 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('delete', othersVote)).toBe(false);
     });
 
-    it('grants create on a Poll with no room, or attached to an active room', () => {
+    it('grants create on a Poll with no room, or in an active room the caller belongs to', () => {
       expect(ability.can('create', pollSubject({ roomId: null }))).toBe(true);
       expect(
         ability.can(
           'create',
-          pollSubject({ roomId: 1, room: { status: 'active' } }),
+          pollSubject({
+            roomId: 1,
+            room: {
+              deletedAt: null,
+              status: 'active',
+              roomMembers: [{ userId: 1, deletedAt: null }],
+            },
+          }),
         ),
       ).toBe(true);
     });
 
-    it('denies create on a Poll attached to a closed room', () => {
-      const poll = pollSubject({ roomId: 1, room: { status: 'closed' } });
+    it('denies create on a Poll in an active room the caller is not a member of', () => {
+      const poll = pollSubject({
+        roomId: 1,
+        room: {
+          deletedAt: null,
+          status: 'active',
+          roomMembers: [{ userId: 2, deletedAt: null }],
+        },
+      });
 
       expect(ability.can('create', poll)).toBe(false);
     });
 
-    it('grants create on a Vote for a public Poll with no room, or attached to an active room', () => {
+    it('denies create on a Poll attached to a closed room', () => {
+      const poll = pollSubject({
+        roomId: 1,
+        room: {
+          deletedAt: null,
+          status: 'closed',
+          roomMembers: [{ userId: 1, deletedAt: null }],
+        },
+      });
+
+      expect(ability.can('create', poll)).toBe(false);
+    });
+
+    it('grants create on a Vote for a public standalone Poll', () => {
       const noRoom = voteSubject({
         poll: {
           visibility: 'public',
@@ -256,18 +320,41 @@ describe('CaslAbilityFactory', () => {
           createdBy: { blocksGiven: [], blocksReceived: [] },
         },
       });
+
+      expect(ability.can('create', noRoom)).toBe(true);
+    });
+
+    // A room poll follows the room's rights: being public doesn't open it to
+    // outsiders, membership is the only way in.
+    it('denies create on a Vote for a public Poll in a room the caller is not in', () => {
       const activeRoom = voteSubject({
         poll: {
           visibility: 'public',
           deletedAt: null,
           roomId: 1,
-          room: { status: 'active' },
+          room: { status: 'active', roomMembers: [] },
           createdBy: { blocksGiven: [], blocksReceived: [] },
         },
       });
 
-      expect(ability.can('create', noRoom)).toBe(true);
-      expect(ability.can('create', activeRoom)).toBe(true);
+      expect(ability.can('create', activeRoom)).toBe(false);
+    });
+
+    it('grants create on a Vote for a Poll in an active room the caller belongs to', () => {
+      const memberRoom = voteSubject({
+        poll: {
+          visibility: 'public',
+          deletedAt: null,
+          roomId: 1,
+          room: {
+            status: 'active',
+            roomMembers: [{ userId: 1, deletedAt: null }],
+          },
+          createdBy: { blocksGiven: [], blocksReceived: [] },
+        },
+      });
+
+      expect(ability.can('create', memberRoom)).toBe(true);
     });
 
     it('denies create on a Vote for a public Poll attached to a closed room', () => {

@@ -6,6 +6,7 @@ import { FileUploadModule } from 'src/file-upload/file-upload.module';
 import { ApiKeyModule } from 'src/api-key/api-key.module';
 import { RevocationModule } from 'src/revocation/revocation.module';
 import { AuthModule } from 'src/auth/auth.module';
+import { InvitationModule } from 'src/invitation/invitation.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AuthModule } from 'src/auth/auth.module';
     FileUploadModule,
     ApiKeyModule,
     RevocationModule,
+    InvitationModule,
   ],
   controllers: [MeController],
   providers: [MeService],

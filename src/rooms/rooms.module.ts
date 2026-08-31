@@ -5,9 +5,15 @@ import { RoomsExpiryService } from './rooms-expiry.service';
 import { PollsModule } from 'src/polls/polls.module';
 import { MessagesModule } from 'src/messages/messages.module';
 import { InvitationModule } from 'src/invitation/invitation.module';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
-  imports: [PollsModule, MessagesModule, forwardRef(() => InvitationModule)],
+  imports: [
+    PollsModule,
+    MessagesModule,
+    NotificationModule,
+    forwardRef(() => InvitationModule),
+  ],
   controllers: [RoomsController],
   providers: [RoomsService, RoomsExpiryService, Logger],
   exports: [RoomsService],

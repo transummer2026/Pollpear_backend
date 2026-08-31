@@ -147,9 +147,9 @@ describe('PollsService', () => {
   });
 
   describe('create', () => {
-    it('forces private visibility, pending status and the caller as owner', async () => {
+    it('carries the caller-chosen visibility, forces pending status and the caller as owner', async () => {
       const body = createBody({
-        visibility: 'public',
+        visibility: 'private',
         status: 'active',
         createdById: 999,
       });
@@ -162,6 +162,14 @@ describe('PollsService', () => {
           status: 'pending',
           createdById: 42,
         }) as object,
+      });
+    });
+
+    it('defaults a poll to public visibility', async () => {
+      await service.create(viewer(), createBody({ visibility: 'public' }));
+
+      expect(pollCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ visibility: 'public' }) as object,
       });
     });
 
@@ -200,12 +208,17 @@ describe('PollsService', () => {
     });
 
     describe('room-scoped poll', () => {
-      it('creates the poll when the target room is active', async () => {
-        roomFindFirst.mockResolvedValue({
-          id: 1,
-          status: 'active',
-          endsAt: null,
-        });
+      const memberRoom = (overrides: Record<string, unknown> = {}) => ({
+        id: 1,
+        status: 'active',
+        endsAt: null,
+        deletedAt: null,
+        roomMembers: [{ userId: 42, deletedAt: null }],
+        ...overrides,
+      });
+
+      it('creates the poll when the target room is active and the caller is a member', async () => {
+        roomFindFirst.mockResolvedValue(memberRoom());
 
         const caller = viewer();
         await service.create(caller, createBody({ roomId: 1 }));
@@ -214,16 +227,24 @@ describe('PollsService', () => {
           where: {
             AND: [readableRoomWhere(caller), { id: 1, deletedAt: null }],
           },
+          include: { roomMembers: true },
         });
         expect(pollCreate).toHaveBeenCalled();
       });
 
+      it('rejects the poll when the caller is not a member of the target room', async () => {
+        roomFindFirst.mockResolvedValue(
+          memberRoom({ roomMembers: [{ userId: 99, deletedAt: null }] }),
+        );
+
+        await expect(
+          service.create(viewer(), createBody({ roomId: 1 })),
+        ).rejects.toThrow(ForbiddenError);
+        expect(pollCreate).not.toHaveBeenCalled();
+      });
+
       it('rejects the poll when the target room is closed', async () => {
-        roomFindFirst.mockResolvedValue({
-          id: 1,
-          status: 'closed',
-          endsAt: null,
-        });
+        roomFindFirst.mockResolvedValue(memberRoom({ status: 'closed' }));
 
         await expect(
           service.create(viewer(), createBody({ roomId: 1 })),
@@ -232,11 +253,9 @@ describe('PollsService', () => {
       });
 
       it('rejects the poll when the target room has passed its endsAt, flipping it closed', async () => {
-        roomFindFirst.mockResolvedValue({
-          id: 1,
-          status: 'active',
-          endsAt: new Date(Date.now() - 1_000),
-        });
+        roomFindFirst.mockResolvedValue(
+          memberRoom({ endsAt: new Date(Date.now() - 1_000) }),
+        );
 
         await expect(
           service.create(viewer(), createBody({ roomId: 1 })),

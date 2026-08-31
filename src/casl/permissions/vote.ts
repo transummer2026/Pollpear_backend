@@ -34,11 +34,17 @@ export function defineVotePermissions(
     createdById: user.id,
   });
 
-  allow(['update', 'delete'], 'Vote', {
-    deletedAt: null,
-    createdById: user.id,
-    poll: { is: { status: { not: 'closed' } } },
-  });
+  // Changing or clearing a vote needs the same standing as casting one: the
+  // poll must still be votable *for this user right now* (membership included),
+  // not just "mine and not closed". Otherwise a member who votes, then leaves
+  // the room, keeps editing that vote from the feed forever.
+  for (const condition of pollVotableConditions(user)) {
+    allow(['update', 'delete'], 'Vote', {
+      deletedAt: null,
+      createdById: user.id,
+      poll: { is: { ...condition, status: { not: 'closed' } } },
+    });
+  }
 
   for (const condition of pollReadConditions(user)) {
     allow(['report'], 'Vote', {

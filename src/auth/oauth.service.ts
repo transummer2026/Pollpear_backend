@@ -135,7 +135,7 @@ export class OauthService {
         score: 0,
         isOnline: false,
         isEmailVerified: true,
-        visibility: Visibility.private,
+        visibility: Visibility.public,
         userTheme: UserTheme.light,
         ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
       },

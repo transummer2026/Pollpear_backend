@@ -55,7 +55,7 @@ export const ApiRoomSchema = ApiRoomColumnsSchema.extend({
 export const ApiRoomCreateSchema = z.strictObject({
   name: z.string().min(1).max(MAX_NAME),
   description: z.string().max(MAX_DESCRIPTION).nullable().optional(),
-  visibility: z.enum(Visibility),
+  visibility: z.enum(Visibility).default('public'),
   endsAt: endsInTheFuture().nullable().optional(),
 });
 
