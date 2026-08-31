@@ -37,6 +37,7 @@ export function defineUserPermissions(
 
   allow(['interact'], 'User', {
     deletedAt: null,
+    visibility: { not: 'private' },
     blocksGiven: { none: { blockedId: user.id } },
     blocksReceived: { none: { blockerId: user.id } },
   });

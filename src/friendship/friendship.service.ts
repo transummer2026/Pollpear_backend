@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -166,9 +165,7 @@ export class FriendshipService {
       },
     });
     if (!target) {
-      throw new ForbiddenException(
-        'Cannot send a friend request to this user.',
-      );
+      throw new NotFoundException('User not found');
     }
 
     let outcome: FriendRequestOutcome;

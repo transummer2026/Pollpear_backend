@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { ForbiddenError } from '@casl/ability';
@@ -361,12 +360,12 @@ describe('FriendshipService', () => {
       expect(prisma.friendship.upsert).not.toHaveBeenCalled();
     });
 
-    it('rejects when a block exists between the two users, in either direction', async () => {
+    it('404s every target the policy keeps out of reach: blocked, private or absent', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createFriendRequest(viewer(1), 2),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.friendship.findUnique).not.toHaveBeenCalled();
       expect(prisma.friendship.upsert).not.toHaveBeenCalled();
     });
