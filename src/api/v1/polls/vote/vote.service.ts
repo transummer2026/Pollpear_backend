@@ -74,10 +74,11 @@ export class ApiPollVoteService {
   ) {}
 
   async findMyVote(pollId: number, caller: User): Promise<ApiVoteDTO> {
-    const viewer = this.viewer(caller);
-    await this.readablePoll(pollId, viewer);
+    const ability = this.abilityFactory.createForUser(caller);
+    const viewer = viewerOf(caller, ability);
+    await this.findReadablePoll(pollId, viewer);
 
-    return presentVote(await this.myLiveVote(pollId, viewer));
+    return presentVote(await this.findMyLiveVote(pollId, viewer));
   }
 
   async castVote(
@@ -85,8 +86,9 @@ export class ApiPollVoteService {
     ballot: ApiVoteCastDTO,
     caller: User,
   ): Promise<ApiVoteDTO> {
-    const viewer = this.viewer(caller);
-    const poll = await this.votablePoll(pollId, viewer);
+    const ability = this.abilityFactory.createForUser(caller);
+    const viewer = viewerOf(caller, ability);
+    const poll = await this.findVotablePoll(pollId, viewer);
 
     await this.assertBallotFits(poll, ballot);
     await this.assertNotAlreadyVoted(pollId, viewer);
@@ -121,12 +123,13 @@ export class ApiPollVoteService {
     ballot: ApiVoteChangeDTO,
     caller: User,
   ): Promise<ApiVoteDTO> {
-    const viewer = this.viewer(caller);
-    const poll = await this.changeablePoll(pollId, viewer);
+    const ability = this.abilityFactory.createForUser(caller);
+    const viewer = viewerOf(caller, ability);
+    const poll = await this.findChangeablePoll(pollId, viewer);
 
     this.assertChangesAllowed(poll);
 
-    const current = await this.myLiveVote(pollId, viewer);
+    const current = await this.findMyLiveVote(pollId, viewer);
     this.assertMayTouchOwnVote('update', current.id, poll, viewer);
     await this.assertBallotFits(poll, ballot);
 
@@ -140,9 +143,10 @@ export class ApiPollVoteService {
   }
 
   async withdrawVote(pollId: number, caller: User): Promise<void> {
-    const viewer = this.viewer(caller);
-    const poll = await this.changeablePoll(pollId, viewer);
-    const current = await this.myLiveVote(pollId, viewer);
+    const ability = this.abilityFactory.createForUser(caller);
+    const viewer = viewerOf(caller, ability);
+    const poll = await this.findChangeablePoll(pollId, viewer);
+    const current = await this.findMyLiveVote(pollId, viewer);
 
     this.assertMayTouchOwnVote('delete', current.id, poll, viewer);
 
@@ -152,15 +156,11 @@ export class ApiPollVoteService {
     });
   }
 
-  private viewer(caller: User): Viewer {
-    return viewerOf(caller, this.abilityFactory.createForUser(caller));
-  }
-
-  private async votablePoll(
+  private async findVotablePoll(
     pollId: number,
     viewer: Viewer,
   ): Promise<PollForBallot> {
-    const poll = await this.readablePoll(pollId, viewer);
+    const poll = await this.findReadablePoll(pollId, viewer);
 
     if (poll.status === PollStatus.closed) {
       throw new ConflictException('This poll no longer takes votes');
@@ -169,11 +169,11 @@ export class ApiPollVoteService {
     return poll;
   }
 
-  private async changeablePoll(
+  private async findChangeablePoll(
     pollId: number,
     viewer: Viewer,
   ): Promise<PollForBallot> {
-    const poll = await this.readablePoll(pollId, viewer);
+    const poll = await this.findReadablePoll(pollId, viewer);
 
     if (poll.status !== PollStatus.active) {
       throw new ConflictException('Only a running poll takes vote changes');
@@ -182,7 +182,7 @@ export class ApiPollVoteService {
     return poll;
   }
 
-  private async readablePoll(
+  private async findReadablePoll(
     pollId: number,
     viewer: Viewer,
   ): Promise<PollForBallot> {
@@ -209,7 +209,7 @@ export class ApiPollVoteService {
     return synced;
   }
 
-  private async myLiveVote(pollId: number, viewer: Viewer) {
+  private async findMyLiveVote(pollId: number, viewer: Viewer) {
     const vote = await this.prisma.vote.findFirst({
       where: {
         AND: [

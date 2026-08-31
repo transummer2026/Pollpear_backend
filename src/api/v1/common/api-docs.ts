@@ -71,3 +71,20 @@ export function ApiGuardDocs() {
     ApiForbiddenResponse({ description: 'Banned account.' }),
   );
 }
+
+/**
+ * The counterpart of {@link ApiGuardDocs} for the routes that act on the
+ * account of the key itself. They carry no `:id`, so they have no 404 to hide
+ * behind: a bearer whose account has just been deleted is turned away by
+ * authentication, and the 401 has to say so.
+ *
+ * Only the 401 is set here. The 403 stays on each route, because there it
+ * names exactly what the policy refuses — reading your own account, editing a
+ * field it keeps read-only, deleting it, touching its avatar. Four different
+ * reasons a shared text would flatten.
+ */
+export function ApiSelfGuardDocs() {
+  return ApiUnauthorizedResponse({
+    description: 'Missing, expired or revoked api key, or deleted owner.',
+  });
+}

@@ -1,10 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiV1Service } from './v1.service';
+import { ApiGuardDocs } from './common/api-docs';
 import { toOpenApi } from './common/openapi';
 import { ApiIndexSchema } from './common/schemas/api-index.schema';
 
 @ApiTags('v1')
+@ApiGuardDocs()
 @Controller('v1')
 export class ApiV1Controller {
   constructor(private readonly v1Service: ApiV1Service) {}

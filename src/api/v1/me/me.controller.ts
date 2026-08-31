@@ -1,5 +1,5 @@
 // src/api/v1/me/me.controller.ts
-import { Body, Controller, Delete, Get, HttpCode, Patch } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -8,13 +8,13 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiMeService } from './me.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import type { User } from 'src/generated/prisma/client';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import { ValidatedBody } from '../common/params';
+import { ApiSelfGuardDocs } from '../common/api-docs';
 import { toOpenApi } from '../common/openapi';
 import {
   ApiMeSchema,
@@ -23,6 +23,7 @@ import {
 } from '../common/schemas/api-me.schema';
 
 @ApiTags('me')
+@ApiSelfGuardDocs()
 @Controller('v1/me')
 export class ApiMeController {
   constructor(private readonly meService: ApiMeService) {}
@@ -35,9 +36,6 @@ export class ApiMeController {
       'Returns the full profile of the user the key acts on behalf of. Shortcut for GET /v1/users/{id} when that id is your own.',
   })
   @ApiOkResponse({ schema: toOpenApi(ApiMeSchema) })
-  @ApiUnauthorizedResponse({
-    description: 'Missing, expired or revoked api key, or deleted owner.',
-  })
   @ApiForbiddenResponse({
     description:
       'Banned account, or one the policy no longer lets read itself.',
@@ -58,15 +56,12 @@ export class ApiMeController {
   @ApiBadRequestResponse({
     description: 'Unknown field, value too long, or empty body.',
   })
-  @ApiUnauthorizedResponse({
-    description: 'Missing, expired or revoked api key, or deleted owner.',
-  })
   @ApiForbiddenResponse({
     description: 'Banned account, or a field the policy keeps read-only.',
   })
   updateMe(
     @CurrentUser() viewer: User,
-    @Body(new ZodValidationPipe(ApiMeUpdateSchema)) body: ApiMeUpdateDTO,
+    @ValidatedBody(ApiMeUpdateSchema) body: ApiMeUpdateDTO,
   ) {
     return this.meService.updateMe(viewer, body);
   }
@@ -80,9 +75,6 @@ export class ApiMeController {
       'Soft deletes the account, revokes every api key it owns and closes its open sockets. The key used for this call stops working right after.',
   })
   @ApiNoContentResponse({ description: 'Account deleted.' })
-  @ApiUnauthorizedResponse({
-    description: 'Missing, expired or revoked api key, or deleted owner.',
-  })
   @ApiForbiddenResponse({
     description:
       'Banned account, or one the policy does not let delete itself.',

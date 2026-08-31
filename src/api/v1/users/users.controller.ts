@@ -1,20 +1,18 @@
 // src/api/v1/users/users.controller.ts
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { User } from 'src/generated/prisma/client';
 import {
   ApiBadRequestResponse,
-  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiUsersService } from './users.service';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { toOpenApi } from '../common/openapi';
-import { ApiPageQueryDocs } from '../common/api-docs';
+import { ApiGuardDocs, ApiPageQueryDocs } from '../common/api-docs';
+import { ValidatedQuery } from '../common/params';
 import { ApiUserPageSchema } from '../common/schemas/api-users.schema';
 import {
   ApiPageQuerySchema,
@@ -22,6 +20,7 @@ import {
 } from '../common/schemas/api-pagination.schema';
 
 @ApiTags('users')
+@ApiGuardDocs()
 @Controller('v1/users')
 export class ApiUsersController {
   constructor(private readonly usersService: ApiUsersService) {}
@@ -35,16 +34,12 @@ export class ApiUsersController {
   })
   @ApiPageQueryDocs()
   @ApiOkResponse({ schema: toOpenApi(ApiUserPageSchema) })
-  @ApiUnauthorizedResponse({
-    description: 'Missing, expired or revoked api key.',
-  })
-  @ApiForbiddenResponse({ description: 'Banned account.' })
   @ApiBadRequestResponse({
     description:
       'A limit above what the key allows, or a page past the last one. Neither is trimmed: a shortened answer would read as the end of the list.',
   })
   findAllUsers(
-    @Query(new ZodValidationPipe(ApiPageQuerySchema)) query: ApiPageQueryDTO,
+    @ValidatedQuery(ApiPageQuerySchema) query: ApiPageQueryDTO,
     @CurrentUser() caller: User,
   ) {
     return this.usersService.findAllUsers(query, caller);

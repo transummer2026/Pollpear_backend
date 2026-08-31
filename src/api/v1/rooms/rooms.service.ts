@@ -122,7 +122,7 @@ export class ApiRoomsService {
   async findOneRoom(id: number, caller: User): Promise<ApiRoomDTO> {
     const ability = this.abilityFactory.createForUser(caller);
 
-    return this.detailed(await this.readable(id, ability));
+    return this.detailed(await this.findReadableRoom(id, ability));
   }
 
   async createRoom(body: ApiRoomCreateDTO, caller: User): Promise<ApiRoomDTO> {
@@ -147,7 +147,7 @@ export class ApiRoomsService {
     caller: User,
   ): Promise<ApiRoomDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    const room = await this.readable(id, ability);
+    const room = await this.findReadableRoom(id, ability);
 
     this.assertMayEdit(room, Object.keys(body), ability);
 
@@ -162,7 +162,7 @@ export class ApiRoomsService {
 
   async removeRoom(id: number, caller: User): Promise<void> {
     const ability = this.abilityFactory.createForUser(caller);
-    const room = await this.readable(id, ability);
+    const room = await this.findReadableRoom(id, ability);
 
     this.assertMayDelete(room, ability);
 
@@ -176,7 +176,7 @@ export class ApiRoomsService {
     });
   }
 
-  private async readable(
+  private async findReadableRoom(
     id: number,
     ability: AppAbility,
   ): Promise<DetailedRoom> {

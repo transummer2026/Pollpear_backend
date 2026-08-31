@@ -305,7 +305,7 @@ describe('ApiRoomsService', () => {
   });
 
   describe('removeRoom', () => {
-    it('soft deletes, leaving what the room holds where it is', async () => {
+    it('soft deletes and closes, so the polls filed there stop taking votes', async () => {
       findFirst.mockResolvedValue(activeRoom);
       update.mockResolvedValue(goneRoom);
 
