@@ -94,6 +94,16 @@ const HASHTAG_NAMES = [
 ];
 const HIDDEN_HASHTAGS = new Set(['memes', 'news']);
 
+const POLL_TYPE_PLAN: PollType[] = [
+  ...Array<PollType>(16).fill(PollType.single_choice),
+  ...Array<PollType>(12).fill(PollType.multiple_choice),
+  ...Array<PollType>(6).fill(PollType.slider),
+  ...Array<PollType>(6).fill(PollType.free_field),
+];
+const POLL_STATUS_PLAN: PollStatus[] = [
+  ...Array<PollStatus>(32).fill(PollStatus.active),
+  ...Array<PollStatus>(8).fill(PollStatus.closed),
+];
 const FRIENDSHIP_STATUS_PLAN: FriendshipStatus[] = [
   ...Array<FriendshipStatus>(70).fill(FriendshipStatus.accepted),
   ...Array<FriendshipStatus>(20).fill(FriendshipStatus.pending),
@@ -334,7 +344,23 @@ const CUSTOM_ROOMS = [
 ];
 
 // --- CUSTOM POLLS ---
-const CUSTOM_POLLS = [
+type CustomPoll = {
+  title: string;
+  description: string;
+  type: PollType;
+  status: PollStatus;
+  options: {
+    text: string;
+    sliderLeftLabel?: string;
+    sliderRightLabel?: string;
+  }[];
+  endsAt: Date;
+  isAnonymous: boolean;
+  allowChangeVote: boolean;
+  hashtags: string[];
+};
+
+const CUSTOM_POLLS: CustomPoll[] = [
   {
     title: 'Chez Xu ou chez Yin? KingfuPanda ?',
     description: 'Meilleurs restaus chinois de tout les temps',
@@ -792,6 +818,57 @@ function buildConversation(
   });
 }
 
+function buildOptionRows(
+  type: PollType,
+): Prisma.OptionCreateWithoutPollInput[] {
+  if (type === PollType.slider) {
+    return [
+      {
+        text: 'scale',
+        order: 0,
+        sliderLeftLabel: String(SLIDER_MIN),
+        sliderRightLabel: String(SLIDER_MAX),
+      },
+    ];
+  }
+  if (type === PollType.free_field) {
+    return [{ text: 'free_text_answer', order: 0 }];
+  }
+  const count =
+    type === PollType.single_choice
+      ? faker.number.int({ min: 2, max: 5 })
+      : faker.number.int({ min: 3, max: 6 });
+  return Array.from({ length: count }, (_, order) => ({
+    text: faker.lorem.words({ min: 1, max: 3 }),
+    order,
+  }));
+}
+
+function buildPollTimes(
+  status: PollStatus,
+  room: { createdAt: Date } | null,
+): { createdAt: Date; publishedAt: Date; endsAt: Date } {
+  const publishedAt = room
+    ? faker.date.between({ from: room.createdAt, to: now })
+    : faker.date.past({ years: 1 });
+  const createdAt = room
+    ? faker.date.between({
+        from: new Date(
+          Math.max(
+            publishedAt.getTime() - 5 * DAY_MS,
+            room.createdAt.getTime(),
+          ),
+        ),
+        to: publishedAt,
+      })
+    : faker.date.recent({ days: 5, refDate: publishedAt });
+  const endsAt =
+    status === PollStatus.active
+      ? faker.date.future({ years: 1, refDate: now })
+      : faker.date.between({ from: publishedAt, to: now });
+  return { createdAt, publishedAt, endsAt };
+}
+
 function pickVoteOptions(
   type: PollType,
   liveOptions: { id: number }[],
@@ -1209,6 +1286,9 @@ async function main() {
   );
 
   // --- POLLS SEEDING ---
+  const pollTypes = faker.helpers.shuffle(POLL_TYPE_PLAN);
+  const pollStatuses = faker.helpers.shuffle(POLL_STATUS_PLAN);
+  const activeRooms = rooms.filter((r) => r.status === RoomStatus.active);
   const pollRecords: {
     id: number;
     type: PollType;
@@ -1222,12 +1302,99 @@ async function main() {
   }[] = [];
 
   const pollHashtagRows: { pollId: number; hashtagId: number }[] = [];
+  let roomCursor = 0;
+  let deletedDemoLeft = 2;
 
+  // Every other generated poll lands in a room, so the feed keeps a mix of
+  // room scoped and public polls on top of the hand written ones below.
+  for (let i = 0; i < pollTypes.length; i++) {
+    const type = pollTypes[i];
+    const status = pollStatuses[i];
+    const room =
+      activeRooms.length > 0 && i % 2 === 0
+        ? activeRooms[roomCursor++ % activeRooms.length]
+        : null;
+    const visibility = room ? room.visibility : Visibility.public;
+    const createdById = room
+      ? faker.helpers.arrayElement(roomMembers.get(room.id)!).userId
+      : faker.helpers.arrayElement(userIds);
+
+    const { createdAt, publishedAt, endsAt } = buildPollTimes(status, room);
+    const optionRows = buildOptionRows(type);
+    if (
+      deletedDemoLeft > 0 &&
+      (type === PollType.single_choice || type === PollType.multiple_choice)
+    ) {
+      optionRows.push({
+        text: '[deleted option]',
+        order: optionRows.length,
+        deletedAt: new Date(),
+      });
+      deletedDemoLeft--;
+    }
+
+    const poll = await prisma.poll.create({
+      data: {
+        title: faker.lorem.sentence().replace(/\.$/, '?'),
+        description: faker.datatype.boolean() ? faker.lorem.sentence() : null,
+        type,
+        status,
+        visibility,
+        isAnonymous: faker.datatype.boolean(),
+        allowChangeVote: faker.datatype.boolean(),
+        createdAt,
+        publishedAt,
+        endsAt,
+        createdBy: { connect: { id: createdById } },
+        ...(room ? { room: { connect: { id: room.id } } } : {}),
+        options: { create: optionRows },
+      },
+      include: { options: true },
+    });
+    bump(pollsCreated, createdById);
+    pollRecords.push({
+      id: poll.id,
+      type,
+      status,
+      publishedAt,
+      endsAt,
+      roomId: room?.id ?? null,
+      visibility,
+      createdById,
+      options: poll.options.map((o) => ({ id: o.id, deletedAt: o.deletedAt })),
+    });
+  }
+
+  // The generated polls get a random spread of tags; the custom ones carry
+  // their own list, so they are tagged as they are created just below.
+  for (const poll of pollRecords) {
+    const isPublic = poll.visibility === Visibility.public;
+    if (!isPublic && !faker.datatype.boolean()) continue;
+    const names = faker.helpers.arrayElements(
+      HASHTAG_NAMES,
+      isPublic ? faker.number.int({ min: 1, max: 3 }) : 1,
+    );
+    for (const name of names) {
+      pollHashtagRows.push({
+        pollId: poll.id,
+        hashtagId: hashtagIds.get(name)!,
+      });
+    }
+  }
+
+  const generatedPollCount = pollRecords.length;
+
+  // --- CUSTOM POLLS ---
   for (let i = 0; i < CUSTOM_POLLS.length; i++) {
     const cp = CUSTOM_POLLS[i];
     const createdById = faker.helpers.arrayElement(userIds);
-    const createdAt = faker.date.recent({ days: 10 });
-    const publishedAt = createdAt;
+    // A closed poll has to have been published before it ended, otherwise the
+    // vote window further down is empty and faker refuses to date the votes.
+    const publishedAt =
+      cp.status === PollStatus.closed
+        ? faker.date.between({ from: daysAgo(30), to: cp.endsAt })
+        : faker.date.recent({ days: 10 });
+    const createdAt = publishedAt;
 
     const poll = await prisma.poll.create({
       data: {
@@ -1245,8 +1412,8 @@ async function main() {
         options: {
           create: cp.options.map((opt, order) => ({
             text: opt.text,
-            sliderLeftLabel: (opt as any).sliderLeftLabel ?? null,
-            sliderRightLabel: (opt as any).sliderRightLabel ?? null,
+            sliderLeftLabel: opt.sliderLeftLabel ?? null,
+            sliderRightLabel: opt.sliderRightLabel ?? null,
             order,
           })),
         },
@@ -1256,11 +1423,9 @@ async function main() {
 
     bump(pollsCreated, createdById);
 
-    if (cp.hashtags) {
-      for (const tag of cp.hashtags) {
-        const hid = hashtagIds.get(tag);
-        if (hid) pollHashtagRows.push({ pollId: poll.id, hashtagId: hid });
-      }
+    for (const tag of cp.hashtags) {
+      const hid = hashtagIds.get(tag);
+      if (hid) pollHashtagRows.push({ pollId: poll.id, hashtagId: hid });
     }
 
     pollRecords.push({
@@ -1279,8 +1444,17 @@ async function main() {
   if (pollHashtagRows.length > 0) {
     await prisma.pollHashtag.createMany({ data: pollHashtagRows });
   }
+  console.log(
+    `Done — ${pollRecords.length} polls seeded (${generatedPollCount} generated, ${CUSTOM_POLLS.length} hand written).`,
+  );
 
   // --- VOTES SEEDING ---
+  const hotPollIds = new Set(
+    faker.helpers.arrayElements(
+      pollRecords.map((poll) => poll.id),
+      Math.min(HOT_POLL_COUNT, pollRecords.length),
+    ),
+  );
   const voteRows: {
     pollId: number;
     createdById: number;
@@ -1292,37 +1466,51 @@ async function main() {
   const pickedOptionIds = new Map<string, number[]>();
 
   for (const poll of pollRecords) {
-    if (!poll.publishedAt || poll.options.length === 0) continue;
-    const isClosed = poll.status === PollStatus.closed;
-    const windowEnd = isClosed ? poll.endsAt : now;
-    const voters = faker.helpers.arrayElements(
-      userIds,
-      faker.number.int({ min: 5, max: userIds.length }),
-    );
+    if (!poll.publishedAt) continue;
+    const liveOptions = poll.options.filter((o) => !o.deletedAt);
+    if (liveOptions.length === 0) continue;
 
-    const leaderId = poll.options[0].id;
+    // A room poll is only answerable by its members, and only from the day
+    // they joined; a public one is open to everybody but its own author.
+    const eligible: { userId: number; joinedAt: Date | null }[] =
+      poll.roomId !== null
+        ? (roomMembers.get(poll.roomId) ?? []).filter(
+            (m) => m.userId !== poll.createdById && m.joinedAt <= poll.endsAt,
+          )
+        : userIds
+            .filter((id) => id !== poll.createdById)
+            .map((id) => ({ userId: id, joinedAt: null }));
+    if (eligible.length === 0) continue;
+
+    const voters = faker.helpers.arrayElements(
+      eligible,
+      hotPollIds.has(poll.id)
+        ? eligible.length
+        : faker.number.int({ min: 1, max: eligible.length }),
+    );
+    const leaderId = faker.helpers.arrayElement(liveOptions).id;
+    const windowEnd = new Date(Math.min(poll.endsAt.getTime(), now.getTime()));
 
     for (let index = 0; index < voters.length; index++) {
-      const voterId = voters[index];
+      const voter = voters[index];
       const { optionIds, freeField } = pickVoteOptions(
         poll.type,
-        poll.options,
+        liveOptions,
         index,
         leaderId,
       );
-      const createdAt = faker.date.between({
-        from: poll.publishedAt,
-        to: windowEnd,
-      });
+      const from = new Date(
+        Math.max(poll.publishedAt.getTime(), voter.joinedAt?.getTime() ?? 0),
+      );
 
       voteRows.push({
         pollId: poll.id,
-        createdById: voterId,
+        createdById: voter.userId,
         freeField,
-        createdAt,
+        createdAt: faker.date.between({ from, to: windowEnd }),
       });
-      pickedOptionIds.set(`${voterId}:${poll.id}`, optionIds);
-      bump(votesCast, voterId);
+      pickedOptionIds.set(`${voter.userId}:${poll.id}`, optionIds);
+      bump(votesCast, voter.userId);
     }
   }
 
@@ -1361,8 +1549,13 @@ async function main() {
   }
   console.log(`Done — user scores updated.`);
 
-  const keysPushed = await pushKeysToRedis(issuedKeys);
-  console.log(`Done — ${keysPushed} API keys seeded into Redis.`);
+  try {
+    const keysPushed = await pushKeysToRedis(issuedKeys);
+    console.log(`Done — ${keysPushed} API keys seeded into Redis.`);
+  } catch (error) {
+    console.error(`Could not load the keys into redis: ${String(error)}`);
+    console.error('Restart the backend to have it restore them.');
+  }
   reportApiAccounts(issuedKeys);
 
   console.log('\nSeeding process finished successfully!');
@@ -1371,7 +1564,7 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(async () => {
     if (prisma) {
