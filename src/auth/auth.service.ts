@@ -191,22 +191,24 @@ export class AuthService {
     await this.websocketEmitter.revokeUser(userId);
   }
 
-  async passwordForgot(body: PasswordForgotDTO): Promise<void> {
-    const user = await this.userService.findByEmail(body.email);
+  passwordForgot(body: PasswordForgotDTO): void {
+    void this.dispatchPasswordReset(body.email);
+  }
 
-    if (!user) {
-      return;
-    }
-
-    const token = randomUUID();
-    await this.redisService.setPasswordResetToken(token, user.id);
-
-    const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
+  private async dispatchPasswordReset(email: string): Promise<void> {
     try {
+      const user = await this.userService.findByEmail(email);
+      if (!user) {
+        return;
+      }
+
+      const token = randomUUID();
+      await this.redisService.setPasswordResetToken(token, user.id);
+
+      const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
       await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
     } catch (error) {
       this.logger.error('Failed to send password reset email', error);
-      throw new InternalServerErrorException('Failed to send reset email');
     }
   }
 
