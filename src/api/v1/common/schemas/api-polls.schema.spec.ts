@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   ApiPollCreateSchema,
+  ApiPollListColumnsSchema,
+  ApiPollColumnsSchema,
   ApiPollOfferedTypeSchema,
   ApiPollQuerySchema,
   ApiPollUpdateSchema,
@@ -11,31 +11,8 @@ import {
   MAX_TITLE,
 } from './api-polls.schema';
 import { LIMIT_BY_ROLE } from './api-pagination.schema';
-
-const prismaSchema = readFileSync(
-  join(process.cwd(), 'prisma/schema.prisma'),
-  'utf8',
-);
-
-const VARCHAR = '@db.VarChar(';
-
-function declaredLength(model: string, column: string): number | null {
-  const start = prismaSchema.indexOf(`model ${model} {`);
-  if (start === -1) return null;
-
-  const closes = prismaSchema.indexOf('}', start);
-  const line = prismaSchema
-    .slice(start, closes === -1 ? undefined : closes)
-    .split('\n')
-    .find((row) => row.trim().startsWith(`${column} `));
-  if (!line) return null;
-
-  const opens = line.indexOf(VARCHAR);
-  if (opens === -1) return null;
-
-  const from = opens + VARCHAR.length;
-  return Number(line.slice(from, line.indexOf(')', from)));
-}
+import { declaredLength } from './prisma-column.mock';
+import { PollCreateSchema } from 'Pollpear_shared/src/schemas/polls.schema';
 
 const inTheFuture = new Date(Date.now() + 3600_000);
 const inThePast = new Date(Date.now() - 1000);
@@ -214,5 +191,74 @@ describe('the query the list accepts', () => {
 
   it('refuses a filter the api does not offer', () => {
     expect(ApiPollQuerySchema.safeParse({ sort: 'title' }).success).toBe(false);
+  });
+});
+
+describe('The abandoned free_field type', () => {
+  it('is named by no payload the api promises', () => {
+    for (const schema of [ApiPollListColumnsSchema, ApiPollColumnsSchema]) {
+      expect(schema.shape.type.options).toEqual(
+        ApiPollOfferedTypeSchema.options,
+      );
+    }
+  });
+
+  it('is refused as a filter rather than answered empty', () => {
+    expect(ApiPollQuerySchema.safeParse({ type: 'free_field' }).success).toBe(
+      false,
+    );
+  });
+
+  it('is refused at creation', () => {
+    expect(
+      ApiPollCreateSchema.safeParse({
+        title: 'x',
+        type: 'free_field',
+        visibility: 'public',
+        allowChangeVote: true,
+        isAnonymous: false,
+        endsAt: new Date(Date.now() + 86400000),
+        options: [],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('The bounds the backend already enforces', () => {
+  const backendBody = (description: string) => ({
+    title: 'Best fruit',
+    description,
+    type: 'single_choice' as const,
+    visibility: 'public' as const,
+    allowChangeVote: true,
+    isAnonymous: false,
+    endsAt: new Date(Date.now() + 3600_000),
+    options: [
+      { text: 'Pear', order: 0 },
+      { text: 'Fig', order: 1 },
+    ],
+  });
+
+  it('caps a description exactly where the backend does', () => {
+    expect(
+      PollCreateSchema.safeParse(backendBody('x'.repeat(MAX_DESCRIPTION)))
+        .success,
+    ).toBe(true);
+    expect(
+      PollCreateSchema.safeParse(backendBody('x'.repeat(MAX_DESCRIPTION + 1)))
+        .success,
+    ).toBe(false);
+  });
+
+  it('caps a title exactly where the backend does', () => {
+    const withTitle = (length: number) => ({
+      ...backendBody('short'),
+      title: 'x'.repeat(length),
+    });
+
+    expect(PollCreateSchema.safeParse(withTitle(MAX_TITLE)).success).toBe(true);
+    expect(PollCreateSchema.safeParse(withTitle(MAX_TITLE + 1)).success).toBe(
+      false,
+    );
   });
 });

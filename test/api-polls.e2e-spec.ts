@@ -196,6 +196,12 @@ describe('ApiPollsController (e2e)', () => {
     });
   });
 
+  it('400s a filter on the abandoned free_field type', () =>
+    request(app.getHttpServer())
+      .get('/v1/polls?type=free_field')
+      .set(asUser(7))
+      .expect(400));
+
   describe('POST /v1/polls', () => {
     it('creates the poll for the key owner', () => {
       return request(app.getHttpServer())
