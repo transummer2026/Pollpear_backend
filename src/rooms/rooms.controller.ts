@@ -179,6 +179,30 @@ export class RoomsController {
     return this.invitationService.removeInvitation(viewer, id, userId);
   }
 
+  @Post(':id/participants')
+  @HttpCode(201)
+  @CheckAbilities(['join', 'Room'])
+  addParticipant(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.roomsService.addParticipant(viewer, id);
+  }
+
+  // Coarse gate only: this route serves both `leave` (userId === caller)
+  // and `kick` (userId !== caller). `removeParticipant` picks and enforces
+  // the right ability per target via `accessibleBy`.
+  @Delete(':id/participants/:userId')
+  @HttpCode(204)
+  @CheckAbilities(['leave', 'Room'])
+  removeParticipant(
+    @CurrentUser() viewer: User,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.roomsService.removeParticipant(viewer, id, userId);
+  }
+
   @Get(':id/messages')
   @CheckAbilities(['read', 'Message'])
   getMessages(

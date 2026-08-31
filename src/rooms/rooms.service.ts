@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { Prisma, User } from 'src/generated/prisma/client';
 import {
@@ -165,10 +169,18 @@ export class RoomsService {
    * eligibility (public room, or an accepted invitation) is entirely
    * expressed by the CASL `join` rule, so `accessibleBy` is the check —
    * no extra instance-level guard needed once the row comes back.
+   *
+   * `ability` and `client` are injectable so the invitation-accept flow
+   * can run this inside its own `$transaction` (re-checking `join` against
+   * the just-written "accepted" row) with the ability it already built.
    */
-  async addParticipant(viewer: User, roomId: number) {
-    const ability = this.abilityFactory.createForUser(viewer);
-    const room = await this.prisma.room.findFirst({
+  async addParticipant(
+    viewer: User,
+    roomId: number,
+    ability: AppAbility = this.abilityFactory.createForUser(viewer),
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    const room = await client.room.findFirst({
       where: {
         AND: [
           accessibleBy(ability, 'join').ofType('Room'),
@@ -178,10 +190,20 @@ export class RoomsService {
     });
     if (!room) throw new NotFoundException('Room not found');
 
-    return await this.prisma.roomMember.upsert({
+    const existing = await client.roomMember.findUnique({
       where: { roomId_userId: { roomId, userId: viewer.id } },
-      create: { roomId, userId: viewer.id, joinedAt: new Date() },
-      update: { deletedAt: null, joinedAt: new Date() },
+    });
+    // Already an active member → idempotent no-op. Do NOT rewrite
+    // `joinedAt`: a redundant POST /participants must not reset it.
+    if (existing && existing.deletedAt === null) return existing;
+    if (existing) {
+      return await client.roomMember.update({
+        where: { id: existing.id },
+        data: { deletedAt: null, joinedAt: new Date() },
+      });
+    }
+    return await client.roomMember.create({
+      data: { roomId, userId: viewer.id, joinedAt: new Date() },
     });
   }
 
@@ -211,10 +233,45 @@ export class RoomsService {
     });
     if (!member) throw new NotFoundException('Participant not found');
 
-    return await this.prisma.roomMember.update({
-      where: { id: member.id },
-      data: { deletedAt: new Date() },
-    });
+    // A moderator's blanket `kick` would otherwise let them remove the
+    // room owner, leaving the room with no active owner-member.
+    if (action === 'kick' && targetUserId === room.createdById) {
+      throw new ForbiddenException('The room owner cannot be removed.');
+    }
+
+    const now = new Date();
+
+    if (action === 'leave') {
+      return await this.prisma.roomMember.update({
+        where: { id: member.id },
+        data: { deletedAt: now },
+      });
+    }
+
+    // Kick: also revoke the target's accepted invitation so the removal
+    // sticks. Otherwise `roomJoinConditions` still matches on the leftover
+    // "accepted" row and the kicked user could re-POST /participants
+    // straight back into a private room. This is a mechanical consequence
+    // of an already-authorised kick, not a separate permission decision,
+    // so it targets the row directly rather than going through
+    // `accessibleBy('delete', 'Invitation')`. Re-admission goes through a
+    // fresh `createRoomInvitation()`.
+    const [updatedMember] = await this.prisma.$transaction([
+      this.prisma.roomMember.update({
+        where: { id: member.id },
+        data: { deletedAt: now },
+      }),
+      this.prisma.invitation.updateMany({
+        where: {
+          roomId,
+          inviteeId: targetUserId,
+          status: 'accepted',
+          deletedAt: null,
+        },
+        data: { deletedAt: now },
+      }),
+    ]);
+    return updatedMember;
   }
 
   // Prisma helpers

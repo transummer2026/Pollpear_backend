@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { forwardRef, Logger, Module } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { RoomsController } from './rooms.controller';
 import { RoomsExpiryService } from './rooms-expiry.service';
@@ -7,7 +7,7 @@ import { MessagesModule } from 'src/messages/messages.module';
 import { InvitationModule } from 'src/invitation/invitation.module';
 
 @Module({
-  imports: [PollsModule, MessagesModule, InvitationModule],
+  imports: [PollsModule, MessagesModule, forwardRef(() => InvitationModule)],
   controllers: [RoomsController],
   providers: [RoomsService, RoomsExpiryService, Logger],
   exports: [RoomsService],

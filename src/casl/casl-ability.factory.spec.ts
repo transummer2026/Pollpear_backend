@@ -571,6 +571,20 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('join', room)).toBe(false);
       });
 
+      // A kick soft-deletes the accepted invitation, so the leftover row
+      // must not keep the kicked user eligible to re-join.
+      it('denies join on a private Room when the accepted invitation is soft-deleted', () => {
+        const room = roomSubject({
+          status: 'active',
+          visibility: 'private',
+          invitations: [
+            { inviteeId: 1, status: 'accepted', deletedAt: new Date() },
+          ],
+        });
+
+        expect(ability.can('join', room)).toBe(false);
+      });
+
       it('grants invite on an active public Room the user is a member of', () => {
         const room = roomSubject({
           status: 'active',

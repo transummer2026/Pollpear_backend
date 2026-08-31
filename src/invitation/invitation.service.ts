@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  forwardRef,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +10,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { NotificationService } from 'src/notification/notification.service';
 import { Prisma } from 'src/generated/prisma/client';
+import { RoomsService } from 'src/rooms/rooms.service';
 import type { Invitation, User, Room } from 'src/generated/prisma/client';
 import {
   InvitationReadSchema,
@@ -34,10 +37,11 @@ type InvitationOutcome = {
  * them. An invitation is uniquely identified by the (roomId, inviteeId)
  * pair, so a room can only ever have one live invitation per invitee.
  *
- * Note: accepting an invitation only flips its status to "accepted" here.
- * There is currently no code that turns that into an actual `roomMembers`
- * row (the join flow isn't built yet), so "accepted" has no functional
- * effect on room membership today.
+ * Note: accepting an invitation also calls `RoomsService#addParticipant`
+ * inside the same transaction as the status flip. It re-checks the CASL
+ * `join` rule (now satisfiable thanks to the just-written "accepted"
+ * status) and creates/reactivates the `roomMembers` row; if the join
+ * fails the flip is rolled back.
  */
 @Injectable()
 export class InvitationService {
@@ -45,6 +49,8 @@ export class InvitationService {
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
     private notificationService: NotificationService,
+    @Inject(forwardRef(() => RoomsService))
+    private roomsService: RoomsService,
   ) {}
 
   /**
@@ -239,37 +245,44 @@ export class InvitationService {
       subject('Invitation', invitation),
     );
 
-    // Conditional write driven by the CASL "update" rule (deletedAt: null,
-    // status: 'pending', inviteeId: viewer). Only the request that actually
-    // flips the row (count === 1) fires the notifications below; a
-    // concurrent double-tap loses the race (count === 0) and just gets the
-    // current state back.
-    const { count } = await this.prisma.invitation.updateMany({
-      where: {
-        AND: [
-          accessibleBy(ability, 'update').ofType('Invitation'),
-          { roomId, inviteeId },
-        ],
-      },
-      data: { status },
-    });
-
-    const updated = await this.prisma.invitation.findUnique({
-      where: {
-        inviteeId_roomId: {
-          roomId,
-          inviteeId,
+    // Flip + (on accept) join happen in one transaction. Conditional write
+    // driven by the CASL "update" rule (deletedAt: null, status: 'pending',
+    // inviteeId: viewer): only the request that flips the row (count === 1)
+    // does anything; a concurrent double-tap loses the race (count === 0).
+    // Accepting also joins the room *inside* the transaction, so accepting
+    // an invitation to a room that has since closed (or any transient join
+    // failure) rolls the flip back instead of leaving a stuck "accepted"
+    // invitation with no membership.
+    const { updated, flipped } = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.invitation.updateMany({
+        where: {
+          AND: [
+            accessibleBy(ability, 'update').ofType('Invitation'),
+            { roomId, inviteeId },
+          ],
         },
-      },
-      include: { invitee: true, inviter: true, room: true },
-    });
-    if (!updated) {
-      throw new NotFoundException(
-        'No invitation sent to this user for this room.',
-      );
-    }
+        data: { status },
+      });
 
-    if (count === 0) {
+      const updated = await tx.invitation.findUnique({
+        where: { inviteeId_roomId: { roomId, inviteeId } },
+        include: { invitee: true, inviter: true, room: true },
+      });
+      if (!updated) {
+        throw new NotFoundException(
+          'No invitation sent to this user for this room.',
+        );
+      }
+
+      if (count === 1 && status === 'accepted') {
+        await this.roomsService.addParticipant(viewer, roomId, ability, tx);
+      }
+
+      return { updated, flipped: count === 1 };
+    });
+
+    // Notifications only after the transaction has committed.
+    if (!flipped) {
       return InvitationReadSchema.parse(updated);
     }
 
