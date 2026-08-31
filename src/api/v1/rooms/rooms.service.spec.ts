@@ -313,6 +313,7 @@ describe('ApiRoomsService', () => {
 
       expect(update.mock.calls[0][0].data).toEqual({
         deletedAt: expect.any(Date) as Date,
+        status: 'closed',
       });
     });
 

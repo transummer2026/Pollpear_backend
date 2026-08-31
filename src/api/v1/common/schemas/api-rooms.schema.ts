@@ -1,17 +1,14 @@
 import { z } from 'zod';
 import { RoomSchema as RoomModel } from 'Pollpear_shared/src/prisma/schemas/models/Room.schema';
-import { UserSchema as UserModel } from 'Pollpear_shared/src/prisma/schemas/models/User.schema';
 import { RoomStatus, Visibility } from 'src/generated/prisma/enums';
 import { apiPageOf, ApiPageQuerySchema } from './api-pagination.schema';
+import { ApiUserSummarySchema } from './api-users.schema';
 import { endsInTheFuture } from './api-dates.schema';
 
 export const MAX_NAME = 255;
 export const MAX_DESCRIPTION = 3000;
 
-export const ApiRoomOwnerSchema = UserModel.pick({
-  id: true,
-  username: true,
-});
+export const ApiRoomOwnerSchema = ApiUserSummarySchema;
 
 export const ApiRoomListColumnsSchema = RoomModel.pick({
   id: true,

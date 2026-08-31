@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { PollSchema as PollModel } from 'Pollpear_shared/src/prisma/schemas/models/Poll.schema';
-import { UserSchema as UserModel } from 'Pollpear_shared/src/prisma/schemas/models/User.schema';
 import { OptionSchema as OptionModel } from 'Pollpear_shared/src/prisma/schemas/models/Option.schema';
 import { PollStatus, PollType, Visibility } from 'src/generated/prisma/enums';
 import { apiPageOf, ApiPageQuerySchema } from './api-pagination.schema';
+import { ApiUserSummarySchema } from './api-users.schema';
 import { endsInTheFuture } from './api-dates.schema';
 
 export const MAX_OPTIONS = 20;
@@ -26,10 +26,7 @@ export const ApiPollOfferedTypeSchema = z.enum(
   OFFERED_TYPES as [PollType, ...PollType[]],
 );
 
-export const ApiPollAuthorSchema = UserModel.pick({
-  id: true,
-  username: true,
-});
+export const ApiPollAuthorSchema = ApiUserSummarySchema;
 
 export const ApiPollListColumnsSchema = PollModel.pick({
   id: true,
