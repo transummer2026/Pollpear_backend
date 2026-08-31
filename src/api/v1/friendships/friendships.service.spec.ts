@@ -300,23 +300,46 @@ describe('ApiFriendshipsService', () => {
     const forAnna = row({ addresseeId: anna.id });
 
     it('lets the addressee accept, and tells the requester', async () => {
-      findFirst.mockResolvedValue(forAnna);
-      update.mockResolvedValue({ ...forAnna, status: 'accepted' });
+      findFirst.mockResolvedValueOnce(forAnna);
+      updateMany.mockResolvedValue({ count: 1 });
+      findFirst.mockResolvedValueOnce({ ...forAnna, status: 'accepted' });
 
       await service.updateFriendship(1, { status: 'accepted' }, anna);
 
-      expect(update.mock.calls[0][0].data).toEqual({ status: 'accepted' });
+      expect(updateMany.mock.calls[0][0]).toEqual({
+        where: { id: 1, status: 'pending', deletedAt: null },
+        data: { status: 'accepted' },
+      });
       expect(notifyFriendAccepted).toHaveBeenCalledWith(BOB, anna.id);
     });
 
     it('tells nobody it was accepted when it was refused', async () => {
-      findFirst.mockResolvedValue(forAnna);
-      update.mockResolvedValue({ ...forAnna, status: 'rejected' });
+      findFirst.mockResolvedValueOnce(forAnna);
+      updateMany.mockResolvedValue({ count: 1 });
+      findFirst.mockResolvedValueOnce({ ...forAnna, status: 'rejected' });
 
       await service.updateFriendship(1, { status: 'rejected' }, anna);
 
       expect(notifyFriendAccepted).not.toHaveBeenCalled();
       expect(clearFriendRequest).toHaveBeenCalledWith(anna.id, BOB);
+    });
+
+    /**
+     * TOCTOU: readable() et assertMayAnswer lisent tous deux `pending`, mais
+     * un PATCH concurrent peut avoir deja tranche au moment de l'ecriture.
+     * `count === 0` est la seule facon de le savoir, et c'est ce qui doit
+     * couper les notifications — un `update()` sans garde les enverrait
+     * quand meme, pour un statut qui n'est plus celui stocke.
+     */
+    it('does not notify when a concurrent answer already resolved the request', async () => {
+      findFirst.mockResolvedValueOnce(forAnna);
+      updateMany.mockResolvedValue({ count: 0 });
+      findFirst.mockResolvedValueOnce({ ...forAnna, status: 'rejected' });
+
+      await service.updateFriendship(1, { status: 'accepted' }, anna);
+
+      expect(notifyFriendAccepted).not.toHaveBeenCalled();
+      expect(clearFriendRequest).not.toHaveBeenCalled();
     });
 
     it('403s the requester answering on their own behalf', async () => {
@@ -325,7 +348,7 @@ describe('ApiFriendshipsService', () => {
       await expect(
         service.updateFriendship(1, { status: 'accepted' }, anna),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(update).not.toHaveBeenCalled();
+      expect(updateMany).not.toHaveBeenCalled();
     });
 
     it('403s a request that was already answered', async () => {

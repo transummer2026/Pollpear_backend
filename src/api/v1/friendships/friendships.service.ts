@@ -133,16 +133,27 @@ export class ApiFriendshipsService {
 
     this.assertMayAnswer(friendship, ability);
 
-    const answered = await this.prisma.friendship.update({
-      where: { id },
+    /**
+     * L'ecriture est gardee sur `pending`, comme dans acceptOnTheirBehalf:
+     * deux PATCH concurrents sur la meme demande liraient tous les deux
+     * `pending` et passeraient tous les deux assertMayAnswer, si bien qu'une
+     * ecriture non gardee notifierait deux fois — potentiellement pour deux
+     * reponses differentes (accepted et rejected). `count === 1` designe
+     * l'ecriture qui a effectivement gagne la course.
+     */
+    const { count } = await this.prisma.friendship.updateMany({
+      where: { id, status: FriendshipStatus.pending, deletedAt: null },
       data: { status: body.status },
-      select: FRIENDSHIP_SELECT,
     });
 
-    const { requester } = parties(answered);
-    await this.notifications.clearFriendRequest(caller.id, requester.id);
-    if (body.status === FriendshipStatus.accepted) {
-      await this.notifications.notifyFriendAccepted(requester.id, caller.id);
+    const answered = await this.readable(id, ability);
+
+    if (count === 1) {
+      const { requester } = parties(answered);
+      await this.notifications.clearFriendRequest(caller.id, requester.id);
+      if (body.status === FriendshipStatus.accepted) {
+        await this.notifications.notifyFriendAccepted(requester.id, caller.id);
+      }
     }
 
     return this.presented(answered);

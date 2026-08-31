@@ -190,7 +190,7 @@ describe('ApiFriendshipsController (e2e)', () => {
 
   it('lets the addressee answer, and refuses the requester', async () => {
     findFirst.mockResolvedValue(stored);
-    update.mockResolvedValue({ ...stored, status: 'accepted' });
+    updateMany.mockResolvedValue({ count: 1 });
 
     await request(app.getHttpServer())
       .patch('/v1/friendships/1')
