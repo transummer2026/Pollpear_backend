@@ -14,10 +14,16 @@ export class RevocationService {
     private readonly websocketEmitter: WebsocketEmitter,
   ) {}
 
-  async revokeAllAccess(userId: number): Promise<void> {
+  async revokeAllSessions(userId: number): Promise<void> {
     await this.redis.deleteUserSessions(userId);
-    await this.apiKeyService.revokeAll(userId);
     await this.websocketEmitter.revokeUser(userId);
+
+    this.logger.log(`all sessions revoked for user ${userId}`);
+  }
+
+  async revokeAllAccess(userId: number): Promise<void> {
+    await this.revokeAllSessions(userId);
+    await this.apiKeyService.revokeAll(userId);
 
     this.logger.log(`all access revoked for user ${userId}`);
   }

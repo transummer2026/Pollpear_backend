@@ -13,6 +13,7 @@ import { UsersService } from 'src/users/users.service';
 import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
+import { RevocationService } from 'src/revocation/revocation.service';
 import { AuthService } from './auth.service';
 
 jest.mock('argon2');
@@ -99,6 +100,10 @@ describe('AuthService', () => {
   const revokeUser = jest.fn();
   const emitter = { revokeUser } as unknown as WebsocketEmitter;
 
+  const revocation = {
+    revokeAllSessions: jest.fn(),
+  } as unknown as RevocationService;
+
   const prisma = {} as PrismaService;
   const vault = {
     session: { pepper: 'test-pepper' },
@@ -113,6 +118,7 @@ describe('AuthService', () => {
     mail,
     vault,
     emitter,
+    revocation,
   );
 
   beforeAll(() => {
@@ -126,7 +132,16 @@ describe('AuthService', () => {
 
       expect(
         () =>
-          new AuthService(prisma, users, ban, redis, mail, emptyVault, emitter),
+          new AuthService(
+            prisma,
+            users,
+            ban,
+            redis,
+            mail,
+            emptyVault,
+            emitter,
+            revocation,
+          ),
       ).toThrow('Vault pepper secret is not defined');
     });
   });

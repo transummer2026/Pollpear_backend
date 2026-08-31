@@ -31,6 +31,7 @@ import { MailService } from 'src/mail/mail.service';
 import { randomUUID } from 'crypto';
 import { VaultService } from 'src/vault/vault.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
+import { RevocationService } from 'src/revocation/revocation.service';
 import { type Response } from 'express';
 
 const ARGON2_OPTIONS = {
@@ -53,6 +54,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly vault: VaultService,
     private readonly websocketEmitter: WebsocketEmitter,
+    private readonly revocationService: RevocationService,
   ) {
     const pepper = this.vault.session.pepper;
     if (!pepper) throw new Error('Vault pepper secret is not defined');
@@ -218,6 +220,7 @@ export class AuthService {
 
     await this.userService.updatePassword(userId, passwordHash);
     await this.redisService.deletePasswordResetToken(body.token, userId);
+    await this.revocationService.revokeAllSessions(userId);
   }
 
   async verifyEmail(body: VerifyEmailDTO): Promise<void> {
