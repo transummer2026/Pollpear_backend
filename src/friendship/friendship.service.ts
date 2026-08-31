@@ -64,10 +64,26 @@ export class FriendshipService {
     targetId: number,
   ): Promise<FriendListItemDTO[]> {
     const ability = this.abilityFactory.createForUser(viewer);
+
+    const target = await this.prisma.user.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('User'),
+          { id: targetId, deletedAt: null },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
     const friendships = await this.prisma.friendship.findMany({
       where: {
         AND: [
           accessibleBy(ability, 'read').ofType('Friendship'),
+          { userA: { deletedAt: null } },
+          { userB: { deletedAt: null } },
           {
             deletedAt: null,
             status: 'accepted',

@@ -223,6 +223,8 @@ describe('FriendshipService', () => {
         where: {
           AND: [
             accessibleBy(ability, 'read').ofType('Friendship'),
+            { userA: { deletedAt: null } },
+            { userB: { deletedAt: null } },
             {
               deletedAt: null,
               status: 'accepted',
@@ -257,9 +259,9 @@ describe('FriendshipService', () => {
       await service.getFriends(viewer(1), 2);
 
       const [args] = prisma.friendship.findMany.mock.calls[0] as [
-        { where: { AND: [unknown, Record<string, unknown>] } },
+        { where: { AND: unknown[] } },
       ];
-      expect(args.where.AND[1]).toEqual({
+      expect(args.where.AND[3]).toEqual({
         deletedAt: null,
         status: 'accepted',
         OR: [{ userAId: 2 }, { userBId: 2 }],
