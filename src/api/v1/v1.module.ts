@@ -4,10 +4,11 @@ import { ApiV1Controller } from './v1.controller';
 import { ApiPollsModule } from './polls/polls.module';
 import { ApiUsersModule } from './users/users.module';
 import { ApiMeModule } from './me/me.module';
+import { ApiRoomsModule } from './rooms/rooms.module';
 
 @Module({
   controllers: [ApiV1Controller],
   providers: [ApiV1Service],
-  imports: [ApiPollsModule, ApiUsersModule, ApiMeModule],
+  imports: [ApiPollsModule, ApiUsersModule, ApiMeModule, ApiRoomsModule],
 })
 export class ApiV1Module {}
