@@ -108,10 +108,6 @@ describe('RoomsService', () => {
     return accessibleBy(abilityFor(u), 'leave').ofType('Room');
   }
 
-  function deleteInvitationAccessibleWhere(u: ReturnType<typeof user>) {
-    return accessibleBy(abilityFor(u), 'delete').ofType('Invitation');
-  }
-
   // findOneRoom runs the fetched room through RoomReadSchema.parse, which
   // enforces the full Prisma-generated shape. These tests care about the
   // service's own logic (query shape, what gets returned), not re-validating
@@ -383,10 +379,10 @@ describe('RoomsService', () => {
       });
       expect(invitationUpdateMany).toHaveBeenCalledWith({
         where: {
-          AND: [
-            deleteInvitationAccessibleWhere(user({ id: 42 })),
-            { roomId: 7, inviteeId: 99, status: 'accepted' },
-          ],
+          roomId: 7,
+          inviteeId: 99,
+          status: 'accepted',
+          deletedAt: null,
         },
         data: { deletedAt: expect.any(Date) as Date },
       });
@@ -394,17 +390,17 @@ describe('RoomsService', () => {
       expect(result).toEqual({ id: 55, deletedAt: expect.any(Date) as Date });
     });
 
-    it('scopes the invitation revocation to a moderator blanket rule when a moderator kicks', async () => {
+    it('revokes the invitation the same way when a moderator kicks (no per-actor scoping)', async () => {
       const moderator = viewer({ id: 1, role: 'moderator' });
 
       await service.removeParticipant(moderator, 7, 99);
 
       expect(invitationUpdateMany).toHaveBeenCalledWith({
         where: {
-          AND: [
-            deleteInvitationAccessibleWhere(user({ id: 1, role: 'moderator' })),
-            { roomId: 7, inviteeId: 99, status: 'accepted' },
-          ],
+          roomId: 7,
+          inviteeId: 99,
+          status: 'accepted',
+          deletedAt: null,
         },
         data: { deletedAt: expect.any(Date) as Date },
       });

@@ -251,10 +251,11 @@ export class RoomsService {
     // Kick: also revoke the target's accepted invitation so the removal
     // sticks. Otherwise `roomJoinConditions` still matches on the leftover
     // "accepted" row and the kicked user could re-POST /participants
-    // straight back into a private room. Scoped by the CASL `delete`
-    // rule on `Invitation` (room owner as inviter, or a moderator's
-    // blanket rule), same as `InvitationService#removeInvitation`.
-    // Re-admission goes through a fresh `createRoomInvitation()`.
+    // straight back into a private room. This is a mechanical consequence
+    // of an already-authorised kick, not a separate permission decision,
+    // so it targets the row directly rather than going through
+    // `accessibleBy('delete', 'Invitation')`. Re-admission goes through a
+    // fresh `createRoomInvitation()`.
     const [updatedMember] = await this.prisma.$transaction([
       this.prisma.roomMember.update({
         where: { id: member.id },
@@ -262,10 +263,10 @@ export class RoomsService {
       }),
       this.prisma.invitation.updateMany({
         where: {
-          AND: [
-            accessibleBy(ability, 'delete').ofType('Invitation'),
-            { roomId, inviteeId: targetUserId, status: 'accepted' },
-          ],
+          roomId,
+          inviteeId: targetUserId,
+          status: 'accepted',
+          deletedAt: null,
         },
         data: { deletedAt: now },
       }),
