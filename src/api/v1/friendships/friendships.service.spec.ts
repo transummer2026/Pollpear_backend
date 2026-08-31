@@ -141,6 +141,23 @@ describe('ApiFriendshipsService', () => {
       });
     });
 
+    it('carries the filters down to the query', async () => {
+      transaction.mockResolvedValue([[], 0]);
+
+      await service.findAllFriendships(
+        { ...page, status: 'pending', with: BOB },
+        anna,
+      );
+
+      const { where } = findMany.mock.calls[0][0] as unknown as {
+        where: { AND: [unknown, Record<string, unknown>] };
+      };
+      expect(where.AND[1]).toEqual({
+        status: 'pending',
+        OR: [{ userAId: BOB }, { userBId: BOB }],
+      });
+    });
+
     it('refuses a page larger than the caller role allows', async () => {
       await expect(
         service.findAllFriendships({ page: 1, limit: 51 }, anna),
@@ -208,8 +225,7 @@ describe('ApiFriendshipsService', () => {
 
     it('accepts their request rather than opening a facing one', async () => {
       findUnique.mockResolvedValue(row({ addresseeId: anna.id }));
-      findUnique.mockResolvedValueOnce(row({ addresseeId: anna.id }));
-      findUnique.mockResolvedValue(
+      findFirst.mockResolvedValue(
         row({ addresseeId: anna.id, status: 'accepted' }),
       );
 
@@ -239,6 +255,32 @@ describe('ApiFriendshipsService', () => {
 
       expect(upsert).not.toHaveBeenCalled();
       expect(notifyFriendRequest).not.toHaveBeenCalled();
+    });
+
+    it('ranges the pair in the canonical order, whoever asks first', async () => {
+      const carl = { id: 12, role: 'user' } as unknown as User;
+      findUnique.mockResolvedValue(null);
+      upsert.mockResolvedValue(row());
+
+      await service.createFriendship({ addresseeId: anna.id }, carl);
+
+      expect(upsert.mock.calls[0][0]).toMatchObject({
+        where: { userAId_userBId: { userAId: 4, userBId: 12 } },
+        create: { userAId: 4, userBId: 12, addresseeId: anna.id },
+      });
+    });
+
+    it('says nothing when a concurrent accept got there first', async () => {
+      findUnique.mockResolvedValue(row({ addresseeId: anna.id }));
+      findFirst.mockResolvedValue(
+        row({ addresseeId: anna.id, status: 'accepted' }),
+      );
+      updateMany.mockResolvedValue({ count: 0 });
+
+      await service.createFriendship({ addresseeId: BOB }, anna);
+
+      expect(notifyFriendAccepted).not.toHaveBeenCalled();
+      expect(clearFriendRequest).not.toHaveBeenCalled();
     });
 
     it('reopens a friendship that was refused or withdrawn', async () => {

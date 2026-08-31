@@ -1,4 +1,5 @@
 import {
+  ApiFriendshipAnswerSchema,
   ApiFriendshipColumnsSchema,
   ApiFriendshipCreateSchema,
   ApiFriendshipQuerySchema,
@@ -109,5 +110,19 @@ describe('the payload', () => {
     expect(Object.keys(ApiFriendshipColumnsSchema.shape)).not.toContain(
       'deletedAt',
     );
+  });
+});
+
+describe('the statuses the contract names', () => {
+  it('shows every state a friendship can be in', () => {
+    expect(ApiFriendshipColumnsSchema.shape.status.options).toEqual([
+      'pending',
+      'accepted',
+      'rejected',
+    ]);
+  });
+
+  it('offers exactly the ways out of pending, and nothing else', () => {
+    expect(ApiFriendshipAnswerSchema.options).toEqual(['accepted', 'rejected']);
   });
 });

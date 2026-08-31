@@ -118,7 +118,7 @@ export class ApiFriendshipsService {
 
     await this.assertMayApproach(body.addresseeId, ability);
 
-    const stored = await this.settle(caller.id, body.addresseeId);
+    const stored = await this.settle(caller.id, body.addresseeId, ability);
 
     return this.presented(stored);
   }
@@ -176,8 +176,12 @@ export class ApiFriendshipsService {
   private async settle(
     requesterId: number,
     addresseeId: number,
+    ability: AppAbility,
   ): Promise<StoredFriendship> {
     const pair = canonicalPair(requesterId, addresseeId);
+    // Hors portee de lecture a dessein: la politique masque les lignes
+    // supprimees, or c'est precisement celle-la qu'il faut retrouver pour la
+    // reprendre. La paire contient l'appelant, donc rien d'etranger n'est lu.
     const existing = await this.prisma.friendship.findUnique({
       where: { userAId_userBId: pair },
       select: FRIENDSHIP_SELECT,
@@ -190,7 +194,12 @@ export class ApiFriendshipsService {
 
       if (existing.status === FriendshipStatus.pending) {
         return existing.addresseeId === requesterId
-          ? this.acceptOnTheirBehalf(existing, requesterId, addresseeId)
+          ? this.acceptOnTheirBehalf(
+              existing,
+              requesterId,
+              addresseeId,
+              ability,
+            )
           : existing;
       }
     }
@@ -220,6 +229,7 @@ export class ApiFriendshipsService {
     existing: StoredFriendship,
     requesterId: number,
     addresseeId: number,
+    ability: AppAbility,
   ): Promise<StoredFriendship> {
     const { count } = await this.prisma.friendship.updateMany({
       where: {
@@ -235,20 +245,7 @@ export class ApiFriendshipsService {
       await this.notifications.notifyFriendAccepted(addresseeId, requesterId);
     }
 
-    return this.readableById(existing.id);
-  }
-
-  private async readableById(id: number): Promise<StoredFriendship> {
-    const row = await this.prisma.friendship.findUnique({
-      where: { id },
-      select: FRIENDSHIP_SELECT,
-    });
-
-    if (!row) {
-      throw new NotFoundException('Friendship not found');
-    }
-
-    return row;
+    return this.readable(existing.id, ability);
   }
 
   private async readable(

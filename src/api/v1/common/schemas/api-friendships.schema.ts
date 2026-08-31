@@ -25,8 +25,21 @@ export const ApiFriendshipCreateSchema = z.strictObject({
   addresseeId: z.number().int().min(1),
 });
 
+/**
+ * Repondre, c'est quitter `pending`. Les issues se deduisent donc de l'enum
+ * plutot que d'etre recopiees: une valeur ajoutee au modele se retrouve
+ * offerte, ou fait rougir le test qui les gele — jamais oubliee en silence.
+ */
+const ANSWERS = Object.values(FriendshipStatus).filter(
+  (status) => status !== FriendshipStatus.pending,
+);
+
+export const ApiFriendshipAnswerSchema = z.enum(
+  ANSWERS as [FriendshipStatus, ...FriendshipStatus[]],
+);
+
 export const ApiFriendshipUpdateSchema = z.strictObject({
-  status: z.enum([FriendshipStatus.accepted, FriendshipStatus.rejected]),
+  status: ApiFriendshipAnswerSchema,
 });
 
 export const ApiFriendshipFilterSchema = z.object({
