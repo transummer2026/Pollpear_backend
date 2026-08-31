@@ -29,7 +29,7 @@ import {
 dotenv.config({ path: '../.env' });
 
 const USER_COUNT = 50;
-const ROOM_COUNT = 20;
+const ROOM_COUNT = 25;
 const DEFAULT_PASSWORD = 'Password123!';
 const API_KEY_LIFETIME_SECONDS = 365 * 24 * 60 * 60;
 
@@ -67,7 +67,7 @@ const BUSY_ROOM_MESSAGES = 120;
 const ROOM_MESSAGES_MIN = 6;
 const ROOM_MESSAGES_MAX = 30;
 const CHATTY_ROOM_COUNT = 6;
-const DELETED_MESSAGE_DEMO = 3;
+const DELETED_MESSAGE_DEMO = 5;
 const VERIFIED_PROBABILITY = 0.85;
 const COMPANY_PROBABILITY = 0.6;
 const BIO_PROBABILITY = 0.7;
@@ -88,19 +88,12 @@ const HASHTAG_NAMES = [
   'science',
   'news',
   'memes',
+  'valais',
+  'bocal',
+  'apero',
 ];
 const HIDDEN_HASHTAGS = new Set(['memes', 'news']);
 
-const POLL_TYPE_PLAN: PollType[] = [
-  ...Array<PollType>(16).fill(PollType.single_choice),
-  ...Array<PollType>(12).fill(PollType.multiple_choice),
-  ...Array<PollType>(6).fill(PollType.slider),
-  ...Array<PollType>(6).fill(PollType.free_field),
-];
-const POLL_STATUS_PLAN: PollStatus[] = [
-  ...Array<PollStatus>(32).fill(PollStatus.active),
-  ...Array<PollStatus>(8).fill(PollStatus.closed),
-];
 const FRIENDSHIP_STATUS_PLAN: FriendshipStatus[] = [
   ...Array<FriendshipStatus>(70).fill(FriendshipStatus.accepted),
   ...Array<FriendshipStatus>(20).fill(FriendshipStatus.pending),
@@ -114,7 +107,7 @@ const SLIDER_MIN = 0;
 const SLIDER_MAX = 10;
 const MEMBERS_MIN = 3;
 const MEMBERS_MAX = 12;
-const HOT_POLL_COUNT = 4;
+const HOT_POLL_COUNT = 5;
 const DAY_MS = 86_400_000;
 
 const vault = new VaultService();
@@ -124,10 +117,434 @@ faker.seed(12345);
 
 const now = new Date();
 const daysAgo = (n: number) => new Date(now.getTime() - n * DAY_MS);
+const inDays = (n: number) => new Date(now.getTime() + n * DAY_MS);
 const accountCreatedAt = () =>
   faker.date.between({ from: daysAgo(1460), to: daysAgo(548) });
 
-//Fake users seeding
+// --- CUSTOM USERS ---
+const CUSTOM_USERS = [
+  {
+    username: 'Jojo_du_38',
+    email: 'jojodu38@92Paris.fr',
+    avatarUrl: '/uploads/avatars/Jojo_du_38.jpeg',
+    bio: "Essaie de perser dans le rap. C'est difficile, mon seul sujet c'est la correction de prononciation en anglais",
+    gender: Gender.female,
+    nationality: 'Swiss',
+    country: 'Switzerland',
+    birthdate: new Date('1998-12-01'),
+    name: 'Josephine',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'Miguel',
+    email: 'MiguelAdeLaChance@gmail.ch',
+    avatarUrl: '/uploads/avatars/Miguel.jpeg',
+    bio: 'célébrité à starbucks, miguel est une icone bien connue.',
+    gender: Gender.other,
+    nationality: 'Portugese',
+    country: 'Switzerland',
+    birthdate: new Date('1993-08-09'),
+    name: 'Miguel',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'P2monts',
+    email: 'p2mont@proton.ch',
+    avatarUrl: '/uploads/avatars/P2monts.jpeg',
+    bio: "J'aime le valais, j'aime les crocs. J'aime mcdo et le coca",
+    gender: Gender.male,
+    nationality: 'Valais',
+    country: 'Switzerland',
+    birthdate: new Date('1500-10-06'),
+    name: 'Pédemont',
+    surname: 'Pear',
+    city: 'Sion',
+    isEmailVerified: true,
+  },
+  {
+    username: 'GhostVincent',
+    email: 'GhostVincent@bocalpartoutJusticeNullepart.ch',
+    avatarUrl: '/uploads/avatars/GhostVincent.jpeg',
+    bio: "Qui vient faire une pause ? Qui pour une bière ? Ahhh moi j'ai fini ma journée",
+    gender: Gender.male,
+    nationality: 'French',
+    country: 'Switzerland',
+    birthdate: new Date('1993-09-08'),
+    name: 'Vincent',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'MasterclassBen',
+    email: 'BenRobotFatigué@42.ch',
+    avatarUrl: '/uploads/avatars/MasterclassBen.jpeg',
+    bio: `"Ils s'attendent à ce que je joue équitablement. On ne joue même pas au même jeu." Swain, LOL`,
+    gender: Gender.other,
+    nationality: 'FailleDeLinvocateur',
+    country: 'Switzerland',
+    birthdate: new Date('1993-05-01'),
+    name: 'Bénédicte',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'RaphOps',
+    email: 'Raph@claude.com',
+    avatarUrl: '/uploads/avatars/RaphOps.jpeg',
+    bio: 'Il me semble que la CI est une invention légendaire.',
+    gender: Gender.male,
+    nationality: 'Mexicain',
+    country: 'Switzerland',
+    birthdate: new Date('1994-05-01'),
+    name: 'Raph',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'Jose',
+    email: 'Josephine@super.com',
+    avatarUrl: '/uploads/avatars/jose.jpeg',
+    bio: "J'aime pas qu'on m'appelle José, ni les gens qui parle dans les trains, ni ceux qui écoutent de la musique dans le bus. En fait j'aime pas les gens",
+    gender: Gender.female,
+    nationality: 'American',
+    country: 'Switzerland',
+    birthdate: new Date('1995-05-01'),
+    name: 'José',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'Eduard_eau',
+    email: 'canard@colvert.ch',
+    avatarUrl: '/uploads/avatars/Eduard_eau.jpeg',
+    bio: 'Bocalien aux choix de chapeau douteux, bois plus de café que conseillé pour la santé',
+    gender: Gender.other,
+    nationality: 'Geneve',
+    country: 'Switzerland',
+    birthdate: new Date('1996-05-01'),
+    name: 'Eduardo',
+    surname: 'Pear',
+    city: 'Geneva',
+    isEmailVerified: true,
+  },
+  {
+    username: 'Aicka',
+    email: 'lavieille@baby.com',
+    avatarUrl: '/uploads/avatars/Aicka.jpeg',
+    bio: 'Chienne un peu vieille mais très belle, aime aller au lac et protège Wilma',
+    gender: Gender.female,
+    nationality: 'Belgian',
+    country: 'Switzerland',
+    birthdate: new Date('1997-05-01'),
+    name: 'Aicka',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'Poupou',
+    email: 'proutprout@cul.ch',
+    avatarUrl: '/uploads/avatars/Poupou.jpeg',
+    bio: 'Ca pète ca ronfle mais ca le fait avec confiance.',
+    gender: Gender.male,
+    nationality: 'French',
+    country: 'Switzerland',
+    birthdate: new Date('1998-05-01'),
+    name: 'Poupou',
+    surname: 'Pear',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'IcePack',
+    email: 'telephone@cooler.com',
+    avatarUrl: '/uploads/avatars/Icepack.jpeg',
+    bio: "Compagnon de vie de jojo, j'aide à construire les dockers sur un réseau peu fiable",
+    gender: Gender.other,
+    nationality: 'Congelateur',
+    country: 'Switzerland',
+    birthdate: new Date('1992-03-02'),
+    name: 'Ice',
+    surname: 'Pack',
+    city: 'Lausanne',
+    isEmailVerified: true,
+  },
+  {
+    username: 'alexis_est_Chauve',
+    email: 'bald@eagle.fr',
+    avatarUrl: '/uploads/avatars/alexis_est_Chauve.jpeg',
+    bio: 'Mon cranne brille et ammène un peu de lueur dans ce monde triste. ClapClap le pigeon',
+    gender: Gender.male,
+    nationality: 'Geneve',
+    country: 'Switzerland',
+    birthdate: new Date('1993-03-02'),
+    name: 'Alexis',
+    surname: 'Chauve',
+    city: 'Geneva',
+    isEmailVerified: true,
+  },
+];
+
+// --- CUSTOM ROOMS ---
+const CUSTOM_ROOMS = [
+  {
+    name: 'Bocal Partout, Justice Nulle Part',
+    description:
+      'Le refuge officiel de Vincent pour proposer des pauses café et des bières à toute heure.',
+    visibility: Visibility.public,
+  },
+  {
+    name: 'Sion vs Lausanne: Le Choc des Cultures',
+    description:
+      'Débats passionnés sur le meilleur vin, la fondue et la suprématie des Crocs.',
+    visibility: Visibility.public,
+  },
+  {
+    name: 'Starbucks VIP & Rap Anglais',
+    description:
+      'Lounge réservé aux célébrités locales et aux sessions de correction de prononciation.',
+    visibility: Visibility.private,
+  },
+  {
+    name: 'Théorie du complot: Ice Pack & CHUV',
+    description:
+      "Combien d'ice packs faut-il pour survivre au projet Transcendence ?",
+    visibility: Visibility.public,
+  },
+  {
+    name: 'Club secret de la Neb',
+    description:
+      'Comparatif rigoureux entre la Zepp, la Moonshine et la Sterling.',
+    visibility: Visibility.private,
+  },
+  {
+    name: 'Membres Anonymes du Bocal 42',
+    description:
+      'Pour ceux qui ont le Bocal dans le sang et Curl dans le cœur.',
+    visibility: Visibility.public,
+  },
+];
+
+// --- CUSTOM POLLS ---
+const CUSTOM_POLLS = [
+  {
+    title: 'Chez Xu ou chez Yin? KingfuPanda ?',
+    description: 'Meilleurs restaus chinois de tout les temps',
+    type: PollType.multiple_choice,
+    status: PollStatus.active,
+    options: [{ text: 'Chez Yin' }, { text: 'Chez Xu' }],
+    endsAt: inDays(4),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['food', 'school42'],
+  },
+  {
+    title: 'Valais ou Vaud?',
+    description: 'Le vin, la fondue, la charcute qui gagne la médaille ?',
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [{ text: 'Vaud' }, { text: 'Valais' }, { text: 'Genève ????' }],
+    endsAt: inDays(3),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['valais', 'apero', 'food'],
+  },
+  {
+    title: 'Clope ou claude?',
+    description: 'Avec claude remote, la question ne se pose plus....',
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [{ text: 'Clope' }, { text: 'Claude' }],
+    endsAt: inDays(2),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['tech', 'ai', 'school42'],
+  },
+  {
+    title: 'Quel bière est la meilleure à la Neb?',
+    description: 'Sterling, la zepp, ou la moonshine?',
+    type: PollType.multiple_choice,
+    status: PollStatus.active,
+    options: [
+      { text: 'La Zepp' },
+      { text: 'La Moonshine' },
+      { text: 'La Sterling' },
+    ],
+    endsAt: inDays(5),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['apero'],
+  },
+  {
+    title: 'Pieric as tech lead ?',
+    description: 'plutot pour ou plutot contre ?',
+    type: PollType.slider,
+    status: PollStatus.active,
+    options: [
+      {
+        text: 'scale',
+        sliderLeftLabel: 'Contre (0)',
+        sliderRightLabel: 'Pour (10)',
+      },
+    ],
+    endsAt: inDays(7),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['tech', 'school42'],
+  },
+  {
+    title: 'Vidy ou Ouchy?',
+    description: 'Choisis ton plus bel endroit pour voir le lac de genève',
+    type: PollType.multiple_choice,
+    status: PollStatus.closed,
+    options: [{ text: 'Vidy' }, { text: 'Ouchy' }],
+    endsAt: daysAgo(1),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['travel', 'sport'],
+  },
+  {
+    title: 'API public ou front?',
+    description: 'Les vrais dev utilisent curl ;-)',
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [
+      { text: 'front' },
+      { text: 'le front ?' },
+      { text: "c'est le front" },
+      { text: 'que le front' },
+      { text: 'fuck l API' },
+    ],
+    endsAt: inDays(4),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['tech', 'memes'],
+  },
+  {
+    title: 'Jojo doit elle avoir un lapin ?',
+    description: 'Réponse sérieuse demandée pour l appartement.',
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [{ text: 'Oui' }, { text: 'Non' }],
+    endsAt: inDays(6),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['memes'],
+  },
+  {
+    title: 'Hygie as-t-elle fait le tic tac toe?',
+    description: 'On ne saura jamais...',
+    type: PollType.single_choice,
+    status: PollStatus.closed,
+    options: [{ text: 'non' }, { text: 'non' }, { text: 'un jour ?' }],
+    endsAt: daysAgo(2),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['school42', 'tech'],
+  },
+  {
+    title: 'Vincent vas t il prendre une bière ou un verre de vin ?',
+    description: "En tout cas ce sera de l'alcool",
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [{ text: 'vin' }, { text: 'bière' }, { text: 'les deux' }],
+    endsAt: inDays(1),
+    isAnonymous: false,
+    allowChangeVote: false,
+    hashtags: ['apero', 'valais'],
+  },
+  {
+    title: "Combien d'ice pack est-ce que jojo a?",
+    description: 'Un compagnon fidel? ou une armée de compagnons?',
+    type: PollType.multiple_choice,
+    status: PollStatus.active,
+    options: [
+      { text: 'Un seul' },
+      { text: 'Deux' },
+      { text: 'Trois en rotation' },
+    ],
+    endsAt: inDays(4),
+    isAnonymous: false,
+    allowChangeVote: true,
+    hashtags: ['health', 'memes'],
+  },
+  {
+    title: 'Bocal? pour ou contre',
+    description: 'bocal partour justice nulle part',
+    type: PollType.slider,
+    status: PollStatus.active,
+    options: [
+      {
+        text: 'scale',
+        sliderLeftLabel: 'Nulle part (0)',
+        sliderRightLabel: 'Partout (10)',
+      },
+    ],
+    endsAt: inDays(10),
+    isAnonymous: false,
+    allowChangeVote: true,
+    hashtags: ['bocal', 'school42'],
+  },
+  {
+    title:
+      'Combien de fois jojo est-elle allée aux urgences pendant le transcendence?',
+    description: 'abonnement claude ou abonnement chuv ?',
+    type: PollType.single_choice,
+    status: PollStatus.closed,
+    options: [
+      { text: '1' },
+      { text: '2' },
+      { text: '3' },
+      { text: '4' },
+      { text: '5' },
+    ],
+    endsAt: daysAgo(3),
+    isAnonymous: false,
+    allowChangeVote: true,
+    hashtags: ['health', 'school42'],
+  },
+  {
+    title: 'Quel est le meilleur chien ?',
+    description: "C'est méchant mais c est important",
+    type: PollType.multiple_choice,
+    status: PollStatus.active,
+    options: [{ text: 'Wilma' }, { text: 'Poupou' }, { text: 'Aicka' }],
+    endsAt: inDays(8),
+    isAnonymous: false,
+    allowChangeVote: true,
+    hashtags: ['memes'],
+  },
+  {
+    title: '42 ou HES?',
+    description: 'Le grand débat de l éducation suisse',
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [{ text: 'HEC' }, { text: 'EPFL' }],
+    endsAt: inDays(5),
+    isAnonymous: false,
+    allowChangeVote: true,
+    hashtags: ['school42', 'tech', 'science'],
+  },
+  {
+    title: 'Claude ou Chatty',
+    description: 'qui qui est le plus sympa',
+    type: PollType.single_choice,
+    status: PollStatus.active,
+    options: [{ text: 'Chattos' }, { text: 'CloClo' }],
+    endsAt: inDays(3),
+    isAnonymous: false,
+    allowChangeVote: true,
+    hashtags: ['ai', 'tech'],
+  },
+];
 
 function hashPassword(plain: string, pepper: string): Promise<string> {
   return hash(plain, {
@@ -319,8 +736,6 @@ function buildModerator(
   };
 }
 
-// Fake Rooms seeding
-
 function buildRoom(
   i: number,
   creatorId: number,
@@ -375,59 +790,6 @@ function buildConversation(
       createdAt: at,
     };
   });
-}
-
-// Fake Polls / Options / Votes seeding
-
-function buildOptionRows(
-  type: PollType,
-): Prisma.OptionCreateWithoutPollInput[] {
-  if (type === PollType.slider) {
-    return [
-      {
-        text: 'scale',
-        order: 0,
-        sliderLeftLabel: String(SLIDER_MIN),
-        sliderRightLabel: String(SLIDER_MAX),
-      },
-    ];
-  }
-  if (type === PollType.free_field) {
-    return [{ text: 'free_text_answer', order: 0 }];
-  }
-  const count =
-    type === PollType.single_choice
-      ? faker.number.int({ min: 2, max: 5 })
-      : faker.number.int({ min: 3, max: 6 });
-  return Array.from({ length: count }, (_, order) => ({
-    text: faker.lorem.words({ min: 1, max: 3 }),
-    order,
-  }));
-}
-
-function buildPollTimes(
-  status: PollStatus,
-  room: { createdAt: Date } | null,
-): { createdAt: Date; publishedAt: Date | null; endsAt: Date } {
-  const publishedAt = room
-    ? faker.date.between({ from: room.createdAt, to: now })
-    : faker.date.past({ years: 1 });
-  const createdAt = room
-    ? faker.date.between({
-        from: new Date(
-          Math.max(
-            publishedAt.getTime() - 5 * DAY_MS,
-            room.createdAt.getTime(),
-          ),
-        ),
-        to: publishedAt,
-      })
-    : faker.date.recent({ days: 5, refDate: publishedAt });
-  const endsAt =
-    status === PollStatus.active
-      ? faker.date.future({ years: 1, refDate: now })
-      : faker.date.between({ from: publishedAt, to: now });
-  return { createdAt, publishedAt, endsAt };
 }
 
 function pickVoteOptions(
@@ -495,12 +857,6 @@ function buildApiAccount(
   };
 }
 
-/**
- * La cle en clair n'existe qu'ici : seul son hash est stocke. Elle est donc
- * affichee en fin de seed, sinon elle est perdue. Rien n'est ecrit dans redis,
- * ou la gateway va pourtant la lire : c'est ApiKeySyncService qui l'y restaure
- * au demarrage du backend, ce qui evite de reecrire ici ce format de cle.
- */
 async function seedApiAccounts(passwordHash: string): Promise<IssuedKey[]> {
   const issued: IssuedKey[] = [];
 
@@ -574,7 +930,24 @@ async function main() {
   await prisma.user.create({ data: buildModerator(4, passwordHash) });
   await prisma.user.create({ data: buildUser(5, passwordHash) });
 
-  for (let i = 6; i < USER_COUNT; i++) {
+  // Custom Users Creation
+  const customUserEntities: Record<string, number> = {};
+  for (const u of CUSTOM_USERS) {
+    const createdUser = await prisma.user.create({
+      data: {
+        ...u,
+        passwordHash,
+        createdAt: accountCreatedAt(),
+        role: UserRole.user,
+        userTheme: UserTheme.dark,
+        visibility: Visibility.public,
+        state: 'Vaud',
+      },
+    });
+    customUserEntities[u.username] = createdUser.id;
+  }
+
+  for (let i = 6 + CUSTOM_USERS.length; i < USER_COUNT; i++) {
     await prisma.user.create({ data: buildUser(i, passwordHash) });
   }
   const issuedKeys = await seedApiAccounts(passwordHash);
@@ -585,26 +958,88 @@ async function main() {
   const userIds = (await prisma.user.findMany({ select: { id: true } })).map(
     (u) => u.id,
   );
+
+  // --- SEEDING BLOCKED USERS (BLOCK) ---
+  const blocksToCreate = [
+    {
+      blockerId: customUserEntities['Jojo_du_38'],
+      blockedId: customUserEntities['GhostVincent'],
+    },
+    {
+      blockerId: customUserEntities['P2monts'],
+      blockedId: customUserEntities['MasterclassBen'],
+    },
+    {
+      blockerId: customUserEntities['GhostVincent'],
+      blockedId: customUserEntities['Miguel'],
+    },
+  ];
+
+  for (const blockItem of blocksToCreate) {
+    if (blockItem.blockerId && blockItem.blockedId) {
+      await prisma.block.create({
+        data: {
+          blockerId: blockItem.blockerId,
+          blockedId: blockItem.blockedId,
+          createdAt: faker.date.recent({ days: 60 }),
+        },
+      });
+    }
+  }
+  console.log(`Done — ${blocksToCreate.length} user blocks created in Block.`);
+
+  // --- ROOMS SEEDING ---
   const crewRoomMembers = new Map<number, number[]>();
   let everyoneRoomId = 0;
-  for (let i = 0; i < ROOM_COUNT; i++) {
+  const createdRoomIds: number[] = [];
+
+  // 1. Crew Rooms
+  for (let i = 0; i < CREW_ROOM_PLAN.length; i++) {
     const plan = CREW_ROOM_PLAN[i];
-    const creatorId = plan
-      ? crewIds[plan.members[0]]
-      : faker.helpers.arrayElement(userIds);
+    const creatorId = crewIds[plan.members[0]];
     const room = await prisma.room.create({
       data: buildRoom(i, creatorId, plan),
     });
     if (i === 0) everyoneRoomId = room.id;
-    if (plan) {
-      crewRoomMembers.set(
-        room.id,
-        plan.members.map((member) => crewIds[member]),
-      );
-    }
+    crewRoomMembers.set(
+      room.id,
+      plan.members.map((member) => crewIds[member]),
+    );
+    createdRoomIds.push(room.id);
   }
+
+  // 2. Custom Fun Rooms
+  for (let i = 0; i < CUSTOM_ROOMS.length; i++) {
+    const customRoom = CUSTOM_ROOMS[i];
+    const creatorId = faker.helpers.arrayElement(
+      Object.values(customUserEntities),
+    );
+    const room = await prisma.room.create({
+      data: {
+        name: customRoom.name,
+        description: customRoom.description,
+        bannerUrl: '/uploads/banners/default.svg',
+        visibility: customRoom.visibility,
+        status: RoomStatus.active,
+        createdAt: faker.date.past({ years: 1 }),
+        createdBy: { connect: { id: creatorId } },
+      },
+    });
+    createdRoomIds.push(room.id);
+  }
+
+  // 3. Random Generated Rooms
+  const remainingRooms = ROOM_COUNT - createdRoomIds.length;
+  for (let i = 0; i < remainingRooms; i++) {
+    const creatorId = faker.helpers.arrayElement(userIds);
+    const room = await prisma.room.create({
+      data: buildRoom(i + 100, creatorId),
+    });
+    createdRoomIds.push(room.id);
+  }
+
   console.log(
-    `Done — ${ROOM_COUNT} rooms seeded, ${crewRoomMembers.size} of them shared by the team accounts.`,
+    `Done — ${createdRoomIds.length} rooms seeded (including custom fun rooms).`,
   );
 
   const bump = (m: Map<number, number>, id: number) =>
@@ -623,6 +1058,7 @@ async function main() {
     },
   });
 
+  // --- HASHTAGS SEEDING ---
   const hashtagIds = new Map<string, number>();
   for (const name of HASHTAG_NAMES) {
     const hashtag = await prisma.hashtag.create({
@@ -634,6 +1070,7 @@ async function main() {
     hashtagIds.set(name, hashtag.id);
   }
 
+  // --- ROOM MEMBERS ---
   const roomMembers = new Map<number, { userId: number; joinedAt: Date }[]>();
   const roomMemberRows: { roomId: number; userId: number; joinedAt: Date }[] =
     [];
@@ -677,6 +1114,7 @@ async function main() {
   }
   await prisma.roomMember.createMany({ data: roomMemberRows });
 
+  // --- MESSAGES ---
   const roomById = new Map(rooms.map((room) => [room.id, room]));
   const crewRoomIds = [...crewRoomMembers.keys()];
   const chattyRoomIds = [
@@ -714,6 +1152,7 @@ async function main() {
     `Done — ${messageRows.length} messages seeded across ${chattyRoomIds.length} rooms.`,
   );
 
+  // --- FRIENDSHIPS ---
   const friendshipStatuses = faker.helpers.shuffle(FRIENDSHIP_STATUS_PLAN);
   const usedPairs = new Set<string>();
   const friendshipRows: {
@@ -769,9 +1208,7 @@ async function main() {
     `Done — ${jojoRequesters.length} pending friend requests seeded for jojo0.`,
   );
 
-  const pollTypes = faker.helpers.shuffle(POLL_TYPE_PLAN);
-  const pollStatuses = faker.helpers.shuffle(POLL_STATUS_PLAN);
-  const activeRooms = rooms.filter((r) => r.status === RoomStatus.active);
+  // --- POLLS SEEDING ---
   const pollRecords: {
     id: number;
     type: PollType;
@@ -783,162 +1220,161 @@ async function main() {
     createdById: number;
     options: { id: number; deletedAt: Date | null }[];
   }[] = [];
-  let roomCursor = 0;
-  let deletedDemoLeft = 2;
 
-  for (let i = 0; i < pollTypes.length; i++) {
-    const type = pollTypes[i];
-    const status = pollStatuses[i];
-    const room =
-      activeRooms.length > 0 && i % 2 === 0
-        ? activeRooms[roomCursor++ % activeRooms.length]
-        : null;
-    const visibility = room ? room.visibility : Visibility.public;
-    const createdById = room
-      ? faker.helpers.arrayElement(roomMembers.get(room.id)!).userId
-      : faker.helpers.arrayElement(userIds);
+  const pollHashtagRows: { pollId: number; hashtagId: number }[] = [];
 
-    const { createdAt, publishedAt, endsAt } = buildPollTimes(status, room);
-    const optionRows = buildOptionRows(type);
-    if (
-      deletedDemoLeft > 0 &&
-      (type === PollType.single_choice || type === PollType.multiple_choice)
-    ) {
-      optionRows.push({
-        text: '[deleted option]',
-        order: optionRows.length,
-        deletedAt: new Date(),
-      });
-      deletedDemoLeft--;
-    }
+  for (let i = 0; i < CUSTOM_POLLS.length; i++) {
+    const cp = CUSTOM_POLLS[i];
+    const createdById = faker.helpers.arrayElement(userIds);
+    const createdAt = faker.date.recent({ days: 10 });
+    const publishedAt = createdAt;
 
     const poll = await prisma.poll.create({
       data: {
-        title: faker.lorem.sentence().replace(/\.$/, '?'),
-        description: faker.datatype.boolean() ? faker.lorem.sentence() : null,
-        type,
-        status,
-        visibility,
-        isAnonymous: faker.datatype.boolean(),
-        allowChangeVote: faker.datatype.boolean(),
+        title: cp.title,
+        description: cp.description,
+        type: cp.type,
+        status: cp.status,
+        visibility: Visibility.public,
+        isAnonymous: cp.isAnonymous,
+        allowChangeVote: cp.allowChangeVote,
         createdAt,
         publishedAt,
-        endsAt,
-        createdBy: { connect: { id: createdById } },
-        ...(room ? { room: { connect: { id: room.id } } } : {}),
-        options: { create: optionRows },
+        endsAt: cp.endsAt,
+        createdById,
+        options: {
+          create: cp.options.map((opt, order) => ({
+            text: opt.text,
+            sliderLeftLabel: (opt as any).sliderLeftLabel ?? null,
+            sliderRightLabel: (opt as any).sliderRightLabel ?? null,
+            order,
+          })),
+        },
       },
       include: { options: true },
     });
+
     bump(pollsCreated, createdById);
+
+    if (cp.hashtags) {
+      for (const tag of cp.hashtags) {
+        const hid = hashtagIds.get(tag);
+        if (hid) pollHashtagRows.push({ pollId: poll.id, hashtagId: hid });
+      }
+    }
+
     pollRecords.push({
       id: poll.id,
-      type,
-      status,
-      publishedAt,
-      endsAt,
-      roomId: room?.id ?? null,
-      visibility,
-      createdById,
+      type: poll.type,
+      status: poll.status,
+      publishedAt: poll.publishedAt,
+      endsAt: poll.endsAt,
+      roomId: poll.roomId,
+      visibility: poll.visibility,
+      createdById: poll.createdById,
       options: poll.options.map((o) => ({ id: o.id, deletedAt: o.deletedAt })),
     });
   }
 
-  const pollHashtagRows: { pollId: number; hashtagId: number }[] = [];
-  for (const poll of pollRecords) {
-    const isPublic = poll.visibility === Visibility.public;
-    if (!isPublic && !faker.datatype.boolean()) continue;
-    const names = faker.helpers.arrayElements(
-      HASHTAG_NAMES,
-      isPublic ? faker.number.int({ min: 1, max: 3 }) : 1,
-    );
-    for (const name of names) {
-      pollHashtagRows.push({
-        pollId: poll.id,
-        hashtagId: hashtagIds.get(name)!,
-      });
-    }
+  if (pollHashtagRows.length > 0) {
+    await prisma.pollHashtag.createMany({ data: pollHashtagRows });
   }
-  await prisma.pollHashtag.createMany({ data: pollHashtagRows });
 
-  const votablePolls = pollRecords;
-  const hotPollIds = new Set(
-    faker.helpers.arrayElements(
-      votablePolls.map((p) => p.id),
-      Math.min(HOT_POLL_COUNT, votablePolls.length),
-    ),
-  );
-  for (const poll of votablePolls) {
-    const liveOptions = poll.options.filter((o) => !o.deletedAt);
-    const leaderId = faker.helpers.arrayElement(liveOptions).id;
-    const eligible: { userId: number; joinedAt: Date | null }[] =
-      poll.roomId !== null
-        ? (roomMembers.get(poll.roomId) ?? []).filter(
-            (m) => m.userId !== poll.createdById && m.joinedAt <= poll.endsAt,
-          )
-        : userIds
-            .filter((id) => id !== poll.createdById)
-            .map((id) => ({ userId: id, joinedAt: null }));
-    if (eligible.length === 0) continue;
+  // --- VOTES SEEDING ---
+  const voteRows: {
+    pollId: number;
+    createdById: number;
+    freeField: string | null;
+    createdAt: Date;
+  }[] = [];
+  // A vote is unique per (voter, poll), so that pair keys the picked options
+  // until createManyAndReturn hands back the generated vote ids.
+  const pickedOptionIds = new Map<string, number[]>();
 
-    const desired = hotPollIds.has(poll.id)
-      ? eligible.length
-      : faker.number.int({ min: 1, max: 20 });
+  for (const poll of pollRecords) {
+    if (!poll.publishedAt || poll.options.length === 0) continue;
+    const isClosed = poll.status === PollStatus.closed;
+    const windowEnd = isClosed ? poll.endsAt : now;
     const voters = faker.helpers.arrayElements(
-      eligible,
-      Math.min(desired, eligible.length),
+      userIds,
+      faker.number.int({ min: 5, max: userIds.length }),
     );
 
-    for (let vi = 0; vi < voters.length; vi++) {
-      const voter = voters[vi];
+    const leaderId = poll.options[0].id;
+
+    for (let index = 0; index < voters.length; index++) {
+      const voterId = voters[index];
       const { optionIds, freeField } = pickVoteOptions(
         poll.type,
-        liveOptions,
-        vi,
+        poll.options,
+        index,
         leaderId,
       );
-      const from = new Date(
-        Math.max(poll.publishedAt!.getTime(), voter.joinedAt?.getTime() ?? 0),
-      );
-      const to = new Date(Math.min(poll.endsAt.getTime(), now.getTime()));
-      const createdAt = faker.date.between({ from, to });
-      await prisma.vote.create({
-        data: {
-          pollId: poll.id,
-          createdById: voter.userId,
-          freeField,
-          createdAt,
-          voteOptions: {
-            create: optionIds.map((id) => ({ optionId: id })),
-          },
-        },
+      const createdAt = faker.date.between({
+        from: poll.publishedAt,
+        to: windowEnd,
       });
-      bump(votesCast, voter.userId);
+
+      voteRows.push({
+        pollId: poll.id,
+        createdById: voterId,
+        freeField,
+        createdAt,
+      });
+      pickedOptionIds.set(`${voterId}:${poll.id}`, optionIds);
+      bump(votesCast, voterId);
     }
   }
 
-  for (const id of userIds) {
-    const score =
-      SCORE_PER_VOTE * (votesCast.get(id) ?? 0) +
-      SCORE_PER_ROOM * (roomsJoined.get(id) ?? 0) +
-      SCORE_PER_POLL * (pollsCreated.get(id) ?? 0);
-    if (score > 0) await prisma.user.update({ where: { id }, data: { score } });
-  }
+  const createdVotes = await prisma.vote.createManyAndReturn({
+    data: voteRows,
+    select: { id: true, createdById: true, pollId: true },
+  });
 
-  try {
-    const loaded = await pushKeysToRedis(issuedKeys);
-    console.log(`Done — ${loaded} api key(s) loaded into redis.`);
-  } catch (error) {
-    console.error(`Could not load the keys into redis: ${String(error)}`);
-    console.error('Restart the backend to have it restore them.');
-  }
+  const voteOptionRows = createdVotes.flatMap((vote) =>
+    (pickedOptionIds.get(`${vote.createdById}:${vote.pollId}`) ?? []).map(
+      (optionId) => ({ voteId: vote.id, optionId }),
+    ),
+  );
 
+  if (voteOptionRows.length > 0) {
+    await prisma.voteOption.createMany({ data: voteOptionRows });
+  }
+  console.log(
+    `Done — ${createdVotes.length} votes / ${voteOptionRows.length} picked options seeded.`,
+  );
+
+  // --- SCORES COMPUTATION ---
+  for (const uid of userIds) {
+    const vCount = votesCast.get(uid) ?? 0;
+    const rCount = roomsJoined.get(uid) ?? 0;
+    const pCount = pollsCreated.get(uid) ?? 0;
+    const totalScore =
+      vCount * SCORE_PER_VOTE +
+      rCount * SCORE_PER_ROOM +
+      pCount * SCORE_PER_POLL;
+
+    await prisma.user.update({
+      where: { id: uid },
+      data: { score: totalScore },
+    });
+  }
+  console.log(`Done — user scores updated.`);
+
+  const keysPushed = await pushKeysToRedis(issuedKeys);
+  console.log(`Done — ${keysPushed} API keys seeded into Redis.`);
   reportApiAccounts(issuedKeys);
+
+  console.log('\nSeeding process finished successfully!');
 }
 
 main()
   .catch((e) => {
     console.error(e);
-    process.exitCode = 1;
+    process.exit(1);
   })
-  .finally(() => prisma?.$disconnect());
+  .finally(async () => {
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+  });
