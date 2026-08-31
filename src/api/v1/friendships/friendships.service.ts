@@ -134,15 +134,18 @@ export class ApiFriendshipsService {
     this.assertMayAnswer(friendship, ability);
 
     /**
-     * L'ecriture est gardee sur `pending`, comme dans acceptOnTheirBehalf:
-     * deux PATCH concurrents sur la meme demande liraient tous les deux
-     * `pending` et passeraient tous les deux assertMayAnswer, si bien qu'une
-     * ecriture non gardee notifierait deux fois — potentiellement pour deux
-     * reponses differentes (accepted et rejected). `count === 1` designe
-     * l'ecriture qui a effectivement gagne la course.
+     * L'ecriture rejoue la regle `update` en base plutot que de recopier ses
+     * conditions: deux PATCH concurrents liraient tous les deux `pending` et
+     * passeraient tous les deux assertMayAnswer, et la ligne peut changer
+     * d'`addresseeId` entre les deux (settle rouvre une amitie retiree).
+     * Repasser par `accessibleBy` garde donc aussi l'identite du repondant,
+     * pas seulement le statut. `count === 1` designe l'ecriture qui a
+     * effectivement gagne la course.
      */
     const { count } = await this.prisma.friendship.updateMany({
-      where: { id, status: FriendshipStatus.pending, deletedAt: null },
+      where: {
+        AND: [accessibleBy(ability, 'update').ofType('Friendship'), { id }],
+      },
       data: { status: body.status },
     });
 
@@ -233,8 +236,10 @@ export class ApiFriendshipsService {
   }
 
   /**
-   * L'ecriture est gardee sur `pending` pour qu'une acceptation concurrente
-   * ne fasse pas partir la notification deux fois.
+   * L'ecriture rejoue la regle `update` en base pour qu'une acceptation
+   * concurrente ne fasse pas partir la notification deux fois, et pour que la
+   * ligne reste celle que l'appelant a le droit de repondre: `settle` peut en
+   * reecrire l'`addresseeId` entre la lecture et l'ecriture.
    */
   private async acceptOnTheirBehalf(
     existing: StoredFriendship,
@@ -244,9 +249,10 @@ export class ApiFriendshipsService {
   ): Promise<StoredFriendship> {
     const { count } = await this.prisma.friendship.updateMany({
       where: {
-        id: existing.id,
-        status: FriendshipStatus.pending,
-        deletedAt: null,
+        AND: [
+          accessibleBy(ability, 'update').ofType('Friendship'),
+          { id: existing.id },
+        ],
       },
       data: { status: FriendshipStatus.accepted },
     });

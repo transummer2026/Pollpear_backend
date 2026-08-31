@@ -231,9 +231,14 @@ describe('ApiFriendshipsService', () => {
 
       const answer = await service.createFriendship({ addresseeId: BOB }, anna);
 
-      expect(updateMany.mock.calls[0][0].where).toMatchObject({
-        id: 1,
-        status: 'pending',
+      expect(updateMany.mock.calls[0][0].where).toEqual({
+        AND: [
+          accessibleBy(
+            new CaslAbilityFactory().createForUser(anna),
+            'update',
+          ).ofType('Friendship'),
+          { id: 1 },
+        ],
       });
       expect(notifyFriendAccepted).toHaveBeenCalledWith(BOB, anna.id);
       expect(upsert).not.toHaveBeenCalled();
@@ -307,7 +312,15 @@ describe('ApiFriendshipsService', () => {
       await service.updateFriendship(1, { status: 'accepted' }, anna);
 
       expect(updateMany.mock.calls[0][0]).toEqual({
-        where: { id: 1, status: 'pending', deletedAt: null },
+        where: {
+          AND: [
+            accessibleBy(
+              new CaslAbilityFactory().createForUser(anna),
+              'update',
+            ).ofType('Friendship'),
+            { id: 1 },
+          ],
+        },
         data: { status: 'accepted' },
       });
       expect(notifyFriendAccepted).toHaveBeenCalledWith(BOB, anna.id);
