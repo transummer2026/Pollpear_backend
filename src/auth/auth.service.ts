@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -118,7 +119,19 @@ export class AuthService {
       },
     });
 
-    await this.sendVerificationEmail(user.email, user.id);
+    try {
+      await this.sendVerificationEmail(user.email, user.id);
+    } catch (error) {
+      await this.prisma.user.delete({ where: { id: user.id } });
+      this.logger.warn(
+        `registration rolled back for user ${user.id}: verification email refused`,
+        error,
+      );
+      throw new BadRequestException(
+        'We could not send the verification email to this address. ' +
+          'Check it and try again.',
+      );
+    }
 
     return user;
   }
