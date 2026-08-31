@@ -34,6 +34,7 @@ export class StorageService {
   }
 
   publicUrl(key: string): string {
-    return `${this.vault.app.gateway_url}/uploads/${key}`;
+    const path = `${this.vault.app.gateway_url}/uploads/${key}`;
+    return new URL(path, this.vault.app.frontend_url).toString();
   }
 }

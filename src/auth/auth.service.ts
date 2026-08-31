@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -30,6 +31,7 @@ import { MailService } from 'src/mail/mail.service';
 import { randomUUID } from 'crypto';
 import { VaultService } from 'src/vault/vault.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
+import { RevocationService } from 'src/revocation/revocation.service';
 import { type Response } from 'express';
 
 const ARGON2_OPTIONS = {
@@ -52,6 +54,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly vault: VaultService,
     private readonly websocketEmitter: WebsocketEmitter,
+    private readonly revocationService: RevocationService,
   ) {
     const pepper = this.vault.session.pepper;
     if (!pepper) throw new Error('Vault pepper secret is not defined');
@@ -118,7 +121,19 @@ export class AuthService {
       },
     });
 
-    await this.sendVerificationEmail(user.email, user.id);
+    try {
+      await this.sendVerificationEmail(user.email, user.id);
+    } catch (error) {
+      await this.prisma.user.delete({ where: { id: user.id } });
+      this.logger.warn(
+        `registration rolled back for user ${user.id}: verification email refused`,
+        error,
+      );
+      throw new BadRequestException(
+        'We could not send the verification email to this address. ' +
+          'Check it and try again.',
+      );
+    }
 
     return user;
   }
@@ -160,8 +175,8 @@ export class AuthService {
     await this.redisService.setRedisCache(sessionId, userId);
 
     response.cookie('sid', sessionId, {
-      // TODO: add secure: true for PROD
       httpOnly: true,
+      secure: true,
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 1000,
     });
@@ -176,22 +191,24 @@ export class AuthService {
     await this.websocketEmitter.revokeUser(userId);
   }
 
-  async passwordForgot(body: PasswordForgotDTO): Promise<void> {
-    const user = await this.userService.findByEmail(body.email);
+  passwordForgot(body: PasswordForgotDTO): void {
+    void this.dispatchPasswordReset(body.email);
+  }
 
-    if (!user) {
-      return;
-    }
-
-    const token = randomUUID();
-    await this.redisService.setPasswordResetToken(token, user.id);
-
-    const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
+  private async dispatchPasswordReset(email: string): Promise<void> {
     try {
+      const user = await this.userService.findByEmail(email);
+      if (!user) {
+        return;
+      }
+
+      const token = randomUUID();
+      await this.redisService.setPasswordResetToken(token, user.id);
+
+      const resetUrl = `${this.vault.app.frontend_url}/auth/change-password?token=${token}`;
       await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
     } catch (error) {
       this.logger.error('Failed to send password reset email', error);
-      throw new InternalServerErrorException('Failed to send reset email');
     }
   }
 
@@ -205,6 +222,7 @@ export class AuthService {
 
     await this.userService.updatePassword(userId, passwordHash);
     await this.redisService.deletePasswordResetToken(body.token, userId);
+    await this.revocationService.revokeAllSessions(userId);
   }
 
   async verifyEmail(body: VerifyEmailDTO): Promise<void> {

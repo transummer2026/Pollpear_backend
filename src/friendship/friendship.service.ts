@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -64,10 +63,26 @@ export class FriendshipService {
     targetId: number,
   ): Promise<FriendListItemDTO[]> {
     const ability = this.abilityFactory.createForUser(viewer);
+
+    const target = await this.prisma.user.findFirst({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('User'),
+          { id: targetId, deletedAt: null },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
     const friendships = await this.prisma.friendship.findMany({
       where: {
         AND: [
           accessibleBy(ability, 'read').ofType('Friendship'),
+          { userA: { deletedAt: null } },
+          { userB: { deletedAt: null } },
           {
             deletedAt: null,
             status: 'accepted',
@@ -150,9 +165,7 @@ export class FriendshipService {
       },
     });
     if (!target) {
-      throw new ForbiddenException(
-        'Cannot send a friend request to this user.',
-      );
+      throw new NotFoundException('User not found');
     }
 
     let outcome: FriendRequestOutcome;

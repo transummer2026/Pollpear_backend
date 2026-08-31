@@ -53,6 +53,7 @@ export class MeService {
     await this.authService.verifyPassword(user, body.oldPassword);
     const newPasswordHash = await this.authService.hashPassword(body.password);
     await this.updatePassword(userId, newPasswordHash);
+    await this.revocationService.revokeAllSessions(userId);
   }
 
   async remove(userId: number) {

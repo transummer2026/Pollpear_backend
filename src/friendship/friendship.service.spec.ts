@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { ForbiddenError } from '@casl/ability';
@@ -223,6 +222,8 @@ describe('FriendshipService', () => {
         where: {
           AND: [
             accessibleBy(ability, 'read').ofType('Friendship'),
+            { userA: { deletedAt: null } },
+            { userB: { deletedAt: null } },
             {
               deletedAt: null,
               status: 'accepted',
@@ -257,9 +258,9 @@ describe('FriendshipService', () => {
       await service.getFriends(viewer(1), 2);
 
       const [args] = prisma.friendship.findMany.mock.calls[0] as [
-        { where: { AND: [unknown, Record<string, unknown>] } },
+        { where: { AND: unknown[] } },
       ];
-      expect(args.where.AND[1]).toEqual({
+      expect(args.where.AND[3]).toEqual({
         deletedAt: null,
         status: 'accepted',
         OR: [{ userAId: 2 }, { userBId: 2 }],
@@ -359,12 +360,12 @@ describe('FriendshipService', () => {
       expect(prisma.friendship.upsert).not.toHaveBeenCalled();
     });
 
-    it('rejects when a block exists between the two users, in either direction', async () => {
+    it('404s every target the policy keeps out of reach: blocked, private or absent', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createFriendRequest(viewer(1), 2),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.friendship.findUnique).not.toHaveBeenCalled();
       expect(prisma.friendship.upsert).not.toHaveBeenCalled();
     });

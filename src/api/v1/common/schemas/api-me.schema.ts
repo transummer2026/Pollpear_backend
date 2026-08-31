@@ -85,8 +85,6 @@ export const ApiMeUpdateSchema = z
 
 export type ApiMeUpdateDTO = z.infer<typeof ApiMeUpdateSchema>;
 
-export const ApiMeAvatarSchema = ApiMeSchema.pick({ avatarUrl: true }).extend({
-  avatarUrl: z.url(),
-});
+export const ApiMeAvatarSchema = ApiMeSchema.pick({ avatarUrl: true });
 
 export type ApiMeAvatarDTO = z.infer<typeof ApiMeAvatarSchema>;

@@ -13,9 +13,16 @@ import { GoogleStrategy } from './google.strategy';
 import { GithubStrategy } from './github.strategy';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './auth.guard';
+import { RevocationModule } from 'src/revocation/revocation.module';
 
 @Module({
-  imports: [UsersModule, MailModule, PassportModule, BanModule],
+  imports: [
+    UsersModule,
+    MailModule,
+    PassportModule,
+    BanModule,
+    RevocationModule,
+  ],
   exports: [AuthService],
   controllers: [AuthController],
   providers: [

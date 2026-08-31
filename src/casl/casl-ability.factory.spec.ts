@@ -91,10 +91,10 @@ describe('CaslAbilityFactory', () => {
       ).toBe(false);
     });
 
-    it('grants interact on a private User the requester has no block with', () => {
+    it('denies interact on a private User: it must stay indistinguishable from an absent one', () => {
       expect(
         ability.can('interact', userSubject({ id: 99, visibility: 'private' })),
-      ).toBe(true);
+      ).toBe(false);
     });
 
     it('denies interact on a User who blocked the requester', () => {

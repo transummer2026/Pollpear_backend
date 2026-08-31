@@ -1,8 +1,4 @@
-import {
-  InternalServerErrorException,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { hash, verify } from 'argon2';
 import { type Response } from 'express';
 import { type PasswordResetDTO } from 'Pollpear_shared/src/schemas/auth.schema';
@@ -13,6 +9,7 @@ import { UsersService } from 'src/users/users.service';
 import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
+import { RevocationService } from 'src/revocation/revocation.service';
 import { AuthService } from './auth.service';
 
 jest.mock('argon2');
@@ -99,6 +96,10 @@ describe('AuthService', () => {
   const revokeUser = jest.fn();
   const emitter = { revokeUser } as unknown as WebsocketEmitter;
 
+  const revocation = {
+    revokeAllSessions: jest.fn(),
+  } as unknown as RevocationService;
+
   const prisma = {} as PrismaService;
   const vault = {
     session: { pepper: 'test-pepper' },
@@ -113,6 +114,7 @@ describe('AuthService', () => {
     mail,
     vault,
     emitter,
+    revocation,
   );
 
   beforeAll(() => {
@@ -126,7 +128,16 @@ describe('AuthService', () => {
 
       expect(
         () =>
-          new AuthService(prisma, users, ban, redis, mail, emptyVault, emitter),
+          new AuthService(
+            prisma,
+            users,
+            ban,
+            redis,
+            mail,
+            emptyVault,
+            emitter,
+            revocation,
+          ),
       ).toThrow('Vault pepper secret is not defined');
     });
   });
@@ -215,9 +226,9 @@ describe('AuthService', () => {
     it('stays silent on an unknown email', async () => {
       findByEmail.mockResolvedValue(null);
 
-      await expect(
-        service.passwordForgot({ email: 'ghost@example.com' }),
-      ).resolves.toBeUndefined();
+      service.passwordForgot({ email: 'ghost@example.com' });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
       expect(setPasswordResetToken).not.toHaveBeenCalled();
       expect(sendPasswordResetEmail).not.toHaveBeenCalled();
     });
@@ -225,7 +236,8 @@ describe('AuthService', () => {
     it('stores a reset token and mails the matching link', async () => {
       findByEmail.mockResolvedValue(makeUser());
 
-      await service.passwordForgot({ email: 'user@example.com' });
+      service.passwordForgot({ email: 'user@example.com' });
+      await new Promise<void>((resolve) => setImmediate(resolve));
 
       const [token, userId] = setPasswordResetToken.mock.calls[0] as [
         string,
@@ -238,13 +250,16 @@ describe('AuthService', () => {
       );
     });
 
-    it('surfaces a mail delivery failure as a server error', async () => {
+    it('swallows a mail delivery failure instead of surfacing it', async () => {
       findByEmail.mockResolvedValue(makeUser());
       sendPasswordResetEmail.mockRejectedValue(new Error('smtp down'));
 
-      await expect(
+      expect(() =>
         service.passwordForgot({ email: 'user@example.com' }),
-      ).rejects.toThrow(InternalServerErrorException);
+      ).not.toThrow();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(sendPasswordResetEmail).toHaveBeenCalled();
     });
   });
 
