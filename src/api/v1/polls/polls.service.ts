@@ -166,16 +166,16 @@ export class ApiPollsService {
     const ability = this.abilityFactory.createForUser(caller);
     const viewer = viewerOf(caller, ability);
 
-    return this.detailed(await this.readable(id, viewer), viewer);
+    return this.detailed(await this.findReadablePoll(id, viewer), viewer);
   }
 
   async findPollResults(id: number, caller: User): Promise<ApiPollResultsDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    const poll = await this.readable(id, viewerOf(caller, ability));
+    const poll = await this.findReadablePoll(id, viewerOf(caller, ability));
 
     return poll.type === PollType.slider
-      ? this.sliderResults(poll)
-      : this.choiceResults(poll);
+      ? this.tallySliderResults(poll)
+      : this.tallyChoiceResults(poll);
   }
 
   async createPoll(body: ApiPollCreateDTO, caller: User): Promise<ApiPollDTO> {
@@ -208,7 +208,7 @@ export class ApiPollsService {
   ): Promise<ApiPollDTO> {
     const ability = this.abilityFactory.createForUser(caller);
     const viewer = viewerOf(caller, ability);
-    const poll = await this.readable(id, viewer);
+    const poll = await this.findReadablePoll(id, viewer);
 
     this.assertAllowed('update', poll, ability);
 
@@ -224,7 +224,7 @@ export class ApiPollsService {
   async removePoll(id: number, caller: User): Promise<void> {
     const ability = this.abilityFactory.createForUser(caller);
     const viewer = viewerOf(caller, ability);
-    const poll = await this.readable(id, viewer);
+    const poll = await this.findReadablePoll(id, viewer);
 
     this.assertAllowed('delete', poll, ability);
 
@@ -238,7 +238,9 @@ export class ApiPollsService {
     });
   }
 
-  private async choiceResults(poll: DetailedPoll): Promise<ApiPollResultsDTO> {
+  private async tallyChoiceResults(
+    poll: DetailedPoll,
+  ): Promise<ApiPollResultsDTO> {
     const [voters, perOption] = await this.prisma.$transaction((tx) =>
       Promise.all([
         tx.vote.count({ where: { pollId: poll.id, deletedAt: null } }),
@@ -269,7 +271,9 @@ export class ApiPollsService {
     });
   }
 
-  private async sliderResults(poll: DetailedPoll): Promise<ApiPollResultsDTO> {
+  private async tallySliderResults(
+    poll: DetailedPoll,
+  ): Promise<ApiPollResultsDTO> {
     const [voters, perAnswer] = await this.prisma.$transaction((tx) =>
       Promise.all([
         tx.vote.count({ where: { pollId: poll.id, deletedAt: null } }),
@@ -299,7 +303,10 @@ export class ApiPollsService {
     });
   }
 
-  private async readable(id: number, viewer: Viewer): Promise<DetailedPoll> {
+  private async findReadablePoll(
+    id: number,
+    viewer: Viewer,
+  ): Promise<DetailedPoll> {
     const poll = await this.prisma.poll.findFirst({
       where: {
         AND: [

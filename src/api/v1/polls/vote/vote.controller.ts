@@ -86,7 +86,6 @@ export class ApiPollVoteController {
   @ApiBadRequestResponse({
     description: 'Wrong poll type, or an option that is not the polls own.',
   })
-  @ApiForbiddenResponse({ description: 'Banned account.' })
   @ApiNotFoundResponse({ description: 'No such poll, or you have not voted.' })
   @ApiConflictResponse({
     description: 'The poll is not running, or forbids changing a vote.',
@@ -109,7 +108,6 @@ export class ApiPollVoteController {
       'The vote stops counting in the results. Only a running poll takes a withdrawal, and voting again afterwards is allowed while it runs.',
   })
   @ApiNoContentResponse({ description: 'Vote withdrawn.' })
-  @ApiForbiddenResponse({ description: 'Banned account.' })
   @ApiNotFoundResponse({ description: 'No such poll, or you have not voted.' })
   @ApiConflictResponse({ description: 'The poll is not running.' })
   @ApiIdParamDocs('Poll the vote belongs to.')
