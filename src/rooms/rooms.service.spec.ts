@@ -47,6 +47,10 @@ describe('RoomsService', () => {
   const roomFindMany = jest.fn();
   const roomCount = jest.fn();
   const voteFindMany = jest.fn().mockResolvedValue([]);
+  const roomMemberFindFirst = jest.fn();
+  const roomMemberUpdate = jest.fn();
+  const invitationUpdateMany = jest.fn();
+  const transaction = jest.fn((ops: Promise<unknown>[]) => Promise.all(ops));
   const prisma = {
     room: {
       create: roomCreate,
@@ -56,7 +60,15 @@ describe('RoomsService', () => {
       findMany: roomFindMany,
       count: roomCount,
     },
+    roomMember: {
+      findFirst: roomMemberFindFirst,
+      update: roomMemberUpdate,
+    },
+    invitation: {
+      updateMany: invitationUpdateMany,
+    },
     vote: { findMany: voteFindMany },
+    $transaction: transaction,
   } as unknown as PrismaService;
   const shapeManyPollsForUser = jest.fn((polls: unknown[]) => polls);
   const pollsService = {
@@ -78,6 +90,18 @@ describe('RoomsService', () => {
 
   function readAccessibleWhere(u: ReturnType<typeof user>) {
     return accessibleBy(abilityFor(u), 'read').ofType('Room');
+  }
+
+  function kickAccessibleWhere(u: ReturnType<typeof user>) {
+    return accessibleBy(abilityFor(u), 'kick').ofType('Room');
+  }
+
+  function leaveAccessibleWhere(u: ReturnType<typeof user>) {
+    return accessibleBy(abilityFor(u), 'leave').ofType('Room');
+  }
+
+  function deleteInvitationAccessibleWhere(u: ReturnType<typeof user>) {
+    return accessibleBy(abilityFor(u), 'delete').ofType('Invitation');
   }
 
   // findOneRoom runs the fetched room through RoomReadSchema.parse, which
@@ -218,6 +242,113 @@ describe('RoomsService', () => {
         service.remove(7, viewer({ role: 'admin' })),
       ).rejects.toThrow(NotFoundException);
       expect(roomUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeParticipant', () => {
+    beforeEach(() => {
+      roomFindFirst.mockResolvedValue(room());
+      roomMemberFindFirst.mockResolvedValue({ id: 55 });
+      roomMemberUpdate.mockResolvedValue({ id: 55, deletedAt: new Date() });
+      invitationUpdateMany.mockResolvedValue({ count: 1 });
+    });
+
+    // targetUserId !== viewer.id -> "kick": the room lookup is gated by the
+    // CASL `kick` rule, and the removal also revokes the target's accepted
+    // invitation so `roomJoinConditions` can't let them straight back in.
+    it('kicks a member: soft-deletes the row and revokes the accepted invitation in one transaction', async () => {
+      const owner = viewer({ id: 42 });
+
+      const result = await service.removeParticipant(owner, 7, 99);
+
+      expect(roomFindFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            kickAccessibleWhere(user({ id: 42 })),
+            { id: 7, deletedAt: null },
+          ],
+        },
+      });
+      expect(roomMemberFindFirst).toHaveBeenCalledWith({
+        where: { roomId: 7, userId: 99, deletedAt: null },
+      });
+      expect(transaction).toHaveBeenCalledTimes(1);
+      expect(roomMemberUpdate).toHaveBeenCalledWith({
+        where: { id: 55 },
+        data: { deletedAt: expect.any(Date) as Date },
+      });
+      expect(invitationUpdateMany).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            deleteInvitationAccessibleWhere(user({ id: 42 })),
+            { roomId: 7, inviteeId: 99, status: 'accepted' },
+          ],
+        },
+        data: { deletedAt: expect.any(Date) as Date },
+      });
+      // returns the member row, not the invitation updateMany result
+      expect(result).toEqual({ id: 55, deletedAt: expect.any(Date) as Date });
+    });
+
+    it('scopes the invitation revocation to a moderator blanket rule when a moderator kicks', async () => {
+      const moderator = viewer({ id: 1, role: 'moderator' });
+
+      await service.removeParticipant(moderator, 7, 99);
+
+      expect(invitationUpdateMany).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            deleteInvitationAccessibleWhere(user({ id: 1, role: 'moderator' })),
+            { roomId: 7, inviteeId: 99, status: 'accepted' },
+          ],
+        },
+        data: { deletedAt: expect.any(Date) as Date },
+      });
+    });
+
+    // targetUserId === viewer.id -> "leave": no invitation is touched, so a
+    // member who leaves can still re-join a room they're invited to.
+    it('leaves a room: soft-deletes only the caller membership, no invitation revoked', async () => {
+      const self = viewer({ id: 42 });
+
+      await service.removeParticipant(self, 7, 42);
+
+      expect(roomFindFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            leaveAccessibleWhere(user({ id: 42 })),
+            { id: 7, deletedAt: null },
+          ],
+        },
+      });
+      expect(roomMemberUpdate).toHaveBeenCalledWith({
+        where: { id: 55 },
+        data: { deletedAt: expect.any(Date) as Date },
+      });
+      expect(transaction).not.toHaveBeenCalled();
+      expect(invitationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws not-found when the room is not accessible for the action', async () => {
+      roomFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.removeParticipant(viewer({ id: 42 }), 7, 99),
+      ).rejects.toThrow(NotFoundException);
+      expect(roomMemberUpdate).not.toHaveBeenCalled();
+      expect(invitationUpdateMany).not.toHaveBeenCalled();
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('throws not-found when the target is not an active member', async () => {
+      roomMemberFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.removeParticipant(viewer({ id: 42 }), 7, 99),
+      ).rejects.toThrow(NotFoundException);
+      expect(roomMemberUpdate).not.toHaveBeenCalled();
+      expect(invitationUpdateMany).not.toHaveBeenCalled();
+      expect(transaction).not.toHaveBeenCalled();
     });
   });
 

@@ -36,4 +36,11 @@ export function defineInvitationPermissions(
     deletedAt: null,
     inviteeId: user.id,
   });
+
+  // Mirrors the moderator's blanket `kick` on rooms: a kick revokes the
+  // target's accepted invitation, so a moderator must be able to delete
+  // invitations they neither sent nor received.
+  if (user.isModerator()) {
+    allow(['delete'], 'Invitation', { deletedAt: null });
+  }
 }

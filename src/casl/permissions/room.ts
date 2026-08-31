@@ -26,6 +26,12 @@ function activeMembership(user: AuthorizationUser) {
   return { some: { userId: user.id, deletedAt: null } };
 }
 
+function acceptedInvitation(user: AuthorizationUser) {
+  return {
+    some: { inviteeId: user.id, status: 'accepted' as const, deletedAt: null },
+  };
+}
+
 export function roomReadConditions(user: AuthorizationUser) {
   return [
     {
@@ -51,9 +57,7 @@ export function roomJoinConditions(user: AuthorizationUser) {
     {
       deletedAt: null,
       status: 'active' as const,
-      invitations: {
-        some: { inviteeId: user.id, status: 'accepted' as const },
-      },
+      invitations: acceptedInvitation(user),
     },
   ];
 }
