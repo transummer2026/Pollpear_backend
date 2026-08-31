@@ -39,7 +39,7 @@ export class ApiKeyService {
         where: this.activeWhere(userId),
         data: { revoked: true },
       }),
-      this.insert(userId, keyHash, expiresAt, appName),
+      this.createApiKey(userId, keyHash, expiresAt, appName),
     ]);
 
     if (previous) {
@@ -155,7 +155,7 @@ export class ApiKeyService {
     });
   }
 
-  private insert(
+  private createApiKey(
     userId: number,
     keyHash: string,
     expiresAt: Date,

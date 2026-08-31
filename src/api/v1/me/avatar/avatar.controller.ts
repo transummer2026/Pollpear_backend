@@ -16,13 +16,13 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiMeAvatarService } from './avatar.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import type { User } from 'src/generated/prisma/client';
 import { toOpenApi } from '../../common/openapi';
+import { ApiSelfGuardDocs } from '../../common/api-docs';
 import { ApiMeAvatarSchema } from '../../common/schemas/api-me.schema';
 
 /**
@@ -60,6 +60,7 @@ const CODE_SAMPLES = [
 ];
 
 @ApiTags('me')
+@ApiSelfGuardDocs()
 @Controller('v1/me/avatar')
 export class ApiMeAvatarController {
   constructor(private readonly avatarService: ApiMeAvatarService) {}
@@ -85,9 +86,6 @@ export class ApiMeAvatarController {
   @ApiOkResponse({ schema: toOpenApi(ApiMeAvatarSchema) })
   @ApiBadRequestResponse({
     description: 'No file, unsupported type, too large, or unreadable image.',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Missing, expired or revoked api key, or deleted owner.',
   })
   @ApiForbiddenResponse({
     description: 'Banned account, or one the policy keeps out of its avatar.',

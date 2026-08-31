@@ -1,24 +1,23 @@
 // src/api/v1/users/profile/profile.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { IdParam } from '../../common/params';
-import { ApiIdParamDocs } from '../../common/api-docs';
+import { ApiGuardDocs, ApiIdParamDocs } from '../../common/api-docs';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import type { User } from 'src/generated/prisma/client';
 import {
   ApiBadRequestResponse,
-  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiUserProfileService } from './profile.service';
 import { toOpenApi } from '../../common/openapi';
 import { ApiUserSchema } from '../../common/schemas/api-users.schema';
 
 @ApiTags('users')
+@ApiGuardDocs()
 @Controller('v1/users/:id')
 export class ApiUserProfileController {
   constructor(private readonly userService: ApiUserProfileService) {}
@@ -32,10 +31,6 @@ export class ApiUserProfileController {
   })
   @ApiOkResponse({ schema: toOpenApi(ApiUserSchema) })
   @ApiNotFoundResponse({ description: 'No such account, or not listed.' })
-  @ApiUnauthorizedResponse({
-    description: 'Missing, expired or revoked api key.',
-  })
-  @ApiForbiddenResponse({ description: 'Banned account.' })
   @ApiBadRequestResponse({
     description:
       'An id that cannot designate an account: zero, negative, or not a whole number.',

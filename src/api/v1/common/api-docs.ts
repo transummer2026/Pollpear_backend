@@ -71,3 +71,20 @@ export function ApiGuardDocs() {
     ApiForbiddenResponse({ description: 'Banned account.' }),
   );
 }
+
+/**
+ * Le pendant de {@link ApiGuardDocs} pour les routes qui agissent sur le
+ * compte de la cle elle-meme. Elles n'ont pas d'`:id`, donc pas de 404 ou se
+ * refugier: un porteur dont le compte vient d'etre supprime est refuse par
+ * l'authentification, et le 401 doit le dire.
+ *
+ * Seul le 401 est pose ici. Le 403 reste sur chaque route, parce qu'il y
+ * nomme ce que la politique refuse precisement — lire son propre compte, en
+ * modifier un champ garde en lecture seule, le supprimer, toucher a son
+ * avatar. Quatre raisons differentes, qu'un texte commun appauvrirait.
+ */
+export function ApiSelfGuardDocs() {
+  return ApiUnauthorizedResponse({
+    description: 'Missing, expired or revoked api key, or deleted owner.',
+  });
+}
