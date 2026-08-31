@@ -213,6 +213,57 @@ describe('InvitationService', () => {
     });
   });
 
+  // Regression: the room used to be fetched without `roomMembers`, so CASL
+  // evaluated the public-room branch of `roomInviteConditions` against an
+  // undefined relation and refused every invite into a public room — even
+  // from its owner. Only the private+owner branch (scalar columns) worked,
+  // which is why a private-room test suite never caught it.
+  describe('createRoomInvitation — public room', () => {
+    const owner = { id: 9, role: 'user' } as User;
+    const publicRoom = {
+      id: 7,
+      name: 'Pear room',
+      deletedAt: null,
+      status: 'active',
+      visibility: 'public',
+      createdById: 9,
+      roomMembers: [{ userId: 9, deletedAt: null }],
+    };
+
+    it('lets an active member invite, and loads their membership to prove it', async () => {
+      roomFindFirst
+        .mockResolvedValueOnce(publicRoom)
+        .mockResolvedValueOnce(null);
+      userFindFirst.mockResolvedValue({ id: 5 });
+      invitationFindUnique.mockResolvedValue(null);
+      invitationUpsert.mockResolvedValue(pendingInvitation({ inviterId: 9 }));
+
+      await service.createRoomInvitation(owner, 7, 5, {});
+
+      const [roomArgs] = roomFindFirst.mock.calls[0] as [
+        { include?: { roomMembers?: unknown } },
+      ];
+      expect(roomArgs.include?.roomMembers).toEqual({
+        where: { userId: 9, deletedAt: null },
+      });
+      expect(notifyRoomInvitation).toHaveBeenCalledWith(5, 9, 'Pear room');
+    });
+
+    it('refuses an invite from someone who is not a member of the public room', async () => {
+      roomFindFirst.mockResolvedValueOnce({ ...publicRoom, roomMembers: [] });
+
+      await expect(
+        service.createRoomInvitation(
+          { id: 42, role: 'user' } as User,
+          7,
+          5,
+          {},
+        ),
+      ).rejects.toThrow();
+      expect(invitationUpsert).not.toHaveBeenCalled();
+    });
+  });
+
   describe('createRoomInvitation — re-inviting after a leave/kick', () => {
     const inviter = { id: 9, role: 'user' } as User;
     const privateRoom = {

@@ -155,6 +155,13 @@ export class InvitationService {
         id: roomId,
         deletedAt: null,
       },
+      // `roomMembers` rides along, scoped to the caller: the CASL "invite"
+      // rule matches a public room on an active membership, and evaluating
+      // that in memory against a room fetched without the relation always
+      // fails — inviting into a public room 403s even for its owner.
+      include: {
+        roomMembers: { where: { userId: viewer.id, deletedAt: null } },
+      },
     });
     if (!room) {
       throw new NotFoundException('Room not found');
