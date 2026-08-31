@@ -304,6 +304,7 @@ export class RoomsService {
       where: { id: roomId },
       data: {
         deletedAt: new Date(),
+        status: 'closed',
       },
     });
   }

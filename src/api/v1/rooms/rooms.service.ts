@@ -172,7 +172,7 @@ export class ApiRoomsService {
 
     await this.prisma.room.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date(), status: 'closed' },
     });
   }
 
