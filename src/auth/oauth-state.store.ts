@@ -23,8 +23,8 @@ export class OauthStateStore implements StateStore {
       typeof metaOrCallback === 'function' ? metaOrCallback : maybeCallback;
     const state = randomUUID();
     req.res?.cookie(OAUTH_STATE_COOKIE, state, {
-      // TODO: add secure: true for PROD
       httpOnly: true,
+      secure: true,
       sameSite: 'lax',
       maxAge: 10 * 60 * 1000,
     });

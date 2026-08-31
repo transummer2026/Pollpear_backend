@@ -175,8 +175,8 @@ export class AuthService {
     await this.redisService.setRedisCache(sessionId, userId);
 
     response.cookie('sid', sessionId, {
-      // TODO: add secure: true for PROD
       httpOnly: true,
+      secure: true,
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 1000,
     });
