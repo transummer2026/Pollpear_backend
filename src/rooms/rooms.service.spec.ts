@@ -1,5 +1,5 @@
 import { ForbiddenError } from '@casl/ability';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
   RoomCreateDTO,
   RoomReadSchema,
@@ -48,7 +48,9 @@ describe('RoomsService', () => {
   const roomCount = jest.fn();
   const voteFindMany = jest.fn().mockResolvedValue([]);
   const roomMemberFindFirst = jest.fn();
+  const roomMemberFindUnique = jest.fn();
   const roomMemberUpdate = jest.fn();
+  const roomMemberCreate = jest.fn();
   const invitationUpdateMany = jest.fn();
   const transaction = jest.fn((ops: Promise<unknown>[]) => Promise.all(ops));
   const prisma = {
@@ -62,7 +64,9 @@ describe('RoomsService', () => {
     },
     roomMember: {
       findFirst: roomMemberFindFirst,
+      findUnique: roomMemberFindUnique,
       update: roomMemberUpdate,
+      create: roomMemberCreate,
     },
     invitation: {
       updateMany: invitationUpdateMany,
@@ -90,6 +94,10 @@ describe('RoomsService', () => {
 
   function readAccessibleWhere(u: ReturnType<typeof user>) {
     return accessibleBy(abilityFor(u), 'read').ofType('Room');
+  }
+
+  function joinAccessibleWhere(u: ReturnType<typeof user>) {
+    return accessibleBy(abilityFor(u), 'join').ofType('Room');
   }
 
   function kickAccessibleWhere(u: ReturnType<typeof user>) {
@@ -245,6 +253,102 @@ describe('RoomsService', () => {
     });
   });
 
+  describe('addParticipant', () => {
+    beforeEach(() => {
+      roomFindFirst.mockResolvedValue(room());
+    });
+
+    it('queries the room restricted to what the caller may join', async () => {
+      roomMemberFindUnique.mockResolvedValue(null);
+      roomMemberCreate.mockResolvedValue({ id: 1 });
+
+      await service.addParticipant(viewer({ id: 42 }), 7);
+
+      expect(roomFindFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            joinAccessibleWhere(user({ id: 42 })),
+            { id: 7, deletedAt: null },
+          ],
+        },
+      });
+    });
+
+    it('creates a fresh membership when none exists', async () => {
+      roomMemberFindUnique.mockResolvedValue(null);
+      const created = { id: 1, roomId: 7, userId: 42 };
+      roomMemberCreate.mockResolvedValue(created);
+
+      const result = await service.addParticipant(viewer({ id: 42 }), 7);
+
+      expect(roomMemberCreate).toHaveBeenCalledWith({
+        data: { roomId: 7, userId: 42, joinedAt: expect.any(Date) as Date },
+      });
+      expect(roomMemberUpdate).not.toHaveBeenCalled();
+      expect(result).toBe(created);
+    });
+
+    it('reactivates a soft-deleted membership with a fresh joinedAt', async () => {
+      roomMemberFindUnique.mockResolvedValue({ id: 9, deletedAt: new Date() });
+      roomMemberUpdate.mockResolvedValue({ id: 9 });
+
+      await service.addParticipant(viewer({ id: 42 }), 7);
+
+      expect(roomMemberUpdate).toHaveBeenCalledWith({
+        where: { id: 9 },
+        data: { deletedAt: null, joinedAt: expect.any(Date) as Date },
+      });
+      expect(roomMemberCreate).not.toHaveBeenCalled();
+    });
+
+    it('is an idempotent no-op for an already-active member and never rewrites joinedAt', async () => {
+      const active = {
+        id: 9,
+        deletedAt: null,
+        joinedAt: new Date('2020-01-01'),
+      };
+      roomMemberFindUnique.mockResolvedValue(active);
+
+      const result = await service.addParticipant(viewer({ id: 42 }), 7);
+
+      expect(result).toBe(active);
+      expect(roomMemberUpdate).not.toHaveBeenCalled();
+      expect(roomMemberCreate).not.toHaveBeenCalled();
+    });
+
+    it('throws not-found when the room is not joinable for the caller', async () => {
+      roomFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addParticipant(viewer({ id: 42 }), 7),
+      ).rejects.toThrow(NotFoundException);
+      expect(roomMemberFindUnique).not.toHaveBeenCalled();
+      expect(roomMemberCreate).not.toHaveBeenCalled();
+    });
+
+    it('runs against a caller-supplied ability and transaction client', async () => {
+      const txRoomFindFirst = jest.fn().mockResolvedValue(room());
+      const txMemberFindUnique = jest.fn().mockResolvedValue(null);
+      const txMemberCreate = jest.fn().mockResolvedValue({ id: 1 });
+      const tx = {
+        room: { findFirst: txRoomFindFirst },
+        roomMember: {
+          findUnique: txMemberFindUnique,
+          create: txMemberCreate,
+        },
+      } as unknown as Parameters<typeof service.addParticipant>[3];
+      const ability = abilityFor(user({ id: 42 }));
+
+      await service.addParticipant(viewer({ id: 42 }), 7, ability, tx);
+
+      expect(txRoomFindFirst).toHaveBeenCalled();
+      expect(txMemberCreate).toHaveBeenCalled();
+      // the service's own prisma client is untouched
+      expect(roomFindFirst).not.toHaveBeenCalled();
+      expect(roomMemberCreate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('removeParticipant', () => {
     beforeEach(() => {
       roomFindFirst.mockResolvedValue(room());
@@ -304,6 +408,17 @@ describe('RoomsService', () => {
         },
         data: { deletedAt: expect.any(Date) as Date },
       });
+    });
+
+    it('refuses to kick the room owner (a moderator cannot remove them)', async () => {
+      const moderator = viewer({ id: 1, role: 'moderator' });
+
+      await expect(service.removeParticipant(moderator, 7, 42)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(transaction).not.toHaveBeenCalled();
+      expect(roomMemberUpdate).not.toHaveBeenCalled();
+      expect(invitationUpdateMany).not.toHaveBeenCalled();
     });
 
     // targetUserId === viewer.id -> "leave": no invitation is touched, so a

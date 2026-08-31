@@ -189,6 +189,9 @@ export class RoomsController {
     return this.roomsService.addParticipant(viewer, id);
   }
 
+  // Coarse gate only: this route serves both `leave` (userId === caller)
+  // and `kick` (userId !== caller). `removeParticipant` picks and enforces
+  // the right ability per target via `accessibleBy`.
   @Delete(':id/participants/:userId')
   @HttpCode(204)
   @CheckAbilities(['leave', 'Room'])
