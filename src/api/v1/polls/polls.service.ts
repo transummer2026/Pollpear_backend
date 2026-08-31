@@ -184,7 +184,7 @@ export class ApiPollsService {
     const { options, roomId, ...poll } = body;
 
     if (roomId !== undefined && roomId !== null) {
-      await this.assertRoomAcceptsPolls(roomId, ability);
+      await this.assertRoomAcceptsPolls(roomId, ability, caller.id);
     }
 
     const created = await this.prisma.poll.create({
@@ -320,12 +320,23 @@ export class ApiPollsService {
   private async assertRoomAcceptsPolls(
     roomId: number,
     ability: AppAbility,
+    userId: number,
   ): Promise<void> {
     const room = await this.prisma.room.findFirst({
       where: {
         AND: [accessibleBy(ability, 'read').ofType('Room'), { id: roomId }],
       },
-      select: { id: true, status: true },
+      // `roomMembers` is scoped to the caller so the `create Poll` rule can
+      // see whether they belong to the room — non-members can't file polls.
+      select: {
+        id: true,
+        status: true,
+        deletedAt: true,
+        roomMembers: {
+          where: { userId, deletedAt: null },
+          select: { userId: true, deletedAt: true },
+        },
+      },
     });
 
     const filedThere = subject('Poll', { roomId, room } as unknown as Poll);

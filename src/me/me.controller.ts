@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { MeService } from './me.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import type { User } from 'src/generated/prisma/client';
 import { VisibleByBan } from 'src/common/decorators/ban.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
@@ -32,18 +34,27 @@ import {
   type UserDeleteDTO,
   UserDeleteSchema,
 } from 'Pollpear_shared/src/schemas/auth.schema';
+import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
+import { InvitationService } from 'src/invitation/invitation.service';
 
 @Controller('me')
 export class MeController {
   constructor(
     private readonly meService: MeService,
     private readonly apiKeyService: ApiKeyService,
+    private readonly invitationService: InvitationService,
   ) {}
 
   @VisibleByBan()
   @Get()
   myProfile(@UserId() userId: number) {
     return this.meService.myProfile(userId);
+  }
+
+  @Get('invitations')
+  @CheckAbilities(['read', 'Invitation'])
+  getMyRoomInvitations(@CurrentUser() viewer: User) {
+    return this.invitationService.getMyInvitations(viewer);
   }
 
   @Post('avatar')

@@ -12,6 +12,7 @@ describe('InvitationService', () => {
   const userFindFirst = jest.fn();
   const invitationFindFirst = jest.fn();
   const invitationFindUnique = jest.fn();
+  const invitationFindMany = jest.fn();
   const invitationUpdateMany = jest.fn();
   const invitationUpsert = jest.fn();
   const invitationUpdate = jest.fn();
@@ -22,6 +23,7 @@ describe('InvitationService', () => {
     invitation: {
       findFirst: invitationFindFirst,
       findUnique: invitationFindUnique,
+      findMany: invitationFindMany,
       updateMany: invitationUpdateMany,
       upsert: invitationUpsert,
       update: invitationUpdate,
@@ -76,6 +78,34 @@ describe('InvitationService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('getMyInvitations', () => {
+    it('returns the viewer’s pending invitations, scoped to the invitee side', async () => {
+      const rows = [
+        pendingInvitation(),
+        pendingInvitation({ id: 2, roomId: 8, inviterId: 12 }),
+      ];
+      invitationFindMany.mockResolvedValue(rows);
+
+      const result = await service.getMyInvitations(viewer);
+
+      expect(result).toEqual(rows);
+      const [{ where }] = invitationFindMany.mock.calls[0] as [
+        { where: { AND: unknown[] } },
+      ];
+      expect(where.AND).toEqual(
+        expect.arrayContaining([
+          { inviteeId: viewer.id, status: 'pending', deletedAt: null },
+        ]),
+      );
+    });
+
+    it('returns an empty list when the viewer has no pending invitation', async () => {
+      invitationFindMany.mockResolvedValue([]);
+
+      await expect(service.getMyInvitations(viewer)).resolves.toEqual([]);
+    });
   });
 
   describe('updateRoomInvitation', () => {
@@ -180,6 +210,89 @@ describe('InvitationService', () => {
         service.updateRoomInvitation(viewer, 7, 5, 'accepted'),
       ).rejects.toThrow(NotFoundException);
       expect(transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createRoomInvitation — re-inviting after a leave/kick', () => {
+    const inviter = { id: 9, role: 'user' } as User;
+    const privateRoom = {
+      id: 7,
+      name: 'Pear room',
+      deletedAt: null,
+      status: 'active',
+      visibility: 'private',
+      createdById: 9,
+    };
+
+    function arrangeInvite(existing: Record<string, unknown> | null) {
+      // 1st room.findFirst = the room; 2nd = the "invitee already a member?" probe
+      roomFindFirst
+        .mockResolvedValueOnce(privateRoom)
+        .mockResolvedValueOnce(null);
+      userFindFirst.mockResolvedValue({ id: 5 });
+      invitationFindUnique.mockResolvedValue(existing);
+    }
+
+    it('revives a revoked invitation to pending and fires the notification', async () => {
+      // state left behind by removeParticipant: accepted row, soft-deleted
+      arrangeInvite({
+        id: 1,
+        roomId: 7,
+        inviteeId: 5,
+        inviterId: 9,
+        status: 'accepted',
+        deletedAt: new Date(),
+      });
+      invitationUpsert.mockResolvedValue(
+        pendingInvitation({ inviterId: 9, message: 'come back' }),
+      );
+
+      await service.createRoomInvitation(inviter, 7, 5, {
+        message: 'come back',
+      });
+
+      const [upsertArgs] = invitationUpsert.mock.calls[0] as [
+        { update: Record<string, unknown> },
+      ];
+      expect(upsertArgs.update).toMatchObject({
+        status: 'pending',
+        deletedAt: null,
+        inviterId: 9,
+        message: 'come back',
+      });
+      expect(notifyRoomInvitation).toHaveBeenCalledWith(5, 9, 'Pear room');
+    });
+
+    it('is a silent no-op when a live pending invitation already exists', async () => {
+      arrangeInvite({
+        id: 1,
+        roomId: 7,
+        inviteeId: 5,
+        inviterId: 9,
+        status: 'pending',
+        deletedAt: null,
+        invitee: { id: 5 },
+        inviter: { id: 9 },
+        room: { id: 7, name: 'Pear room' },
+      });
+
+      await service.createRoomInvitation(inviter, 7, 5, {});
+
+      expect(invitationUpsert).not.toHaveBeenCalled();
+      expect(notifyRoomInvitation).not.toHaveBeenCalled();
+    });
+
+    it('refuses to invite someone who is currently an active member', async () => {
+      roomFindFirst
+        .mockResolvedValueOnce(privateRoom)
+        .mockResolvedValueOnce({ id: 7 }); // the member probe matches
+      userFindFirst.mockResolvedValue({ id: 5 });
+
+      await expect(
+        service.createRoomInvitation(inviter, 7, 5, {}),
+      ).rejects.toThrow();
+      expect(invitationUpsert).not.toHaveBeenCalled();
+      expect(notifyRoomInvitation).not.toHaveBeenCalled();
     });
   });
 });

@@ -221,6 +221,13 @@ model BanAttachment {
   @@map("ban_attachments")
 }
 
+/// Two CHECK constraints guard this table and are NOT expressible here —
+/// Prisma has no `@@check`, so `prisma migrate diff` cannot see or regenerate
+/// them. They live as hand-written SQL at the end of the baseline migration:
+///   friendships_pair_order_check        user_a_id < user_b_id (unless deleted)
+///   friendships_addressee_in_pair_check addressee_id IN (user_a_id, user_b_id)
+/// If you ever regenerate or squash the migration history, carry them over.
+/// `friendship.constraints.spec.ts` fails the build if they go missing.
 model Friendship {
   id        Int              @id @default(autoincrement())
   status    FriendshipStatus
@@ -313,7 +320,7 @@ model Poll {
   title           String     @db.VarChar(255)
   description     String?    @db.Text
   type            PollType
-  visibility      Visibility @default(private)
+  visibility      Visibility @default(public)
   allowChangeVote Boolean    @map("allow_change_vote")
   isAnonymous     Boolean    @map("is_anonymous")
   status          PollStatus
@@ -454,7 +461,7 @@ model Room {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
 
-  visibility Visibility
+  visibility Visibility @default(public)
   status     RoomStatus
 
   createdById Int @map("created_by")

@@ -15,6 +15,7 @@ describe('the poll read scope, straight from the policy', () => {
       {
         deletedAt: null,
         visibility: 'public',
+        roomId: null,
         createdBy: {
           is: {
             blocksGiven: { none: { blockedId: 7 } },
@@ -22,7 +23,7 @@ describe('the poll read scope, straight from the policy', () => {
           },
         },
       },
-      { deletedAt: null, visibility: 'private', createdById: 7 },
+      { deletedAt: null, visibility: 'private', createdById: 7, roomId: null },
       {
         deletedAt: null,
         room: { is: { roomMembers: { some: { userId: 7, deletedAt: null } } } },
@@ -30,12 +31,16 @@ describe('the poll read scope, straight from the policy', () => {
     ]);
   });
 
-  it('lists a public poll whatever its state: pending is not a draft', () => {
+  // No `status` clause: a pending poll is listed like any other. And
+  // `roomId: null` — a poll filed in a room is reachable through room
+  // membership only, being public doesn't put it on the feed.
+  it('lists a public standalone poll whatever its state: pending is not a draft', () => {
     const [publicPolls] = scopeFor(stranger).OR ?? [];
 
     expect(publicPolls).toEqual({
       deletedAt: null,
       visibility: 'public',
+      roomId: null,
       createdBy: {
         is: {
           blocksGiven: { none: { blockedId: 7 } },

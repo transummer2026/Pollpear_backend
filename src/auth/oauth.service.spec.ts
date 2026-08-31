@@ -283,7 +283,7 @@ describe('OauthService', () => {
       expect(userCreate).not.toHaveBeenCalled();
     });
 
-    it('creates a private pre-verified account, links oauth and purges the pending profile', async () => {
+    it('creates a public pre-verified account, links oauth and purges the pending profile', async () => {
       getOauthPendingProfile.mockResolvedValue(JSON.stringify(makeProfile()));
       userFindUnique.mockResolvedValue(null);
       (hash as jest.MockedFunction<typeof hash>).mockResolvedValue(
@@ -300,7 +300,7 @@ describe('OauthService', () => {
         username: 'fresh_user',
         email: 'user@example.com',
         isEmailVerified: true,
-        visibility: 'private',
+        visibility: 'public',
       });
       const [upsertArg] = oauthUpsert.mock.calls[0] as [
         { create: { userId: number }; update: { expiresAt: Date } },

@@ -9,6 +9,13 @@ export type PollSubject = 'Poll' | 'PollOption';
 
 export type PollAbilities = [PollActions, PollSubject];
 
+/**
+ * A poll filed in a room follows the room's rights: membership is the only
+ * way in, whatever the poll's own `visibility`. Every other branch is
+ * therefore pinned to `roomId: null` — they only ever describe a standalone
+ * (feed) poll. Leaving or being kicked from the room takes the poll with it,
+ * for its author as much as for anyone else.
+ */
 export function pollReadConditions(user: AuthorizationUser) {
   return [
     {
@@ -21,10 +28,12 @@ export function pollReadConditions(user: AuthorizationUser) {
       deletedAt: null,
       visibility: 'private' as const,
       createdById: user.id,
+      roomId: null,
     },
     {
       deletedAt: null,
       visibility: 'public' as const,
+      roomId: null,
       createdBy: {
         is: {
           blocksGiven: { none: { blockedId: user.id } },
@@ -59,6 +68,10 @@ export function pollVotableConditions(user: AuthorizationUser) {
         },
       },
     },
+    // The two branches below are `roomId: null` for the same reason as in
+    // pollReadConditions: a room poll is voted on through room membership
+    // only. There is deliberately no "public poll in an active room" branch —
+    // making a room poll public must not open it to the whole site.
     {
       deletedAt: null,
       visibility: 'private' as const,
@@ -67,25 +80,8 @@ export function pollVotableConditions(user: AuthorizationUser) {
     },
     {
       deletedAt: null,
-      visibility: 'private' as const,
-      createdById: user.id,
-      room: { is: { status: 'active' as const } },
-    },
-    {
-      deletedAt: null,
       visibility: 'public' as const,
       roomId: null,
-      createdBy: {
-        is: {
-          blocksGiven: { none: { blockedId: user.id } },
-          blocksReceived: { none: { blockerId: user.id } },
-        },
-      },
-    },
-    {
-      deletedAt: null,
-      visibility: 'public' as const,
-      room: { is: { status: 'active' as const } },
       createdBy: {
         is: {
           blocksGiven: { none: { blockedId: user.id } },
@@ -113,7 +109,20 @@ export function definePollPermissions(
   }
 
   allow(['create'], 'Poll', { roomId: null });
-  allow(['create'], 'Poll', { room: { is: { status: 'active' } } });
+  // A room poll may only be added by an active member of that room — the
+  // same gate as posting a message (permissions/message.ts). Without the
+  // membership clause any authenticated user (a pending invitee, or a
+  // non-member of a public room) could inject polls into a room they never
+  // joined.
+  allow(['create'], 'Poll', {
+    room: {
+      is: {
+        deletedAt: null,
+        status: 'active',
+        roomMembers: { some: { userId: user.id, deletedAt: null } },
+      },
+    },
+  });
 
   for (const condition of pollReadConditions(user)) {
     allow(['read', 'report'], 'Poll', condition);

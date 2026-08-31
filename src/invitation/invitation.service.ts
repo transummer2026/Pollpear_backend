@@ -105,6 +105,34 @@ export class InvitationService {
   }
 
   /**
+   * The pending room invitations addressed to the viewer — their invitation
+   * "inbox", the room counterpart of FriendshipService#getFriendRequests.
+   * The readable scope is derived from the CASL "read Invitation" policy via
+   * `accessibleBy` (same as getRoomInvitations) rather than re-encoded here;
+   * the extra `inviteeId: viewer.id` filter narrows that scope to the invitee
+   * side only, and `status: 'pending'` to the ones still awaiting an answer.
+   * Room + inviter are included so the inbox can show what the invite is for
+   * and who sent it without a second round-trip.
+   */
+  async getMyInvitations(viewer: User): Promise<InvitationReadDTO[]> {
+    const ability = this.abilityFactory.createForUser(viewer);
+    const invitations = await this.prisma.invitation.findMany({
+      where: {
+        AND: [
+          accessibleBy(ability, 'read').ofType('Invitation'),
+          { inviteeId: viewer.id, status: 'pending', deletedAt: null },
+        ],
+      },
+      include: { invitee: true, inviter: true, room: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return invitations.map((invitation) =>
+      InvitationReadSchema.parse(invitation),
+    );
+  }
+
+  /**
    * Invites a user to a room. Idempotent by design: calling this again for
    * the same (room, invitee) while an invitation is already pending or
    * accepted just returns that invitation unchanged, rather than erroring

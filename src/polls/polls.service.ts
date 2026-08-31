@@ -97,7 +97,8 @@ export class PollsService {
   }
 
   /**
-   * Inserts a new poll. New polls always start `visibility: 'private'` and
+   * Inserts a new poll. It carries the caller's chosen `visibility` (the
+   * shared `PollCreateSchema` defaults it to `'public'`) and always starts
    * `status: 'pending'`. Hashtags are connected-or-created before linking.
    * @param userId - owner of the poll
    * @param options - options to create with the poll
@@ -122,11 +123,15 @@ export class PollsService {
             { id: body.roomId, deletedAt: null },
           ],
         },
+        // `roomMembers` rides along so the `create Poll` rule can check the
+        // caller is actually a member (mirrors MessagesService#roomForAbility).
+        include: { roomMembers: true },
       });
       if (!found) throw new NotFoundException('Room not found');
-      // A poll only attaches to a live room. Fold a lapsed `endsAt` into
-      // `status` first, then let the CASL `create Poll` rule (which needs
-      // `room.status: 'active'`) reject a closed one.
+      // A poll only attaches to a live room the caller belongs to. Fold a
+      // lapsed `endsAt` into `status` first, then let the CASL `create Poll`
+      // rule (needs `room.status: 'active'` plus an active membership) reject
+      // a closed room or a non-member.
       const [room] = await syncRoomStatuses(this.prisma, [found]);
       ForbiddenError.from(ability).throwUnlessCan(
         'create',
@@ -145,7 +150,6 @@ export class PollsService {
     return this.prisma.poll.create({
       data: {
         ...body,
-        visibility: 'private',
         status: 'pending',
         createdById: userId,
         options: {

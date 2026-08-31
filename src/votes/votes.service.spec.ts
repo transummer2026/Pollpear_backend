@@ -391,20 +391,25 @@ describe('VotesService', () => {
   });
 
   describe('deleteVote', () => {
+    const votablePoll = (overrides: Record<string, unknown> = {}) => ({
+      status: 'active',
+      deletedAt: null,
+      visibility: 'private',
+      createdById: 42,
+      roomId: null,
+      ...overrides,
+    });
+
     it('soft-deletes the caller active vote instead of removing the row', async () => {
       voteFindFirst.mockResolvedValue({
         id: 99,
         createdById: 42,
         deletedAt: null,
-        poll: { status: 'active' },
+        poll: votablePoll(),
       });
 
       await service.deleteVote(7, viewer());
 
-      expect(voteFindFirst).toHaveBeenCalledWith({
-        where: { pollId: 7, createdById: 42, deletedAt: null },
-        include: { poll: true },
-      });
       expect(voteUpdate).toHaveBeenCalledWith({
         where: { id: 99 },
         data: { deletedAt: expect.any(Date) as Date },
@@ -416,7 +421,28 @@ describe('VotesService', () => {
         id: 99,
         createdById: 42,
         deletedAt: null,
-        poll: { status: 'closed' },
+        poll: votablePoll({ status: 'closed' }),
+      });
+
+      await expect(service.deleteVote(7, viewer())).rejects.toThrow(
+        ForbiddenError,
+      );
+      expect(voteUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting a vote on a room poll once the caller has left the room', async () => {
+      voteFindFirst.mockResolvedValue({
+        id: 99,
+        createdById: 42,
+        deletedAt: null,
+        poll: {
+          status: 'active',
+          deletedAt: null,
+          visibility: 'private',
+          createdById: 42,
+          roomId: 5,
+          room: { status: 'active', roomMembers: [] },
+        },
       });
 
       await expect(service.deleteVote(7, viewer())).rejects.toThrow(

@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('user', 'moderator', 'admin');
 
@@ -26,7 +29,7 @@ CREATE TYPE "FriendshipStatus" AS ENUM ('pending', 'accepted', 'rejected');
 CREATE TYPE "ReportReason" AS ENUM ('spam', 'harassment', 'inappropriate_content', 'other');
 
 -- CreateEnum
-CREATE TYPE "NotificationType" AS ENUM ('friend_request', 'poll_update', 'room_invitation', 'room_message', 'other');
+CREATE TYPE "NotificationType" AS ENUM ('friend_request', 'friend_accepted', 'poll_update', 'room_invitation', 'room_invitation_accepted', 'room_message', 'other');
 
 -- CreateEnum
 CREATE TYPE "PollType" AS ENUM ('single_choice', 'multiple_choice', 'slider', 'free_field');
@@ -123,7 +126,8 @@ CREATE TABLE "friendships" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
-    "requester_id" INTEGER NOT NULL,
+    "user_a_id" INTEGER NOT NULL,
+    "user_b_id" INTEGER NOT NULL,
     "addressee_id" INTEGER NOT NULL,
 
     CONSTRAINT "friendships_pkey" PRIMARY KEY ("id")
@@ -167,6 +171,7 @@ CREATE TABLE "notifications" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "user_id" INTEGER NOT NULL,
+    "actor_id" INTEGER,
 
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
@@ -177,7 +182,7 @@ CREATE TABLE "polls" (
     "title" VARCHAR(255) NOT NULL,
     "description" TEXT,
     "type" "PollType" NOT NULL,
-    "visibility" "Visibility" NOT NULL DEFAULT 'private',
+    "visibility" "Visibility" NOT NULL DEFAULT 'public',
     "allow_change_vote" BOOLEAN NOT NULL,
     "is_anonymous" BOOLEAN NOT NULL,
     "status" "PollStatus" NOT NULL,
@@ -266,12 +271,12 @@ CREATE TABLE "rooms" (
     "id" SERIAL NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
-    "banner_url" VARCHAR(255) NOT NULL,
-    "published_at" TIMESTAMP(3),
+    "banner_url" VARCHAR(255) NOT NULL DEFAULT '/uploads/banners/default.svg',
+    "ends_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
-    "visibility" "Visibility" NOT NULL,
+    "visibility" "Visibility" NOT NULL DEFAULT 'public',
     "status" "RoomStatus" NOT NULL,
     "created_by" INTEGER NOT NULL,
 
@@ -358,10 +363,16 @@ CREATE INDEX "bans_unbanned_by_idx" ON "bans"("unbanned_by");
 CREATE INDEX "ban_attachments_ban_id_idx" ON "ban_attachments"("ban_id");
 
 -- CreateIndex
+CREATE INDEX "friendships_user_a_id_idx" ON "friendships"("user_a_id");
+
+-- CreateIndex
+CREATE INDEX "friendships_user_b_id_idx" ON "friendships"("user_b_id");
+
+-- CreateIndex
 CREATE INDEX "friendships_addressee_id_idx" ON "friendships"("addressee_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "friendships_requester_id_addressee_id_key" ON "friendships"("requester_id", "addressee_id");
+CREATE UNIQUE INDEX "friendships_user_a_id_user_b_id_key" ON "friendships"("user_a_id", "user_b_id");
 
 -- CreateIndex
 CREATE INDEX "blocks_blocked_id_idx" ON "blocks"("blocked_id");
@@ -457,6 +468,9 @@ CREATE INDEX "invitations_inviter_id_idx" ON "invitations"("inviter_id");
 CREATE INDEX "invitations_invitee_id_idx" ON "invitations"("invitee_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "invitations_invitee_id_room_id_key" ON "invitations"("invitee_id", "room_id");
+
+-- CreateIndex
 CREATE INDEX "room_members_room_id_idx" ON "room_members"("room_id");
 
 -- CreateIndex
@@ -490,10 +504,10 @@ ALTER TABLE "bans" ADD CONSTRAINT "bans_unbanned_by_fkey" FOREIGN KEY ("unbanned
 ALTER TABLE "ban_attachments" ADD CONSTRAINT "ban_attachments_ban_id_fkey" FOREIGN KEY ("ban_id") REFERENCES "bans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "friendships" ADD CONSTRAINT "friendships_requester_id_fkey" FOREIGN KEY ("requester_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "friendships" ADD CONSTRAINT "friendships_user_a_id_fkey" FOREIGN KEY ("user_a_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "friendships" ADD CONSTRAINT "friendships_addressee_id_fkey" FOREIGN KEY ("addressee_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "friendships" ADD CONSTRAINT "friendships_user_b_id_fkey" FOREIGN KEY ("user_b_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "blocks" ADD CONSTRAINT "blocks_blocker_id_fkey" FOREIGN KEY ("blocker_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -590,3 +604,21 @@ ALTER TABLE "room_members" ADD CONSTRAINT "room_members_user_id_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- ---------------------------------------------------------------------------
+-- Hand-written invariants that `schema.prisma` cannot express, so
+-- `prisma migrate diff` never regenerates them. Carried over verbatim from
+-- 20260824200000_friendship_canonical_pair when the migration history was
+-- squashed — dropping them would silently lose the canonical-pair guarantee
+-- FriendshipService#canonicalPair relies on.
+--
+-- Added VALIDATED (not `NOT VALID`) because the table is empty here; the
+-- original had to stage it in two steps against live rows.
+-- ---------------------------------------------------------------------------
+
+-- AddConstraint
+ALTER TABLE "friendships" ADD CONSTRAINT "friendships_pair_order_check"
+  CHECK ("user_a_id" < "user_b_id" OR "deleted_at" IS NOT NULL);
+
+ALTER TABLE "friendships" ADD CONSTRAINT "friendships_addressee_in_pair_check"
+  CHECK ("addressee_id" IN ("user_a_id", "user_b_id"));

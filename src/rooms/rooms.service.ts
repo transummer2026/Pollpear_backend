@@ -21,6 +21,7 @@ import {
 } from 'src/search/search-options';
 import { nextRoomStatus, syncRoomStatuses } from './room-status';
 import { syncPollStatuses } from 'src/polls/poll-status';
+import { NotificationService } from 'src/notification/notification.service';
 
 type RoomSearchRow = { id: number; name: string };
 
@@ -30,6 +31,7 @@ export class RoomsService {
     private prisma: PrismaService,
     private abilityFactory: CaslAbilityFactory,
     private pollsService: PollsService,
+    private notificationService: NotificationService,
   ) {}
 
   /**
@@ -213,6 +215,14 @@ export class RoomsService {
    * subject, so the permission check runs against the Room via
    * `accessibleBy`, then the target's membership row is looked up in
    * plain Prisma.
+   *
+   * Either way the target's accepted invitation is revoked alongside their
+   * membership, so `roomJoinConditions` can no longer match on a stale
+   * "accepted" row: whoever left (or was kicked from) a private room needs a
+   * fresh `createRoomInvitation()` to come back and can't just re-POST
+   * /participants. The invitation's notifications are cleared for both sides
+   * too — the mirror of FriendshipService#removeFriendship — so nothing
+   * lingers pointing at a membership that no longer exists.
    */
   async removeParticipant(viewer: User, roomId: number, targetUserId: number) {
     const ability = this.abilityFactory.createForUser(viewer);
@@ -228,34 +238,41 @@ export class RoomsService {
     });
     if (!room) throw new NotFoundException('Room not found');
 
+    // The creator is bound to their room: a moderator's blanket `kick` must
+    // not remove them, and they can't `leave` either — both would strand the
+    // room with no active owner-member. They close or delete it instead.
+    if (targetUserId === room.createdById) {
+      throw new ForbiddenException(
+        action === 'leave'
+          ? 'The room owner cannot leave; close or delete the room instead.'
+          : 'The room owner cannot be removed.',
+      );
+    }
+
     const member = await this.prisma.roomMember.findFirst({
       where: { roomId, userId: targetUserId, deletedAt: null },
     });
     if (!member) throw new NotFoundException('Participant not found');
 
-    // A moderator's blanket `kick` would otherwise let them remove the
-    // room owner, leaving the room with no active owner-member.
-    if (action === 'kick' && targetUserId === room.createdById) {
-      throw new ForbiddenException('The room owner cannot be removed.');
-    }
+    // Grab the accepted invitation (if any) before revoking it — its
+    // `inviterId` is needed to clear the notifications afterwards.
+    const invitation = await this.prisma.invitation.findFirst({
+      where: {
+        roomId,
+        inviteeId: targetUserId,
+        status: 'accepted',
+        deletedAt: null,
+      },
+      select: { inviterId: true },
+    });
 
     const now = new Date();
 
-    if (action === 'leave') {
-      return await this.prisma.roomMember.update({
-        where: { id: member.id },
-        data: { deletedAt: now },
-      });
-    }
-
-    // Kick: also revoke the target's accepted invitation so the removal
-    // sticks. Otherwise `roomJoinConditions` still matches on the leftover
-    // "accepted" row and the kicked user could re-POST /participants
-    // straight back into a private room. This is a mechanical consequence
-    // of an already-authorised kick, not a separate permission decision,
-    // so it targets the row directly rather than going through
-    // `accessibleBy('delete', 'Invitation')`. Re-admission goes through a
-    // fresh `createRoomInvitation()`.
+    // Drop the membership and revoke the accepted invitation in one
+    // transaction. Targeting the invitation row directly (rather than
+    // `accessibleBy('delete', 'Invitation')`) is deliberate: this is a
+    // mechanical consequence of an already-authorised leave/kick, not a
+    // separate permission decision.
     const [updatedMember] = await this.prisma.$transaction([
       this.prisma.roomMember.update({
         where: { id: member.id },
@@ -271,6 +288,18 @@ export class RoomsService {
         data: { deletedAt: now },
       }),
     ]);
+
+    // Clear both directions — the "you're invited" notice to the (now former)
+    // member and the "X accepted your invitation" notice to the inviter — so
+    // nothing points at a membership that's gone. Mirrors
+    // FriendshipService#removeFriendship. After the commit, best-effort.
+    if (invitation) {
+      await this.notificationService.clearRoomNotifications(
+        targetUserId,
+        invitation.inviterId,
+      );
+    }
+
     return updatedMember;
   }
 
@@ -319,7 +348,7 @@ export class RoomsService {
             { id: roomId, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id, ability),
+        include: getRoomIncludeArgs(ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -354,7 +383,7 @@ export class RoomsService {
             },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id, ability),
+        include: getRoomIncludeArgs(ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -388,7 +417,7 @@ export class RoomsService {
             { createdById: targetId, deletedAt: null },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id, ability),
+        include: getRoomIncludeArgs(ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -441,7 +470,7 @@ export class RoomsService {
             },
           ],
         },
-        include: getRoomIncludeArgs(viewer.id, ability),
+        include: getRoomIncludeArgs(ability),
       }),
       this.prisma.vote.findMany({
         where: {
@@ -467,18 +496,18 @@ export class RoomsService {
 }
 
 /**
- * The relations a room needs loaded to satisfy `RoomReadSchema`: other
- * active members, undeleted polls (with their own
+ * The relations a room needs loaded to satisfy `RoomReadSchema`: every
+ * active member (the viewer included — clients count and label their own
+ * membership off this), undeleted polls (with their own
  * `getPollIncludeArgs`), the creator, and pending invitations. Shared so
  * `findOneRoom` and `findMeManyRooms` fetch this identically instead of
  * each hand-rolling their own `include`.
  */
-export function getRoomIncludeArgs(userId: number, ability: AppAbility) {
+export function getRoomIncludeArgs(ability: AppAbility) {
   return {
     roomMembers: {
       where: {
         deletedAt: null,
-        userId: { not: userId },
       },
     },
     polls: {

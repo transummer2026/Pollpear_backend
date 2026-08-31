@@ -253,8 +253,13 @@ describe('ApiPollsService', () => {
       expect(create).not.toHaveBeenCalled();
     });
 
-    it('accepts an active room, and asks casl which rooms it may look at', async () => {
-      roomFindFirst.mockResolvedValue({ id: 3, status: 'active' });
+    it('accepts an active room the caller belongs to, and asks casl which rooms it may look at', async () => {
+      roomFindFirst.mockResolvedValue({
+        id: 3,
+        status: 'active',
+        deletedAt: null,
+        roomMembers: [{ userId: author.id, deletedAt: null }],
+      });
       create.mockResolvedValue(pending);
 
       await service.createPoll({ ...body, roomId: 3 }, author);
@@ -272,10 +277,30 @@ describe('ApiPollsService', () => {
       ]);
     });
 
+    it('refuses an active room the caller is not a member of', async () => {
+      roomFindFirst.mockResolvedValue({
+        id: 3,
+        status: 'active',
+        deletedAt: null,
+        roomMembers: [],
+      });
+
+      await expect(
+        service.createPoll({ ...body, roomId: 3 }, author),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(create).not.toHaveBeenCalled();
+    });
+
     it.each(ROOM_REFUSING_POLLS)(
       'refuses a %s room the caller can still read',
       async (status) => {
-        roomFindFirst.mockResolvedValue({ id: 3, status });
+        roomFindFirst.mockResolvedValue({
+          id: 3,
+          status,
+          deletedAt: null,
+          roomMembers: [{ userId: author.id, deletedAt: null }],
+        });
 
         await expect(
           service.createPoll({ ...body, roomId: 3 }, author),
@@ -286,7 +311,12 @@ describe('ApiPollsService', () => {
     );
 
     it('refuses a closed room to a moderator too', async () => {
-      roomFindFirst.mockResolvedValue({ id: 3, status: 'closed' });
+      roomFindFirst.mockResolvedValue({
+        id: 3,
+        status: 'closed',
+        deletedAt: null,
+        roomMembers: [{ userId: moderator.id, deletedAt: null }],
+      });
 
       await expect(
         service.createPoll({ ...body, roomId: 3 }, moderator),
