@@ -4,6 +4,7 @@ import { ForbiddenError, subject } from '@casl/ability';
 import { AvatarService } from 'src/file-upload/avatar.service';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import type { User } from 'src/generated/prisma/client';
+import { publicMedia } from '../../common/media';
 import {
   ApiMeAvatarSchema,
   type ApiMeAvatarDTO,
@@ -32,6 +33,6 @@ export class ApiMeAvatarService {
     const user = await this.avatarService.replace(viewer.id, file);
     this.logger.log(`user ${viewer.id} replaced their avatar through the api`);
 
-    return ApiMeAvatarSchema.parse({ avatarUrl: user.avatarUrl });
+    return ApiMeAvatarSchema.parse({ avatarUrl: publicMedia(user.avatarUrl) });
   }
 }
