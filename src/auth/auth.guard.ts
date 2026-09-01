@@ -48,8 +48,8 @@ export class AuthGuard implements CanActivate {
   /**
    * The socket carries the user bound at handshake time, so no header is
    * parsed here. The database lookup stays: a long lived socket outlives
-   * the session that opened it, and this is what rejects a user banned
-   * or deleted in the meantime.
+   * the session that opened it, and this is what rejects a user deleted
+   * in the meantime.
    */
   private async authenticateSocket(context: ExecutionContext) {
     const client = context.switchToWs().getClient<Socket>();

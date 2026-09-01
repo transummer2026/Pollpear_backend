@@ -76,8 +76,7 @@ export class ApiPollsController {
     description: 'Unknown field, invalid value, or wrong option count.',
   })
   @ApiForbiddenResponse({
-    description:
-      'Banned account, or a room was named the caller cannot file a poll in.',
+    description: 'A room was named the caller cannot file a poll in.',
   })
   createPoll(
     @ValidatedBody(ApiPollCreateSchema) body: ApiPollCreateDTO,
@@ -134,7 +133,7 @@ export class ApiPollsController {
     description: 'Unknown field, invalid value, or empty body.',
   })
   @ApiForbiddenResponse({
-    description: 'Banned account, or not your poll.',
+    description: 'Not your poll.',
   })
   @ApiConflictResponse({ description: 'The poll is no longer pending.' })
   @ApiNotFoundResponse({ description: 'No such poll, or not visible to you.' })
@@ -157,7 +156,7 @@ export class ApiPollsController {
   })
   @ApiNoContentResponse({ description: 'Poll deleted.' })
   @ApiForbiddenResponse({
-    description: 'Banned account, or not your poll.',
+    description: 'Not your poll.',
   })
   @ApiConflictResponse({ description: 'The poll is no longer pending.' })
   @ApiNotFoundResponse({ description: 'No such poll, or not visible to you.' })

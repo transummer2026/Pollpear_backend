@@ -194,10 +194,6 @@ export class VotesService {
     });
   }
 
-  reportVote(id: number) {
-    return `report vote in Poll #${id} works`;
-  }
-
   async validateVote(
     pollId: number,
     viewerId: number,

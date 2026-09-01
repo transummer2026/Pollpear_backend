@@ -26,14 +26,6 @@ enum UserRole {
   admin
 }
 
-enum Action {
-  manage
-  create
-  read
-  update
-  delete
-}
-
 enum Gender {
   male
   female
@@ -68,13 +60,6 @@ enum FriendshipStatus {
   pending
   accepted
   rejected
-}
-
-enum ReportReason {
-  spam
-  harassment
-  inappropriate_content
-  other
 }
 
 enum NotificationType {
@@ -140,15 +125,11 @@ model User {
   deletedAt       DateTime?  @map("deleted_at")
 
   oauths               Oauth[]
-  bansReceived         Ban[]          @relation("BannedUser")
-  bansGiven            Ban[]          @relation("BannedBy")
-  bansLifted           Ban[]          @relation("UnbannedBy")
   pollsCreated         Poll[]         @relation("PollCreator")
   roomsCreated         Room[]         @relation("RoomCreator")
   votes                Vote[]
   messages             Message[]
   notifications        Notification[]
-  pollTemplates        PollTemplate[]
   roomMemberships      RoomMember[]
   invitationsSent      Invitation[]   @relation("Inviter")
   invitationsReceived  Invitation[]   @relation("Invitee")
@@ -156,8 +137,6 @@ model User {
   friendshipsAsUserB   Friendship[]   @relation("FriendshipUserB")
   blocksReceived       Block[]        @relation("Blocked")
   blocksGiven          Block[]        @relation("Blocker")
-  reportsReceived      Report[]       @relation("Reported")
-  reportsGiven         Report[]       @relation("Reporter")
   apiKeys              ApiKey[]
 
   @@map("users")
@@ -183,42 +162,6 @@ model Oauth {
   @@unique([provider, providerUserId])
   @@index([userId])
   @@map("oauths")
-}
-
-model Ban {
-  id          Int      @id @default(autoincrement())
-  banReason   String   @map("ban_reason") @db.Text
-  unbanReason String?  @map("unban_reason") @db.Text
-  startedAt   DateTime @map("started_at")
-  endedAt     DateTime @map("ended_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  userId       Int  @map("user_id")
-  bannedById   Int  @map("banned_by")
-  unbannedById Int? @map("unbanned_by")
-
-  user       User  @relation("BannedUser", fields: [userId], references: [id])
-  bannedBy   User  @relation("BannedBy", fields: [bannedById], references: [id])
-  unbannedBy User? @relation("UnbannedBy", fields: [unbannedById], references: [id])
-
-  attachments BanAttachment[]
-
-  @@index([userId])
-  @@index([bannedById])
-  @@index([unbannedById])
-  @@map("bans")
-}
-
-model BanAttachment {
-  id            Int    @id @default(autoincrement())
-  attachmentUrl String @map("attachment_url") @db.VarChar(255)
-
-  banId Int @map("ban_id")
-  ban   Ban @relation(fields: [banId], references: [id])
-
-  @@index([banId])
-  @@map("ban_attachments")
 }
 
 /// Two CHECK constraints guard this table and are NOT expressible here —
@@ -265,39 +208,6 @@ model Block {
   @@map("blocks")
 }
 
-model Report {
-  id        Int          @id @default(autoincrement())
-  reason    ReportReason
-  content   String       @db.Text
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-
-  reporterId Int  @map("reporter_id")
-  reportedId Int  @map("reported_id")
-  roomId     Int? @map("room_id")
-  messageId  Int? @map("message_id")
-  pollId     Int? @map("poll_id")
-  optionId   Int? @map("option_id")
-  hashtagId  Int? @map("hashtag_id")
-
-  reporter User     @relation("Reporter", fields: [reporterId], references: [id])
-  reported User     @relation("Reported", fields: [reportedId], references: [id])
-  room     Room?    @relation(fields: [roomId], references: [id])
-  message  Message? @relation(fields: [messageId], references: [id])
-  poll     Poll?    @relation(fields: [pollId], references: [id])
-  option   Option?  @relation(fields: [optionId], references: [id])
-  hashtag  Hashtag? @relation(fields: [hashtagId], references: [id])
-
-  @@index([reporterId])
-  @@index([reportedId])
-  @@index([roomId])
-  @@index([messageId])
-  @@index([pollId])
-  @@index([optionId])
-  @@index([hashtagId])
-  @@map("reports")
-}
-
 model Notification {
   id        Int              @id @default(autoincrement())
   type      NotificationType
@@ -338,9 +248,6 @@ model Poll {
   votes             Vote[]
   options           Option[]
   pollHashtags      PollHashtag[]
-  pollTemplates     PollTemplate[]
-  reports           Report[]
-  childDependencies PollDependency[] @relation("ChildPoll")
 
   @@index([status, visibility])
   @@index([status])
@@ -362,23 +269,9 @@ model Option {
   poll   Poll @relation(fields: [pollId], references: [id])
 
   voteOptions      VoteOption[]
-  pollDependencies PollDependency[]
-  reports          Report[]
 
   @@index([pollId])
   @@map("options")
-}
-
-model PollDependency {
-  childPollId Int @map("child_poll_id")
-  optionId    Int @map("option_id")
-
-  childPoll Poll   @relation("ChildPoll", fields: [childPollId], references: [id])
-  option    Option @relation(fields: [optionId], references: [id])
-
-  @@id([childPollId, optionId])
-  @@index([optionId])
-  @@map("poll_dependencies")
 }
 
 model Vote {
@@ -422,7 +315,6 @@ model Hashtag {
   deletedAt DateTime? @map("deleted_at")
 
   pollHashtags PollHashtag[]
-  reports      Report[]
 
   @@map("hashtags")
 }
@@ -437,18 +329,6 @@ model PollHashtag {
   @@id([pollId, hashtagId])
   @@index([hashtagId])
   @@map("poll_hashtags")
-}
-
-model PollTemplate {
-  userId Int @map("user_id")
-  pollId Int @map("poll_id")
-
-  user User @relation(fields: [userId], references: [id])
-  poll Poll @relation(fields: [pollId], references: [id])
-
-  @@id([userId, pollId])
-  @@index([pollId])
-  @@map("poll_templates")
 }
 
 model Room {
@@ -472,7 +352,6 @@ model Room {
   messages    Message[]
   invitations Invitation[]
   roomMembers RoomMember[]
-  reports     Report[]
 
   @@index([createdById])
   @@map("rooms")
@@ -490,8 +369,6 @@ model Message {
 
   author User @relation(fields: [authorId], references: [id])
   room   Room @relation(fields: [roomId], references: [id])
-
-  reports Report[]
 
   @@index([authorId])
   @@index([roomId])

@@ -32,8 +32,6 @@ import { UserRole } from '../src/generated/prisma/client';
  * a shared database costs it a handful of rows for the length of a run.
  */
 const PREFIX = `iv${Date.now().toString(36)}_`;
-const FUTURE = new Date(Date.now() + 7 * 24 * 3600 * 1000);
-const PAST = new Date(Date.now() - 7 * 24 * 3600 * 1000);
 
 const abilityFor = (id: number, role: UserRole) =>
   new CaslAbilityFactory().createForUser({ id, role });
@@ -63,21 +61,6 @@ describe('The visibility filter, against postgres', () => {
     return user.id;
   };
 
-  const addBan = (
-    userId: number,
-    over: { endedAt?: Date; unbannedById?: number } = {},
-  ) =>
-    prisma.ban.create({
-      data: {
-        banReason: 'integration check',
-        startedAt: PAST,
-        endedAt: FUTURE,
-        userId,
-        bannedById: ids.listed,
-        ...over,
-      },
-    });
-
   /** Only the accounts this suite created, so a populated database cannot skew the answer. */
   const listedFor = async (role: UserRole) => {
     const ability = abilityFor(ids.caller, role);
@@ -104,14 +87,6 @@ describe('The visibility filter, against postgres', () => {
     await addUser('listed');
     await addUser('hidden', { visibility: 'private' });
     await addUser('gone', { deletedAt: new Date() });
-    const banned = await addUser('banned');
-    const pardoned = await addUser('pardoned');
-    const served = await addUser('served');
-
-    await addBan(banned);
-    await addBan(pardoned, { unbannedById: ids.listed });
-    await addBan(served, { endedAt: PAST });
-
     const blocker = await addUser('blocker');
     await prisma.block.create({
       data: { blockerId: blocker, blockedId: ids.caller },
@@ -121,7 +96,6 @@ describe('The visibility filter, against postgres', () => {
   afterAll(async () => {
     const mine = Object.values(ids);
     await prisma.block.deleteMany({ where: { blockerId: { in: mine } } });
-    await prisma.ban.deleteMany({ where: { userId: { in: mine } } });
     await prisma.user.deleteMany({ where: { id: { in: mine } } });
     await prisma.$disconnect();
   });
@@ -153,14 +127,6 @@ describe('The visibility filter, against postgres', () => {
       expect(await listedFor(role)).not.toContain('blocker');
     },
   );
-
-  /**
-   * A ban is not a visibility matter: the policy says nothing about it, so a
-   * banned account stays listed. What concerns it lives on its own route.
-   */
-  it.each(EVERY_ROLE)('still lists a banned account for a %s', async (role) => {
-    expect(await listedFor(role)).toContain('banned');
-  });
 
   it('answers nothing at all for a private profile, which is the 404', async () => {
     const ability = abilityFor(ids.caller, UserRole.user);

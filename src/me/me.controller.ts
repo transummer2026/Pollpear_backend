@@ -14,7 +14,6 @@ import { MeService } from './me.service';
 import { UserId } from 'src/common/decorators/user-id.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { User } from 'src/generated/prisma/client';
-import { VisibleByBan } from 'src/common/decorators/ban.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   type UserUpdateDTO,
@@ -45,7 +44,6 @@ export class MeController {
     private readonly invitationService: InvitationService,
   ) {}
 
-  @VisibleByBan()
   @Get()
   myProfile(@UserId() userId: number) {
     return this.meService.myProfile(userId);
@@ -73,12 +71,6 @@ export class MeController {
     body: UserUpdateDTO,
   ) {
     return this.meService.editProfile(userId, body);
-  }
-
-  @Patch('settings')
-  @HttpCode(503)
-  settings() {
-    return this.meService.settings();
   }
 
   @Put('settings/security')

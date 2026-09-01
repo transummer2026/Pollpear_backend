@@ -140,9 +140,8 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('update', userSubject({ id: 2 }))).toBe(false);
     });
 
-    it('denies delete and ban on a User other than themselves', () => {
+    it('denies delete on a User other than themselves', () => {
       expect(ability.can('delete', userSubject({ id: 2 }))).toBe(false);
-      expect(ability.can('ban', userSubject({ id: 2 }))).toBe(false);
     });
 
     it('grants read and create on Poll', () => {
@@ -400,18 +399,6 @@ describe('CaslAbilityFactory', () => {
   describe('moderator role', () => {
     const ability = abilityFor(UserRole.moderator);
 
-    it('gains ban on a plain User, but not on a moderator or an admin', () => {
-      expect(ability.can('ban', userSubject({ id: 99, role: 'user' }))).toBe(
-        true,
-      );
-      expect(
-        ability.can('ban', userSubject({ id: 99, role: 'moderator' })),
-      ).toBe(false);
-      expect(ability.can('ban', userSubject({ id: 99, role: 'admin' }))).toBe(
-        false,
-      );
-    });
-
     it('still cannot delete a User', () => {
       expect(ability.can('delete', userSubject({ id: 99 }))).toBe(false);
     });
@@ -455,18 +442,6 @@ describe('CaslAbilityFactory', () => {
 
     it('gains delete on any User', () => {
       expect(ability.can('delete', userSubject({ id: 99 }))).toBe(true);
-    });
-
-    it('gains ban on a plain User or a moderator, but not another admin', () => {
-      expect(ability.can('ban', userSubject({ id: 99, role: 'user' }))).toBe(
-        true,
-      );
-      expect(
-        ability.can('ban', userSubject({ id: 99, role: 'moderator' })),
-      ).toBe(true);
-      expect(ability.can('ban', userSubject({ id: 99, role: 'admin' }))).toBe(
-        false,
-      );
     });
 
     it('grants grading/degrading (updating only the role field) of another User', () => {
@@ -1065,14 +1040,12 @@ describe('CaslAbilityFactory', () => {
         expect(ability.can('create', 'Hashtag')).toBe(true);
       });
 
-      it('grants read and report on a live Hashtag', () => {
+      it('grants read on a live Hashtag', () => {
         expect(ability.can('read', hashtagSubject(live))).toBe(true);
-        expect(ability.can('report', hashtagSubject(live))).toBe(true);
       });
 
-      it('denies read and report on a deleted Hashtag', () => {
+      it('denies read on a deleted Hashtag', () => {
         expect(ability.can('read', hashtagSubject(deleted))).toBe(false);
-        expect(ability.can('report', hashtagSubject(deleted))).toBe(false);
       });
 
       it('denies update and delete on a live Hashtag', () => {
@@ -1115,7 +1088,7 @@ describe('CaslAbilityFactory', () => {
       });
 
       it('gains no action that was never granted', () => {
-        expect(ability.can('ban', hashtagSubject(live))).toBe(false);
+        expect(ability.can('interact', hashtagSubject(live))).toBe(false);
       });
     });
   });
@@ -1137,10 +1110,9 @@ describe('CaslAbilityFactory', () => {
 
         expect(ability.can('create', message)).toBe(true);
         expect(ability.can('read', message)).toBe(true);
-        expect(ability.can('report', message)).toBe(true);
       });
 
-      it('denies create/read/report on a Message in a Room the user is not a member of', () => {
+      it('denies create/read on a Message in a Room the user is not a member of', () => {
         const message = messageSubject({
           deletedAt: null,
           roomId: 1,
@@ -1149,7 +1121,6 @@ describe('CaslAbilityFactory', () => {
 
         expect(ability.can('create', message)).toBe(false);
         expect(ability.can('read', message)).toBe(false);
-        expect(ability.can('report', message)).toBe(false);
       });
 
       it('never gains update or delete, even on the user own Message', () => {

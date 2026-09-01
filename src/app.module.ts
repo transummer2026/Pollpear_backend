@@ -4,13 +4,11 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
-import { AdminModule } from './admin/admin.module';
 import { FeedModule } from './feed/feed.module';
 import { UsersModule } from './users/users.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { PollsModule } from './polls/polls.module';
 import { MeModule } from './me/me.module';
-import { ContactModule } from './contact/contact.module';
 import { ApiModule } from './api/api.module';
 import { SearchModule } from './search/search.module';
 import { SecretsModule } from './secrets/secrets.module';
@@ -25,9 +23,7 @@ import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { VaultModule } from './vault/vault.module';
 import { VaultService } from './vault/vault.service';
-import { BanGuard } from './ban/ban.guard';
 import { NotificationModule } from './notification/notification.module';
-import { BanModule } from './ban/ban.module';
 import { CaslModule } from './casl/casl.module';
 import { AuthorizationGuard } from './casl/authorization.guard';
 import { WebsocketModule } from './websocket/websocket.module';
@@ -37,16 +33,14 @@ import { InvitationModule } from './invitation/invitation.module';
 
 /**
  * The root module: it wires every feature module together and registers the
- * three guards that apply to the whole application. Their order is the
- * registration order and it matters — AuthGuard identifies the caller,
- * BanGuard cuts a banned one off, and only then does AuthorizationGuard ask
- * the policy what the caller may do.
+ * two guards that apply to the whole application. Their order is the
+ * registration order and it matters — AuthGuard identifies the caller, and
+ * only then does AuthorizationGuard ask the policy what the caller may do.
  */
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    AdminModule,
     AuthModule,
     HealthModule,
     PrismaModule,
@@ -57,7 +51,6 @@ import { InvitationModule } from './invitation/invitation.module';
     FeedModule,
     MeModule,
     AiModule,
-    ContactModule,
     ApiModule,
     SearchModule,
     ApiPollsModule,
@@ -81,7 +74,6 @@ import { InvitationModule } from './invitation/invitation.module';
     WebsocketModule,
     PresenceModule,
     MessagesModule,
-    BanModule,
     NotificationModule,
     InvitationModule,
   ],
@@ -89,10 +81,6 @@ import { InvitationModule } from './invitation/invitation.module';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: BanGuard,
     },
     {
       provide: APP_GUARD,

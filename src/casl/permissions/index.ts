@@ -8,7 +8,6 @@ import { defineFriendshipPermissions } from './friendship';
 import { defineHashtagPermissions } from './hashtag';
 import { defineVotePermissions } from './vote';
 import { defineBlockPermissions } from './block';
-import { defineBanPermissions } from './ban';
 import { defineInvitationPermissions } from './invitation';
 import { defineMessagePermissions } from './message';
 import type { UserAbilities } from './user';
@@ -18,7 +17,6 @@ import type { FriendshipAbilities } from './friendship';
 import type { HashtagAbilities } from './hashtag';
 import type { VoteAbilities } from './vote';
 import type { BlockAbilities } from './block';
-import type { BanAbilities } from './ban';
 import type { InvitationAbilities } from './invitation';
 import type { MessageAbilities } from './message';
 
@@ -30,7 +28,6 @@ export type AppAbilityTuple =
   | HashtagAbilities
   | VoteAbilities
   | BlockAbilities
-  | BanAbilities
   | InvitationAbilities
   | MessageAbilities;
 
@@ -45,7 +42,6 @@ export const definePermissionsArray: ((
   defineHashtagPermissions,
   defineVotePermissions,
   defineBlockPermissions,
-  defineBanPermissions,
   defineInvitationPermissions,
   defineMessagePermissions,
 ];

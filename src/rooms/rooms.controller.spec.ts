@@ -22,10 +22,7 @@ describe('RoomsController', () => {
   let controller: RoomsController;
   let messages: jest.Mocked<Pick<MessagesService, 'listForRoom'>>;
   let service: jest.Mocked<
-    Pick<
-      RoomsService,
-      'findOneRoom' | 'create' | 'update' | 'remove' | 'removeMessage'
-    >
+    Pick<RoomsService, 'findOneRoom' | 'create' | 'update' | 'remove'>
   >;
   let invitationService: jest.Mocked<
     Pick<
@@ -44,7 +41,6 @@ describe('RoomsController', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
-      removeMessage: jest.fn(),
     };
     messages = { listForRoom: jest.fn() };
     invitationService = {
@@ -174,11 +170,5 @@ describe('RoomsController', () => {
     await controller.getMessages(7, viewer, query);
 
     expect(messages.listForRoom).toHaveBeenCalledWith(7, viewer, query);
-  });
-
-  it('DELETE :id/messages/:messageId delegates to roomsService.removeMessage with (id, messageId)', () => {
-    controller.removeMessage(7, 99);
-
-    expect(service.removeMessage).toHaveBeenCalledWith(7, 99);
   });
 });

@@ -175,14 +175,6 @@ export class UsersService {
     return UserSchema.parse(updatedUser);
   }
 
-  remove(id: number) {
-    return `remove user #${id} works`;
-  }
-
-  report(id: number) {
-    return `report user #${id} works`;
-  }
-
   // PRISMA REQUESTS
 
   async findByUserId(userId: number) {
