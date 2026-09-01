@@ -102,7 +102,7 @@ describe('UsersService', () => {
     const viewer = makeUser({ id: 1 }) as User;
 
     it('returns only the public profile fields when found', async () => {
-      prisma.user.findFirst.mockResolvedValue(makeUser());
+      prisma.user.findFirst.mockResolvedValue(makeUser({ bio: 'hi there' }));
 
       const result = await service.findOne(1, viewer);
 
@@ -121,7 +121,7 @@ describe('UsersService', () => {
       expect(result).not.toHaveProperty('birthdate');
       expect(result).not.toHaveProperty('gender');
       expect(result).not.toHaveProperty('nationality');
-      expect(result).not.toHaveProperty('bio');
+      expect(result.bio).toBe('hi there');
       expect(result).not.toHaveProperty('role');
     });
 
