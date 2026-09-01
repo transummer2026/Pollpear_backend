@@ -3,15 +3,14 @@ import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type MessageActions = CrudAction | 'report';
+export type MessageActions = CrudAction;
 
 export type MessageSubject = 'Message';
 
 export type MessageAbilities = [MessageActions, MessageSubject];
 
 // live websocket chat: no update, no self-delete — only a moderator can
-// remove a message (moderation off a report), authors can't edit or
-// delete their own once sent
+// remove a message, authors can't edit or delete their own once sent
 export function defineMessagePermissions(
   { can: allow }: AbilityBuilder<AppAbility>,
   user: AuthorizationUser,
@@ -35,7 +34,7 @@ export function defineMessagePermissions(
     },
   });
 
-  allow(['read', 'report'], 'Message', {
+  allow(['read'], 'Message', {
     deletedAt: null,
     room: {
       is: { roomMembers: { some: { userId: user.id, deletedAt: null } } },

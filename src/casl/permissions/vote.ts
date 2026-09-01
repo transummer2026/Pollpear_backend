@@ -2,9 +2,9 @@ import { AbilityBuilder } from '@casl/ability';
 import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
-import { pollReadConditions, pollVotableConditions } from './poll';
+import { pollVotableConditions } from './poll';
 
-export type VoteActions = CrudAction | 'report';
+export type VoteActions = CrudAction;
 
 export type VoteSubject = 'Vote';
 
@@ -43,13 +43,6 @@ export function defineVotePermissions(
       deletedAt: null,
       createdById: user.id,
       poll: { is: { ...condition, status: { not: 'closed' } } },
-    });
-  }
-
-  for (const condition of pollReadConditions(user)) {
-    allow(['report'], 'Vote', {
-      deletedAt: null,
-      poll: { is: condition },
     });
   }
 }

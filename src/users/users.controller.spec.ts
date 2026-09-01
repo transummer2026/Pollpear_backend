@@ -4,7 +4,6 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { FriendshipService } from 'src/friendship/friendship.service';
 import { BlockService } from 'src/block/block.service';
-import { BanService } from 'src/ban/ban.service';
 
 function mockResponse() {
   const status = jest.fn();
@@ -42,7 +41,6 @@ describe('UsersController', () => {
       usersService as unknown as UsersService,
       friendshipService as unknown as FriendshipService,
       {} as unknown as BlockService,
-      {} as unknown as BanService,
     );
   });
 

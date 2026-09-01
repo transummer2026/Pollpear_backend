@@ -4,7 +4,6 @@ import { AuthService } from './auth.service';
 import { OauthService } from './oauth.service';
 import { prismaMock } from 'src/prisma/prisma.service.mock';
 import { usersServiceMock } from 'src/users/users.service.mock';
-import { banServiceMock } from 'src/ban/ban.service.mock';
 import { redisServiceMock } from 'src/redis/redis.service.mock';
 import { vaultServiceMock } from 'src/vault/vault.service.mock';
 import { mailServiceMock } from 'src/mail/mail.service.mock';
@@ -22,7 +21,6 @@ describe('AuthController', () => {
         OauthService,
         prismaMock,
         usersServiceMock,
-        banServiceMock,
         redisServiceMock,
         vaultServiceMock,
         mailServiceMock,

@@ -3,7 +3,7 @@ import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type HashtagActions = CrudAction | 'report';
+export type HashtagActions = CrudAction;
 
 export type HashtagAbilities = [HashtagActions, 'Hashtag'];
 
@@ -21,7 +21,7 @@ export function defineHashtagPermissions(
 
   allow('create', 'Hashtag');
 
-  allow(['read', 'report'], 'Hashtag', {
+  allow(['read'], 'Hashtag', {
     deletedAt: null,
   });
 }

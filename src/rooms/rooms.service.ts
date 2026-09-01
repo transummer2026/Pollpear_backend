@@ -162,10 +162,6 @@ export class RoomsService {
     return await this.deleteRoom(id);
   }
 
-  removeMessage(id: number, messageId: number) {
-    return `remove message #${messageId} from room #${id} works`;
-  }
-
   /**
    * Self-join only: the caller always joins as themselves. Room-level
    * eligibility (public room, or an accepted invitation) is entirely

@@ -24,7 +24,6 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
-import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { AuthService } from './auth.service';
 import { OauthProfile } from './oauth-profile';
@@ -39,7 +38,6 @@ export class OauthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
-    private readonly banService: BanService,
     private readonly redisService: RedisService,
     private readonly authService: AuthService,
     private readonly vault: VaultService,
@@ -57,10 +55,6 @@ export class OauthService {
     }
     if (user.deletedAt) {
       throw new ForbiddenException('User is deleted.');
-    }
-    const userIsBanned = await this.banService.findByBanStatus(user.id);
-    if (userIsBanned) {
-      throw new ForbiddenException('User is banned.');
     }
     await this.upsertOauth(user.id, profile);
     return { status: 'user', user };

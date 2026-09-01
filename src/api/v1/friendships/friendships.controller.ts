@@ -75,7 +75,7 @@ export class ApiFriendshipsController {
   })
   @ApiForbiddenResponse({
     description:
-      'Banned account, or an account you blocked, that blocked you, or that no longer exists.',
+      'An account you blocked, that blocked you, or that no longer exists.',
   })
   @ApiConflictResponse({ description: 'You are already friends.' })
   createFriendship(
@@ -112,7 +112,7 @@ export class ApiFriendshipsController {
   @ApiOkResponse({ schema: toOpenApi(ApiFriendshipSchema) })
   @ApiBadRequestResponse({ description: 'Unknown field or invalid status.' })
   @ApiForbiddenResponse({
-    description: 'Banned account, not yours to answer, or already answered.',
+    description: 'Not yours to answer, or already answered.',
   })
   @ApiNotFoundResponse({
     description: 'No such friendship, or not visible to you.',
@@ -135,7 +135,7 @@ export class ApiFriendshipsController {
       'Soft delete, by either party, whatever the state: it cancels a request you sent as well as it unfriends someone. Asking again later reopens the same friendship.',
   })
   @ApiNoContentResponse({ description: 'Friendship withdrawn.' })
-  @ApiForbiddenResponse({ description: 'Banned account, or not yours.' })
+  @ApiForbiddenResponse({ description: 'Not yours.' })
   @ApiNotFoundResponse({
     description: 'No such friendship, or not visible to you.',
   })

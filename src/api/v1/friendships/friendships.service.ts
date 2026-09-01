@@ -72,7 +72,7 @@ export class ApiFriendshipsService {
     caller: User,
   ): Promise<ApiFriendshipPageDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    assertLimitAllowed(query, ability);
+    assertLimitAllowed(query, caller);
 
     const where: Prisma.FriendshipWhereInput = {
       AND: [

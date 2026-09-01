@@ -59,7 +59,7 @@ export class ApiPollVoteController {
     description: 'Wrong poll type, or an option that is not the polls own.',
   })
   @ApiForbiddenResponse({
-    description: 'Banned account, or a poll the caller may not vote in.',
+    description: 'A poll the caller may not vote in.',
   })
   @ApiNotFoundResponse({ description: 'No such poll, or not visible to you.' })
   @ApiConflictResponse({

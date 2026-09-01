@@ -87,7 +87,7 @@ export class ApiMeAvatarController {
     description: 'No file, unsupported type, too large, or unreadable image.',
   })
   @ApiForbiddenResponse({
-    description: 'Banned account, or one the policy keeps out of its avatar.',
+    description: 'An account the policy keeps out of its avatar.',
   })
   uploadAvatar(
     @CurrentUser() viewer: User,
