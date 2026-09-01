@@ -36,14 +36,11 @@ import { MessagesModule } from './messages/messages.module';
 import { InvitationModule } from './invitation/invitation.module';
 
 /**
- * module is used by Nest to organise the application structure
- * efficiently. This is the root module, which serves as the
- * starting point for nest to build the application graph where relationships
- * and dependencies are mapped.
- * In our application, we have multiple modules each encapsulating
- * their own set of related capabilities.
- * imports is the list of imported modules that export the providers
- * required in the app.module.ts
+ * The root module: it wires every feature module together and registers the
+ * three guards that apply to the whole application. Their order is the
+ * registration order and it matters — AuthGuard identifies the caller,
+ * BanGuard cuts a banned one off, and only then does AuthorizationGuard ask
+ * the policy what the caller may do.
  */
 @Module({
   imports: [

@@ -1,4 +1,3 @@
-// src/api/v1/common/pagination.ts
 import { BadRequestException } from '@nestjs/common';
 import { subject } from '@casl/ability';
 import type { AppAbility } from 'src/casl/casl-prisma';
@@ -10,10 +9,10 @@ import {
 } from './schemas/api-pagination.schema';
 
 /**
- * Le palier se lit sur la politique, jamais sur un nom de role. Bannir un
- * moderateur n'est donne qu'a l'admin, bannir un compte ordinaire l'est aussi
- * au moderateur : ces deux questions suffisent a separer les trois paliers, et
- * l'ordre compte puisque l'admin repond oui aux deux.
+ * The tier is read from the policy, never from a role name. Banning a
+ * moderator is granted to admins only, banning a plain account is granted to
+ * moderators as well: those two questions are enough to tell the three tiers
+ * apart, and the order matters since an admin answers yes to both.
  */
 const A_MODERATOR = subject('User', { role: 'moderator' } as User);
 const A_PLAIN_USER = subject('User', { role: 'user' } as User);

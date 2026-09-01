@@ -24,8 +24,13 @@ import { ForbiddenError, subject } from '@casl/ability';
 import { accessibleBy } from '@casl/prisma';
 
 /**
- * a wrapper to define the three cases for the action on an
- * invitation, will be used a bit like a switch case
+ * The invitation row plus what the write actually did to it, which the row
+ * alone cannot tell: `created` covers both a new invitation and one revived
+ * from a rejected or removed one, `unchanged` a live invitation left as it
+ * stood. Only `created` notifies, so re-inviting someone who already has a
+ * live invitation stays silent. (`accepted` mirrors the same shape in
+ * FriendshipService, where a crossing request settles on the spot; an
+ * invitation is never accepted by the act of sending one.)
  */
 type InvitationOutcome = {
   invitation: Invitation & { invitee: User; inviter: User; room: Room };

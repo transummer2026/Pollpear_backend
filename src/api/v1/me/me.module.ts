@@ -1,4 +1,3 @@
-// src/api/v1/me/me.module.ts
 import { Module } from '@nestjs/common';
 import { ApiMeService } from './me.service';
 import { ApiMeController } from './me.controller';

@@ -15,11 +15,13 @@ import {
 } from '@nestjs/common';
 
 /**
- * Since this will be used for all the error exceptions in our code base,
- * we need to make this generic
- * argum,enthost is to have a link to the request object which calls
- * the excption. // for sneaky hackers
- * It says that it catches the Prisma exceptions
+ * Turns the Prisma errors every service can raise into the HTTP answer they
+ * mean: a unique constraint is a 409, a missing row a 404, a bad foreign key
+ * or an oversized value a 400. Registered globally, so no route has to catch
+ * them itself.
+ *
+ * An unmapped code is logged and answered as a plain 500: the Prisma message
+ * names tables and columns, and none of that belongs in a response body.
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {

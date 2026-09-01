@@ -131,7 +131,6 @@ export class UsersController {
     return this.friendshipService.createFriendRequest(viewer, id);
   }
 
-  // respond to friend request to update the result of the friendship
   @Patch(':id/friendship')
   @HttpCode(202)
   @CheckAbilities(['update', 'Friendship'])
@@ -154,7 +153,6 @@ export class UsersController {
     return this.friendshipService.removeFriendship(viewer, id);
   }
 
-  // add Guard for moderator from here on (green arrows on sequence diagram)
   @Post(':id/ban')
   @HttpCode(503)
   @CheckAbilities(['ban', 'User'])
@@ -169,7 +167,6 @@ export class UsersController {
     return this.banService.updateBan(+id);
   }
 
-  // add Guard for admin from here on (red arrows on sequence diagram)
   @Patch(':id')
   @CheckAbilities(['update', 'User'])
   update(

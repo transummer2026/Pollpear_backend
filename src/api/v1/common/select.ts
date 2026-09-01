@@ -1,4 +1,3 @@
-// src/api/v1/common/select.ts
 import { z } from 'zod';
 
 export function selectOf<T extends z.ZodObject<z.ZodRawShape>>(

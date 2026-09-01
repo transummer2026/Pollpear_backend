@@ -1,4 +1,3 @@
-// src/api/v1/friendships/friendships.service.ts
 import {
   BadRequestException,
   ConflictException,
@@ -134,13 +133,13 @@ export class ApiFriendshipsService {
     this.assertMayAnswer(friendship, ability);
 
     /**
-     * L'ecriture rejoue la regle `update` en base plutot que de recopier ses
-     * conditions: deux PATCH concurrents liraient tous les deux `pending` et
-     * passeraient tous les deux assertMayAnswer, et la ligne peut changer
-     * d'`addresseeId` entre les deux (settle rouvre une amitie retiree).
-     * Repasser par `accessibleBy` garde donc aussi l'identite du repondant,
-     * pas seulement le statut. `count === 1` designe l'ecriture qui a
-     * effectivement gagne la course.
+     * The write replays the `update` rule in the database instead of copying
+     * its conditions: two concurrent PATCH requests would both read `pending`
+     * and both pass assertMayAnswer, and the row can change `addresseeId`
+     * in between (settle reopens a withdrawn friendship). Going through
+     * `accessibleBy` therefore also holds the identity of the answering side,
+     * not just the status. `count === 1` marks the write that actually won
+     * the race.
      */
     const { count } = await this.prisma.friendship.updateMany({
       where: {
@@ -182,10 +181,10 @@ export class ApiFriendshipsService {
   }
 
   /**
-   * Une demande croisee vaut acceptation: si l'autre avait deja demande, on
-   * ne cree pas une seconde ligne, on repond a la sienne. La paire est rangee
-   * dans l'ordre canonique partage avec le backend, sans quoi deux demandes
-   * opposees echapperaient a la contrainte d'unicite.
+   * A crossing request counts as an acceptance: if the other side had already
+   * asked, no second row is created, theirs is answered instead. The pair is
+   * stored in the canonical order shared with the backend, without which two
+   * opposite requests would escape the uniqueness constraint.
    */
   private async settle(
     requesterId: number,
@@ -193,9 +192,9 @@ export class ApiFriendshipsService {
     ability: AppAbility,
   ): Promise<StoredFriendship> {
     const pair = canonicalPair(requesterId, addresseeId);
-    // Hors portee de lecture a dessein: la politique masque les lignes
-    // supprimees, or c'est precisement celle-la qu'il faut retrouver pour la
-    // reprendre. La paire contient l'appelant, donc rien d'etranger n'est lu.
+    // Deliberately outside the read scope: the policy hides deleted rows, yet
+    // that is exactly the one to find again in order to reopen it. The pair
+    // contains the caller, so nothing foreign is read.
     const existing = await this.prisma.friendship.findUnique({
       where: { userAId_userBId: pair },
       select: FRIENDSHIP_SELECT,
@@ -236,10 +235,10 @@ export class ApiFriendshipsService {
   }
 
   /**
-   * L'ecriture rejoue la regle `update` en base pour qu'une acceptation
-   * concurrente ne fasse pas partir la notification deux fois, et pour que la
-   * ligne reste celle que l'appelant a le droit de repondre: `settle` peut en
-   * reecrire l'`addresseeId` entre la lecture et l'ecriture.
+   * The write replays the `update` rule in the database so a concurrent
+   * acceptance cannot send the notification twice, and so the row stays one
+   * the caller is allowed to answer: `settle` can rewrite its `addresseeId`
+   * between the read and the write.
    */
   private async acceptOnTheirBehalf(
     existing: StoredFriendship,

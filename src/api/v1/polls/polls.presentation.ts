@@ -1,4 +1,3 @@
-// src/api/v1/polls/polls.presentation.ts
 import { subject } from '@casl/ability';
 import type { Poll, Prisma } from 'src/generated/prisma/client';
 import type { Viewer } from '../common/viewer';

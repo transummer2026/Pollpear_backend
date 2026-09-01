@@ -9,7 +9,12 @@ import { AppAbility } from './casl-prisma';
 import { IS_PUBLIC_KEY } from 'src/common/decorators/public.decorator';
 
 /**
- * PolicyHnadlers is an array of handler assigned to
+ * Runs the policy handlers a route declares through CheckPolicies (usually via
+ * CheckAbilities) against the ability built for the caller: the request goes
+ * through only if every handler agrees. Registered globally behind AuthGuard
+ * and BanGuard, so it always sees an authenticated user; a route marked
+ * Public() returns before any policy is looked up, and a route that declares
+ * no handler is let through.
  */
 @Injectable()
 export class AuthorizationGuard implements CanActivate {
@@ -21,7 +26,7 @@ export class AuthorizationGuard implements CanActivate {
   private _getUser(context: ExecutionContext): User {
     const request = context
       .switchToHttp()
-      .getRequest<Request & { user: User }>(); // set by your auth guard / strategy
+      .getRequest<Request & { user: User }>(); // set by AuthGuard, which runs first
     return request.user;
   }
 

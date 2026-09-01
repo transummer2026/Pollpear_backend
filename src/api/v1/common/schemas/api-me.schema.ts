@@ -1,4 +1,3 @@
-// src/api/v1/common/schemas/api-me.schema.ts
 import { z } from 'zod';
 import { UserSchema as UserModel } from 'Pollpear_shared/src/prisma/schemas/models/User.schema';
 import {

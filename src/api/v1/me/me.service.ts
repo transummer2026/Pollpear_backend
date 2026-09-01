@@ -1,4 +1,3 @@
-// src/api/v1/me/me.service.ts
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { ForbiddenError, subject } from '@casl/ability';
 import { PrismaService } from 'src/prisma/prisma.service';

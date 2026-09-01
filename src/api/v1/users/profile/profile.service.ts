@@ -1,4 +1,3 @@
-// src/api/v1/users/profile/profile.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { accessibleBy } from 'src/casl/casl-prisma';

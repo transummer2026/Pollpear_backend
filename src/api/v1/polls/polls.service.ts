@@ -1,4 +1,3 @@
-// src/api/v1/polls/polls.service.ts
 import {
   ConflictException,
   ForbiddenException,

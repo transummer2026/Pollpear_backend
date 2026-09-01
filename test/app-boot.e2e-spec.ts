@@ -5,15 +5,15 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
 /**
- * Le seul test qui monte l'application entiere. Il ne verifie pas ce que
- * repond une route mais que le demarrage tient : AppModule s'assemble, vault
- * repond, et les trois guards globaux sont bien en place.
+ * The only test that boots the whole application. It does not check what a
+ * route answers but that startup holds: AppModule assembles, vault responds,
+ * and the three global guards are in place.
  *
- * /health est choisie parce qu'elle est la seule route publique : un 200
- * prouve que l'application sert, sans mettre en jeu ni cle ni politique. La
- * seconde assertion est celle qui compte vraiment - une application qui
- * demarre en ayant perdu ses guards repondrait 200 partout, et le premier
- * test ne le verrait pas.
+ * /health is used because it is the only public route: a 200 proves the
+ * application serves, without involving a key or the policy. The second
+ * assertion is the one that really counts — an application that starts having
+ * lost its guards would answer 200 everywhere, and the first test would not
+ * notice.
  */
 describe('Application boot (e2e)', () => {
   let app: INestApplication<App>;

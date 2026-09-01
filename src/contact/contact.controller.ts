@@ -2,14 +2,12 @@ import { Controller, Post, HttpCode } from '@nestjs/common';
 import { ContactService } from './contact.service';
 
 /**
- * ContactController(ContactService* injectedService)
- * : contactService(injectedService) {}
- * since we are not using a formal DTO class yet, we get the incoming payload
- * type as any so we can still pass down the received data inside the db
+ * Placeholder for the contact form: the route is declared so the path is
+ * reserved and documented, and answers 503 until the service is written.
  */
 @Controller('contact')
 export class ContactController {
-  constructor(private readonly contactService: ContactService) {} // equivalent to ContactService* const contactService;
+  constructor(private readonly contactService: ContactService) {}
 
   @Post()
   @HttpCode(503)

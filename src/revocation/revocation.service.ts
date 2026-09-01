@@ -1,4 +1,3 @@
-// src/revocation/revocation.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { ApiKeyService } from 'src/api-key/api-key.service';

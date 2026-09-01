@@ -1,4 +1,3 @@
-// src/api/v1/users/users.service.ts
 import { Injectable } from '@nestjs/common';
 import { CaslAbilityFactory } from 'src/casl/casl-ability.factory';
 import { accessibleBy } from 'src/casl/casl-prisma';

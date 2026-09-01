@@ -1,4 +1,3 @@
-// src/api/v1/users/profile/profile.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { IdParam } from '../../common/params';
 import { ApiGuardDocs, ApiIdParamDocs } from '../../common/api-docs';

@@ -1,4 +1,3 @@
-// src/api/v1/rooms/rooms.service.ts
 import {
   ConflictException,
   ForbiddenException,
@@ -50,9 +49,9 @@ export const LIST_SELECT = {
 } satisfies Prisma.RoomSelect;
 
 /**
- * Le compte de sondages passe par la politique plutot que par un
- * `deletedAt: null`: une room publique heberge des sondages prives que seuls
- * ses membres peuvent lire, et un compte brut les revelerait par leur nombre.
+ * The poll count goes through the policy rather than a plain `deletedAt:
+ * null`: a public room hosts private polls only its members may read, and a
+ * raw count would give them away by their number.
  */
 export const roomWithCounts = (ability: AppAbility) =>
   ({
@@ -197,10 +196,9 @@ export class ApiRoomsService {
   }
 
   /**
-   * La politique restreint certaines regles a des champs precis, si bien
-   * qu'une question posee sans champ repondrait oui a un appelant qui n'a le
-   * droit d'ecrire que `status`. Chaque champ du corps est donc soumis
-   * separement.
+   * The policy narrows some rules down to specific fields, so a question asked
+   * without naming a field would answer yes to a caller who may only write
+   * `status`. Every field of the body is therefore submitted on its own.
    */
   private assertMayEdit(
     room: DetailedRoom,

@@ -1,12 +1,11 @@
-// src/api/v1/users/users.visibility.ts
 import { publicMedia } from '../common/media';
 import type { ApiUserStateDTO } from '../common/schemas/api-users.schema';
 
 /**
- * La colonne lue pour decider l'etat, jamais renvoyee telle quelle. Le filtre
- * porte sur le seul blocage que l'appelant a lui-meme pose : la politique
- * ecarte deja de la liste les comptes qui l'ont bloque, lui, et il n'a donc
- * aucun moyen d'en deduire quoi que ce soit.
+ * The column read to decide the state, never returned as is. The filter only
+ * covers the block the caller placed themselves: the policy already keeps the
+ * accounts that blocked them out of the list, so there is nothing they can
+ * infer from it.
  */
 export const VIEWER_SELECT = (viewerId: number) => ({
   blocksReceived: {
@@ -21,9 +20,9 @@ type StateColumns = {
 };
 
 /**
- * Un seul etat reste possible. Supprime et prive ne sont pas des etats a
- * signaler : accessibleBy les ecarte de la reponse, donc un compte dans cette
- * situation n'arrive jamais jusqu'ici.
+ * Only one state remains possible. Deleted and private are not states to
+ * report: accessibleBy keeps them out of the response, so an account in that
+ * situation never reaches this point.
  */
 export function stateOf(row: StateColumns): ApiUserStateDTO | undefined {
   return row.blocksReceived.length > 0 ? 'blocked' : undefined;

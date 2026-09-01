@@ -1,4 +1,3 @@
-// src/api/v1/rooms/rooms.presentation.ts
 import type { Prisma } from 'src/generated/prisma/client';
 import type { ApiRoomQueryDTO } from '../common/schemas/api-rooms.schema';
 

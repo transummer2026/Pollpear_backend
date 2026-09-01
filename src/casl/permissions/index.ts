@@ -1,4 +1,3 @@
-// permissions/index.ts
 import { AbilityBuilder } from '@casl/ability';
 import { AppAbility } from '../casl-prisma';
 import { AuthorizationUser } from './role';
