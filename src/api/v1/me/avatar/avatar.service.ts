@@ -1,4 +1,3 @@
-// src/api/v1/me/avatar/avatar.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ForbiddenError, subject } from '@casl/ability';
 import { AvatarService } from 'src/file-upload/avatar.service';

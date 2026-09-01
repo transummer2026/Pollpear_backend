@@ -301,7 +301,6 @@ export class PollsService {
     );
   }
 
-  // differences with me many polls.
   async findUsersManyPolls(viewer: User, targetId: number) {
     this.logger.debug('entered the findUsersManyPolls');
     const ability = this.abilityFactory.createForUser(viewer);

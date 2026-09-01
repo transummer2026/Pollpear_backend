@@ -108,7 +108,6 @@ export class PollsController {
     return this.pollsService.reportOption(+id, +optionId);
   }
 
-  // moderator Guard green
   @Delete(':id/options/:optionId')
   @CheckAbilities(['delete', 'PollOption'])
   @HttpCode(503)
@@ -119,7 +118,6 @@ export class PollsController {
     return this.pollsService.removeOption(+id, +optionId);
   }
 
-  //routes will dissapear because later we will use wbesockets
   @Get(':id/vote:id')
   @CheckAbilities(['read', 'Vote'])
   findOneVote(

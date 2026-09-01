@@ -39,17 +39,15 @@ function setupApiDocs(
 import { VaultService, type RateLimitSecrets } from './vault/vault.service';
 
 /**
- * NestFactory exposes static methods that allow creating an application
- * instance. The create() method returns the app object, which fulfills
- * the INestApplication interface (provides a set of methods used later).
- * The Express api is used in this case. The methods of app will have
- * methods exclusively available for Express.
- * TODO: create the type submodule git when making the interfaces with front
- * TODO: ?filter[where][name]=John&filter[where][age]=30
- * ?item[]=1&item[]=2
+ * Builds the Express-backed application and starts it: cookie parsing, the
+ * global exception filters, the websocket adapter and the OpenAPI reference,
+ * with the public url and the listening port both read from vault.
+ *
+ * The extended query parser is what lets clients send bracket syntax
+ * (`?filter[where][name]=John`, `?item[]=1&item[]=2`); the default parser
+ * would hand those through as flat string keys.
  */
 async function bootstrap() {
-  // Create the HTTP (Express) application so we can use middleware and CORS
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('query parser', 'extended');
   app.use(cookieParser());

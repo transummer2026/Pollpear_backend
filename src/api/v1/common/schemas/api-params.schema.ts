@@ -1,4 +1,3 @@
-// src/api/v1/common/schemas/api-params.schema.ts
 import { z } from 'zod';
 
 /**

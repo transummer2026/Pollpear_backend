@@ -1,4 +1,3 @@
-// src/api/v1/friendships/friendships.presentation.ts
 import type { Prisma } from 'src/generated/prisma/client';
 import type { ApiUserSummaryDTO } from '../common/schemas/api-users.schema';
 import type { ApiFriendshipQueryDTO } from '../common/schemas/api-friendships.schema';
@@ -15,9 +14,9 @@ export function matching(
 }
 
 /**
- * La ligne range la paire dans un ordre canonique, qui ne porte aucun sens.
- * `addresseeId` designe celui qui doit repondre; l'autre est donc celui qui a
- * demande. C'est ce couple de roles que le payload expose.
+ * The row stores the pair in a canonical order, which carries no meaning of
+ * its own. `addresseeId` names the side that has to answer; the other side is
+ * therefore the one who asked. That pair of roles is what the payload exposes.
  */
 export function parties<
   Row extends {

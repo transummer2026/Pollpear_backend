@@ -183,8 +183,8 @@ describe('Public user routes (e2e)', () => {
     });
 
     /**
-     * Le bannissement n'est pas une affaire de visibilite: la politique n'en
-     * dit rien, donc aucune requete ne le filtre, pour aucun role.
+     * A ban is not a visibility matter: the policy says nothing about it, so
+     * no query filters on it, for any role.
      */
     it.each([1, 2, 3])('never filters bans, whoever asks (user %i)', (id) => {
       answerList([], 0);
@@ -330,9 +330,9 @@ describe('Public user routes (e2e)', () => {
     });
 
     /**
-     * La politique n'ouvre les comptes supprimes a personne, admin compris:
-     * la requete les ecarte donc pour tout le monde, et il n'existe aucun
-     * appelant a qui un profil supprime puisse etre decrit.
+     * The policy opens deleted accounts to nobody, admins included: the query
+     * therefore excludes them for everyone, and there is no caller a deleted
+     * profile could be described to.
      */
     it('keeps a deleted account out of reach, admin included', () => {
       findFirst.mockResolvedValue(null);

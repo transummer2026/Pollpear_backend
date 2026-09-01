@@ -63,9 +63,9 @@ describe('ApiPollVoteService', () => {
   const transaction = jest.fn((run: (tx: unknown) => unknown) => run(client));
 
   /**
-   * `$transaction` dans sa forme interactive : il rend au callback le meme
-   * client, si bien qu'une ecriture faite dans la transaction se retrouve sur
-   * les memes mocks que celles faites en dehors.
+   * `$transaction` in its interactive form: it hands the callback the very
+   * same client, so a write made inside the transaction lands on the same
+   * mocks as one made outside it.
    */
   const client: Record<string, unknown> = {
     poll: {
@@ -404,7 +404,7 @@ describe('ApiPollVoteService', () => {
       expect(where.AND[1]).toMatchObject({ createdById: 7, deletedAt: null });
     });
   });
-  describe('une room qui ne prend plus de votes', () => {
+  describe('a room that no longer takes votes', () => {
     const membership = [{ userId: 7, deletedAt: null }];
     const inAClosedRoom = {
       ...openPoll,

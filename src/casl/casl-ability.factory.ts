@@ -7,13 +7,11 @@ import { definePermissionsArray } from './permissions';
 import { User } from 'src/generated/prisma/client';
 
 /**
- * CASL is a isomorphic authorization library.
- * Admins can manage (create/read/update/delete)
- * Users have read-only access to everything
- * Users can update their Poll Poll.createdById=== userId
- * Polls that are published cannot be removed
- * Action has been added to schema.prisma.ts with manage, update, delete, create
- * all is a special word that represents any subject
+ * Builds the CASL ability a request is authorized against, from the caller's
+ * id and role alone. The rules themselves live in permissions/, one module per
+ * subject, and are all replayed here on the same builder: this factory holds
+ * no policy of its own, so a rule that changes there changes everywhere,
+ * including the prisma clauses `accessibleBy` derives from the same ability.
  */
 @Injectable()
 export class CaslAbilityFactory {

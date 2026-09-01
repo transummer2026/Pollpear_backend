@@ -13,19 +13,20 @@ import { UserRole } from '../src/generated/prisma/client';
  * private account is genuinely absent, and that an account which blocked the
  * caller genuinely disappears from their list.
  *
- * Ce qui est eprouve ici est la clause que produit accessibleBy, pas une
- * copie: si la politique change, ce fichier change avec elle.
+ * What is exercised here is the clause accessibleBy produces, not a copy: if
+ * the policy changes, this file changes with it.
  *
- * La connexion vient de vault, comme pour le seed, donc il n'y a aucun fichier
- * d'environnement a preparer. En contrepartie la suite a besoin de la stack et
- * de l'entrypoint qui fournit les identifiants approle. Elle parle a une vraie
- * base, sous le nom d'hote du reseau docker, et tourne donc dans le conteneur:
+ * The connection comes from vault, as it does for the seed, so there is no
+ * environment file to prepare. In exchange the suite needs the stack and the
+ * entrypoint that supplies the approle credentials. It talks to a real
+ * database, under the docker network hostname, and therefore runs inside the
+ * container:
  *
  *   docker compose -f ./Pollpear_infra/compose.yml \
  *     -f ./Pollpear_infra/compose.dev.yml run --rm backend npm run test:e2e
  *
- * Lancee sans ca, elle echoue en le disant. Elle skippait en silence avant, ce
- * qui l'a laissee ne jamais tourner pendant des semaines.
+ * Run without that, it fails and says so. It used to skip silently, which
+ * left it never running for weeks.
  *
  * Every row it writes is prefixed, and dropped in afterAll: pointing this at
  * a shared database costs it a handful of rows for the length of a run.
@@ -142,9 +143,9 @@ describe('The visibility filter, against postgres', () => {
   );
 
   /**
-   * Un compte qui a bloque l'appelant sort de sa liste, quel que soit son
-   * role: c'est la politique qui le dit, et cette assertion prouve que la
-   * traduction en SQL le fait vraiment.
+   * An account that blocked the caller drops out of their list, whatever the
+   * caller's role: the policy says so, and this assertion proves the
+   * translation into SQL really does it.
    */
   it.each(EVERY_ROLE)(
     'hides an account that blocked the %s caller',
@@ -154,9 +155,8 @@ describe('The visibility filter, against postgres', () => {
   );
 
   /**
-   * Le bannissement n'est pas une affaire de visibilite: la politique n'en
-   * parle pas, donc un banni reste liste. Ce qui le concerne vit sur sa
-   * propre route.
+   * A ban is not a visibility matter: the policy says nothing about it, so a
+   * banned account stays listed. What concerns it lives on its own route.
    */
   it.each(EVERY_ROLE)('still lists a banned account for a %s', async (role) => {
     expect(await listedFor(role)).toContain('banned');

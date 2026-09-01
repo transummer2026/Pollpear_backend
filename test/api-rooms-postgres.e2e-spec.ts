@@ -9,10 +9,9 @@ import { VaultService } from '../src/vault/vault.service';
 const PREFIX = `ir${Date.now().toString(36)}_`;
 
 /**
- * Ce que les mocks ne peuvent pas voir: la forme que postgres accepte
- * reellement. Le membre cree dans la meme ecriture que la room, et le compte
- * de sondages filtre par la politique, ne sont pas des formes que jest
- * valide - seul le moteur de requetes le fait.
+ * What mocks cannot see: the shape postgres actually accepts. The member
+ * created in the same write as the room, and the poll count filtered by the
+ * policy, are not shapes jest validates — only the query engine does.
  */
 describe('The room routes, against postgres', () => {
   let service: ApiRoomsService;

@@ -1,4 +1,3 @@
-// src/api/v1/me/me.controller.ts
 import { Controller, Delete, Get, HttpCode, Patch } from '@nestjs/common';
 import {
   ApiBadRequestResponse,

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 /**
- * Une echeance ne se pose que devant soi. Partagee entre les ressources qui
- * en portent une, pour qu'un sondage et une room refusent la meme chose.
+ * A deadline can only be set ahead of now. Shared by every resource that
+ * carries one, so a poll and a room refuse the same thing.
  */
 export const endsInTheFuture = () =>
   z.coerce.date().refine((date) => date.getTime() > Date.now(), {

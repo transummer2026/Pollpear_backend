@@ -1,4 +1,3 @@
-// src/api/v1/common/viewer.ts
 import type { User } from 'src/generated/prisma/client';
 import type { AppAbility } from 'src/casl/casl-prisma';
 

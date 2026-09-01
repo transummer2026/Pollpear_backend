@@ -10,10 +10,10 @@ import { VaultService } from '../src/vault/vault.service';
 const PREFIX = `if${Date.now().toString(36)}_`;
 
 /**
- * Ce que les mocks ne peuvent pas etablir: que la contrainte d'unicite sur la
- * paire tienne vraiment, et qu'une ligne retiree soit bien reprise plutot que
- * doublee. Les notifications sont remplacees par des doublures: ce spec parle
- * des lignes d'amitie, pas de ce qui en decoule.
+ * What mocks cannot establish: that the uniqueness constraint on the pair
+ * really holds, and that a withdrawn row is reopened rather than duplicated.
+ * Notifications are replaced by doubles: this spec is about friendship rows,
+ * not about what follows from them.
  */
 describe('The friendship routes, against postgres', () => {
   let service: ApiFriendshipsService;

@@ -1,4 +1,3 @@
-// src/api/v1/users/users.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { User } from 'src/generated/prisma/client';

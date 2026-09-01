@@ -1,4 +1,3 @@
-// src/api/v1/common/api-docs.ts
 import { applyDecorators } from '@nestjs/common';
 import { z } from 'zod';
 import { toOpenApi } from './openapi';

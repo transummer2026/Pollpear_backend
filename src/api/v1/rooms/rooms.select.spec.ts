@@ -36,17 +36,17 @@ describe('roomWithCounts', () => {
 });
 
 /**
- * La reconciliation du statut lit l'echeance sur les lignes deja chargees:
- * retirer `endsAt` d'un des deux selects la rendrait muette sans casser la
- * compilation, et une room echue continuerait d'etre servie comme active.
+ * Status reconciliation reads the deadline off the rows already loaded:
+ * dropping `endsAt` from either select would silence it without breaking
+ * compilation, and an expired room would keep being served as active.
  */
-describe('les colonnes exigees par syncRoomStatuses', () => {
+describe('the columns syncRoomStatuses requires', () => {
   const ability = new CaslAbilityFactory().createForUser(owner);
 
   it.each([
-    ['la liste', () => LIST_SELECT as Record<string, unknown>],
-    ['le detail', () => roomWithCounts(ability) as Record<string, unknown>],
-  ])('%s les porte toutes', (unused, select) => {
+    ['the list', () => LIST_SELECT as Record<string, unknown>],
+    ['the detail', () => roomWithCounts(ability) as Record<string, unknown>],
+  ])('%s carries them all', (unused, select) => {
     expect(Object.keys(select())).toEqual(
       expect.arrayContaining(['id', 'status', 'endsAt']),
     );

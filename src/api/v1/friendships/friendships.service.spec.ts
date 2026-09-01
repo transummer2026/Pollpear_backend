@@ -20,7 +20,7 @@ const summaries = {
   userB: { id: 9, username: 'bob' },
 };
 
-/** canonicalPair(4, 9) range anna en A et bob en B. */
+/** canonicalPair(4, 9) puts anna in A and bob in B. */
 const row = (over: Record<string, unknown> = {}) => ({
   id: 1,
   status: 'pending',
@@ -338,11 +338,11 @@ describe('ApiFriendshipsService', () => {
     });
 
     /**
-     * TOCTOU: readable() et assertMayAnswer lisent tous deux `pending`, mais
-     * un PATCH concurrent peut avoir deja tranche au moment de l'ecriture.
-     * `count === 0` est la seule facon de le savoir, et c'est ce qui doit
-     * couper les notifications — un `update()` sans garde les enverrait
-     * quand meme, pour un statut qui n'est plus celui stocke.
+     * TOCTOU: readable() and assertMayAnswer both read `pending`, but a
+     * concurrent PATCH may already have settled the row by the time the write
+     * runs. `count === 0` is the only way to know, and it is what has to cut
+     * the notifications — an unguarded `update()` would send them anyway, for
+     * a status that is no longer the stored one.
      */
     it('does not notify when a concurrent answer already resolved the request', async () => {
       findFirst.mockResolvedValueOnce(forAnna);

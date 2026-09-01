@@ -61,9 +61,9 @@ describe('ApiUsersService', () => {
   });
 
   /**
-   * La portee n'est pas ecrite ici, elle est demandee a la politique: ce test
-   * compare la clause envoyee a prisma a celle que produit accessibleBy, donc
-   * une regle qui bouge dans casl bouge ici sans que personne edite ce fichier.
+   * The scope is not spelled out here, it is asked of the policy: this test
+   * compares the clause sent to prisma with the one accessibleBy produces, so
+   * a rule that moves in casl moves here without anyone editing this file.
    */
   it('scopes the list to what the User policy allows', async () => {
     transaction.mockResolvedValue([[], 0]);

@@ -1,4 +1,3 @@
-// prisma/seed/seed.ts
 import { faker } from '@faker-js/faker';
 import { hash, argon2id } from 'argon2';
 import dotenv from 'dotenv';

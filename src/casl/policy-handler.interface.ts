@@ -1,11 +1,11 @@
 import { AppAbility } from './casl-prisma';
 
-//any object that satisfies the interface shape (one handle function that takes an abilit and sends baclk bool)
+/** A policy written as a class: anything exposing a handle() taking the ability. */
 interface IPolicyHandler {
   handle(ability: AppAbility): boolean;
 }
 
-//this maps out to (ability: AppAbility) => ability.can(read, 'article')
-type PolicyHandlerCallback = (ability: AppAbility) => boolean; //fallback function
+/** The same policy written inline, e.g. (ability) => ability.can('read', 'Poll'). */
+type PolicyHandlerCallback = (ability: AppAbility) => boolean;
 
 export type PolicyHandler = IPolicyHandler | PolicyHandlerCallback;

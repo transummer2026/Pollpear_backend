@@ -104,9 +104,6 @@ export class AuthController {
     return this.authService.resendVerification(body);
   }
 
-  // extracts a value from the URL route parameter named provider
-  // if it was oauth/google, provider = google
-  //provider: string receives
   @Public()
   @Get('oauth/pending')
   pending(@Query('token') token: string) {

@@ -1,4 +1,3 @@
-// src/api/v1/common/schemas/api-pagination.schema.ts
 import { z } from 'zod';
 
 export const DEFAULT_PAGE = 1;

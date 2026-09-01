@@ -11,8 +11,12 @@ import { VISIBLE_BY_BAN } from '../common/decorators/ban.decorator';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 
 /**
- * in the guard you spcify what capacity it has, which is why you retype the
- * request
+ * Cuts a banned account off from the whole API, whatever the route's own
+ * rights. Runs after AuthGuard, which is what puts `userId` on the request.
+ *
+ * Two ways past it: Public() routes, which have no caller to check, and
+ * VisibleByBan() routes — the ones a banned user must still reach, such as
+ * reading their own ban.
  */
 @Injectable()
 export class BanGuard implements CanActivate {
@@ -51,4 +55,3 @@ export class BanGuard implements CanActivate {
     return true;
   }
 }
-//TODO: potentially change the code here with the optimisation inside the auth guard that makes a user available

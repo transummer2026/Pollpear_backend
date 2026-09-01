@@ -1,4 +1,3 @@
-// src/api/v1/me/avatar/avatar.controller.ts
 import {
   Controller,
   HttpCode,

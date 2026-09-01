@@ -1,4 +1,3 @@
-// src/api/v1/common/openapi.ts
 import { z } from 'zod';
 import {
   DocumentBuilder,

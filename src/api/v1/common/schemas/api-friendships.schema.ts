@@ -1,4 +1,3 @@
-// src/api/v1/common/schemas/api-friendships.schema.ts
 import { z } from 'zod';
 import { FriendshipSchema as FriendshipModel } from 'Pollpear_shared/src/prisma/schemas/models/Friendship.schema';
 import { FriendshipStatus } from 'src/generated/prisma/enums';
@@ -26,9 +25,9 @@ export const ApiFriendshipCreateSchema = z.strictObject({
 });
 
 /**
- * Repondre, c'est quitter `pending`. Les issues se deduisent donc de l'enum
- * plutot que d'etre recopiees: une valeur ajoutee au modele se retrouve
- * offerte, ou fait rougir le test qui les gele — jamais oubliee en silence.
+ * Answering means leaving `pending`, so the outcomes are derived from the enum
+ * rather than copied: a value added to the model is either offered too, or
+ * turns the test that freezes them red — never silently forgotten.
  */
 const ANSWERS = Object.values(FriendshipStatus).filter(
   (status) => status !== FriendshipStatus.pending,

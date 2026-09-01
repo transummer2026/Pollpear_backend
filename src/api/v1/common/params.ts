@@ -1,4 +1,3 @@
-// src/api/v1/common/params.ts
 import { Body, Param, Query } from '@nestjs/common';
 import type { ZodType } from 'zod';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';

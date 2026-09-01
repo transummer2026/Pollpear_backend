@@ -1,4 +1,3 @@
-// src/api/v1/common/api-v1.ts
 import type { ApiIndexDTO } from './schemas/api-index.schema';
 
 export const apiV1: ApiIndexDTO = {
