@@ -1,4 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
+import { subject } from '@casl/ability';
+import type { AppAbility } from 'src/casl/casl-prisma';
 import type { User } from 'src/generated/prisma/client';
 import {
   LIMIT_BY_ROLE,
@@ -7,21 +9,29 @@ import {
 } from './schemas/api-pagination.schema';
 
 /**
- * LIMIT_BY_ROLE is keyed by role, so the role is read straight off the caller.
- * Deriving it from the policy instead would mean picking some role-graded
- * permission to probe, which couples the page size to whichever rule happens
- * to separate the tiers today.
+ * The tier is read from the policy, never from a role name. Banning a
+ * moderator is granted to admins only, banning a plain account is granted to
+ * moderators as well: those two questions are enough to tell the three tiers
+ * apart, and the order matters since an admin answers yes to both.
  */
-export function maxLimitFor(caller: User): number {
-  return LIMIT_BY_ROLE[caller.role];
+const A_MODERATOR = subject('User', { role: 'moderator' } as User);
+const A_PLAIN_USER = subject('User', { role: 'user' } as User);
+
+export function maxLimitFor(ability: AppAbility): number {
+  if (ability.can('ban', A_MODERATOR)) return LIMIT_BY_ROLE.admin;
+  if (ability.can('ban', A_PLAIN_USER)) return LIMIT_BY_ROLE.moderator;
+  return LIMIT_BY_ROLE.user;
 }
 
 /**
  * Refuses a page larger than the caller's role allows, rather than trimming
  * it: a trimmed page looks like the end of the list to whoever asked.
  */
-export function assertLimitAllowed(query: ApiPageQueryDTO, caller: User): void {
-  const max = maxLimitFor(caller);
+export function assertLimitAllowed(
+  query: ApiPageQueryDTO,
+  ability: AppAbility,
+): void {
+  const max = maxLimitFor(ability);
   if (query.limit > max) {
     throw new BadRequestException(`limit is capped at ${max} for this key`);
   }

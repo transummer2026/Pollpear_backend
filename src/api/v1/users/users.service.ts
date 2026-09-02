@@ -43,7 +43,7 @@ export class ApiUsersService {
     caller: User,
   ): Promise<ApiUserPageDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    assertLimitAllowed(query, caller);
+    assertLimitAllowed(query, ability);
 
     const viewer = viewerOf(caller, ability);
     const where: Prisma.UserWhereInput = accessibleBy(ability, 'read').ofType(

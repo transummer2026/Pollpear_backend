@@ -81,6 +81,21 @@ export class PollsService {
     return this.deletePoll(id);
   }
 
+  /** Placeholder, not implemented. Will report a poll for moderation. */
+  report(id: number) {
+    return `report Poll #${id} works`;
+  }
+
+  /** Placeholder, not implemented. Will report a single option. */
+  reportOption(id: number, optionId: number) {
+    return `report option #${optionId} for Poll #${id} works`;
+  }
+
+  /** Placeholder, not implemented. Will remove a single option from a poll. */
+  removeOption(id: number, optionId: number) {
+    return `remove option #${optionId} for Poll #${id} works`;
+  }
+
   /**
    * Inserts a new poll. It carries the caller's chosen `visibility` (the
    * shared `PollCreateSchema` defaults it to `'public'`) and always starts

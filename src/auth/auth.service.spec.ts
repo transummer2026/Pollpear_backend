@@ -6,6 +6,7 @@ import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
+import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { WebsocketEmitter } from 'src/websocket/websocket.emitter';
 import { RevocationService } from 'src/revocation/revocation.service';
@@ -65,6 +66,9 @@ describe('AuthService', () => {
     verifyEmail: markEmailVerified,
   } as unknown as UsersService;
 
+  const findByBanStatus = jest.fn();
+  const ban = { findByBanStatus } as unknown as BanService;
+
   const setRedisCache = jest.fn();
   const setPasswordResetToken = jest.fn();
   const getPasswordResetToken = jest.fn();
@@ -105,6 +109,7 @@ describe('AuthService', () => {
   const service = new AuthService(
     prisma,
     users,
+    ban,
     redis,
     mail,
     vault,
@@ -126,6 +131,7 @@ describe('AuthService', () => {
           new AuthService(
             prisma,
             users,
+            ban,
             redis,
             mail,
             emptyVault,
@@ -162,11 +168,23 @@ describe('AuthService', () => {
         'secret-password',
         expect.objectContaining({ secret: Buffer.from('test-pepper') }),
       );
+      expect(findByBanStatus).not.toHaveBeenCalled();
+    });
+
+    it('rejects a banned user even with valid credentials', async () => {
+      findByEmail.mockResolvedValue(makeUser());
+      verifyMock.mockResolvedValue(true);
+      findByBanStatus.mockResolvedValue({ id: 1 });
+
+      await expect(
+        service.login(body, makeResponse().response),
+      ).rejects.toThrow('User is banned.');
     });
 
     it('rejects a soft-deleted user', async () => {
       findByEmail.mockResolvedValue(makeUser({ deletedAt: new Date() }));
       verifyMock.mockResolvedValue(true);
+      findByBanStatus.mockResolvedValue(null);
 
       await expect(
         service.login(body, makeResponse().response),
@@ -176,6 +194,7 @@ describe('AuthService', () => {
     it('rejects an unverified email without opening a session', async () => {
       findByEmail.mockResolvedValue(makeUser({ isEmailVerified: false }));
       verifyMock.mockResolvedValue(true);
+      findByBanStatus.mockResolvedValue(null);
 
       await expect(
         service.login(body, makeResponse().response),
@@ -186,6 +205,7 @@ describe('AuthService', () => {
     it('opens a redis session and sets the sid cookie on success', async () => {
       findByEmail.mockResolvedValue(makeUser());
       verifyMock.mockResolvedValue(true);
+      findByBanStatus.mockResolvedValue(null);
       generateSessionId.mockReturnValue('session-1');
       const { response, cookie } = makeResponse();
 

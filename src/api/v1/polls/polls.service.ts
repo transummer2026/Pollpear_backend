@@ -136,7 +136,7 @@ export class ApiPollsService {
     caller: User,
   ): Promise<ApiPollPageDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    assertLimitAllowed(query, caller);
+    assertLimitAllowed(query, ability);
 
     const where: Prisma.PollWhereInput = {
       AND: [accessibleBy(ability, 'read').ofType('Poll'), matching(query)],

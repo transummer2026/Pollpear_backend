@@ -10,6 +10,7 @@ import { OauthProvider, type User } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
+import { BanService } from 'src/ban/ban.service';
 import { VaultService } from 'src/vault/vault.service';
 import { AuthService } from './auth.service';
 import { type OauthProfile } from './oauth-profile';
@@ -92,6 +93,9 @@ describe('OauthService', () => {
 
   const users = {} as unknown as UsersService;
 
+  const findByBanStatus = jest.fn();
+  const ban = { findByBanStatus } as unknown as BanService;
+
   const setOauthPendingProfile = jest.fn();
   const getOauthPendingProfile = jest.fn();
   const deleteOauthPendingProfile = jest.fn();
@@ -108,7 +112,7 @@ describe('OauthService', () => {
     app: { frontend_url: 'https://front.test' },
   } as unknown as VaultService;
 
-  const service = new OauthService(prisma, users, redis, auth, vault);
+  const service = new OauthService(prisma, users, ban, redis, auth, vault);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -116,6 +120,7 @@ describe('OauthService', () => {
     it('logs in the user attached to an existing oauth link', async () => {
       const user = makeUser();
       oauthFindUnique.mockResolvedValue({ user });
+      findByBanStatus.mockResolvedValue(null);
 
       const result = await service.handleLogin(makeProfile());
 
@@ -131,6 +136,7 @@ describe('OauthService', () => {
       const user = makeUser();
       oauthFindUnique.mockResolvedValue(null);
       userFindUnique.mockResolvedValue(user);
+      findByBanStatus.mockResolvedValue(null);
 
       const result = await service.handleLogin(
         makeProfile({ emailVerified: true }),
@@ -180,6 +186,16 @@ describe('OauthService', () => {
 
       await expect(service.handleLogin(makeProfile())).rejects.toThrow(
         'User is deleted.',
+      );
+      expect(oauthUpsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects a banned account', async () => {
+      oauthFindUnique.mockResolvedValue({ user: makeUser() });
+      findByBanStatus.mockResolvedValue({ id: 3 });
+
+      await expect(service.handleLogin(makeProfile())).rejects.toThrow(
+        'User is banned.',
       );
       expect(oauthUpsert).not.toHaveBeenCalled();
     });

@@ -27,6 +27,7 @@ import {
 import { CheckAbilities } from 'src/common/decorators/check-ability.decorator';
 import { FriendshipService } from 'src/friendship/friendship.service';
 import { BlockService } from 'src/block/block.service';
+import { BanService } from 'src/ban/ban.service';
 
 @Controller('users')
 export class UsersController {
@@ -34,11 +35,19 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly friendshipService: FriendshipService,
     private readonly blockService: BlockService,
+    private readonly banService: BanService,
   ) {}
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: User) {
     return this.usersService.findOne(id, viewer);
+  }
+
+  @Post(':id/report')
+  @HttpCode(503)
+  @CheckAbilities(['report', 'User'])
+  report(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.report(+id);
   }
 
   @Get(':id/block')
@@ -144,6 +153,20 @@ export class UsersController {
     return this.friendshipService.removeFriendship(viewer, id);
   }
 
+  @Post(':id/ban')
+  @HttpCode(503)
+  @CheckAbilities(['ban', 'User'])
+  ban(@Param('id', ParseIntPipe) id: number) {
+    return this.banService.ban(+id);
+  }
+
+  @Patch(':id/ban')
+  @HttpCode(503)
+  @CheckAbilities(['ban', 'User'])
+  updateBan(@Param('id', ParseIntPipe) id: number) {
+    return this.banService.updateBan(+id);
+  }
+
   @Patch(':id')
   @CheckAbilities(['update', 'User'])
   update(
@@ -153,5 +176,12 @@ export class UsersController {
     body: UserUpdateDTO,
   ) {
     return this.usersService.update(id, viewer, body);
+  }
+
+  @Delete(':id')
+  @HttpCode(503)
+  @CheckAbilities(['delete', 'User'])
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.remove(+id);
   }
 }

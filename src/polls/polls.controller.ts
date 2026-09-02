@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Delete,
+  HttpCode,
   ParseIntPipe,
   Body,
   Query,
@@ -90,6 +91,33 @@ export class PollsController {
     return this.pollsService.remove(id, viewer);
   }
 
+  @Post(':id/report')
+  @CheckAbilities(['report', 'Poll'])
+  @HttpCode(503)
+  report(@Param('id', ParseIntPipe) id: number) {
+    return this.pollsService.report(+id);
+  }
+
+  @Post(':id/options/:optionId/report')
+  @CheckAbilities(['report', 'PollOption'])
+  @HttpCode(503)
+  reportOption(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('optionId', ParseIntPipe) optionId: number,
+  ) {
+    return this.pollsService.reportOption(+id, +optionId);
+  }
+
+  @Delete(':id/options/:optionId')
+  @CheckAbilities(['delete', 'PollOption'])
+  @HttpCode(503)
+  removeOption(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('optionId', ParseIntPipe) optionId: number,
+  ) {
+    return this.pollsService.removeOption(+id, +optionId);
+  }
+
   @Get(':id/vote:id')
   @CheckAbilities(['read', 'Vote'])
   findOneVote(
@@ -126,5 +154,12 @@ export class PollsController {
     @CurrentUser() viewer: User,
   ) {
     return this.votesService.deleteVote(pollId, viewer);
+  }
+
+  @Post(':id/vote/report')
+  @CheckAbilities(['report', 'Vote'])
+  @HttpCode(503)
+  reportVote(@Param('id', ParseIntPipe) id: number) {
+    return this.votesService.reportVote(id);
   }
 }

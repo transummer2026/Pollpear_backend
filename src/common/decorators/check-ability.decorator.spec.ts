@@ -9,10 +9,10 @@ function handlersOf(target: object) {
 }
 
 describe('CheckAbilities', () => {
-  @CheckAbilities(['interact', 'User'])
+  @CheckAbilities(['ban', 'User'])
   class SingleAbilityHost {}
 
-  @CheckAbilities(['interact', 'User'], ['update', 'User'])
+  @CheckAbilities(['ban', 'User'], ['update', 'User'])
   class ManyAbilitiesHost {}
 
   beforeEach(() => jest.clearAllMocks());
@@ -29,19 +29,19 @@ describe('CheckAbilities', () => {
     const [handler] = handlersOf(SingleAbilityHost);
     const verdict = handler(ability);
 
-    expect(can).toHaveBeenCalledWith('interact', 'User');
+    expect(can).toHaveBeenCalledWith('ban', 'User');
     expect(verdict).toBe(true);
   });
 
   it('relays the ability verdict of each tuple separately', () => {
-    const can = jest.fn((action: string) => action === 'interact');
+    const can = jest.fn((action: string) => action === 'ban');
     const ability = { can } as unknown as AppAbility;
 
-    const [interactHandler, updateHandler] = handlersOf(ManyAbilitiesHost);
+    const [banHandler, updateHandler] = handlersOf(ManyAbilitiesHost);
 
-    expect(interactHandler(ability)).toBe(true);
+    expect(banHandler(ability)).toBe(true);
     expect(updateHandler(ability)).toBe(false);
-    expect(can).toHaveBeenNthCalledWith(1, 'interact', 'User');
+    expect(can).toHaveBeenNthCalledWith(1, 'ban', 'User');
     expect(can).toHaveBeenNthCalledWith(2, 'update', 'User');
   });
 });

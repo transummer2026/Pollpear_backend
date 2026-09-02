@@ -36,7 +36,8 @@ export class ApiMeController {
   })
   @ApiOkResponse({ schema: toOpenApi(ApiMeSchema) })
   @ApiForbiddenResponse({
-    description: 'An account the policy no longer lets read itself.',
+    description:
+      'Banned account, or one the policy no longer lets read itself.',
   })
   findMe(@CurrentUser() viewer: User) {
     return this.meService.findMe(viewer);
@@ -55,7 +56,7 @@ export class ApiMeController {
     description: 'Unknown field, value too long, or empty body.',
   })
   @ApiForbiddenResponse({
-    description: 'A field the policy keeps read-only.',
+    description: 'Banned account, or a field the policy keeps read-only.',
   })
   updateMe(
     @CurrentUser() viewer: User,
@@ -74,7 +75,8 @@ export class ApiMeController {
   })
   @ApiNoContentResponse({ description: 'Account deleted.' })
   @ApiForbiddenResponse({
-    description: 'An account the policy does not let delete itself.',
+    description:
+      'Banned account, or one the policy does not let delete itself.',
   })
   deleteMe(@CurrentUser() viewer: User) {
     return this.meService.deleteMe(viewer);

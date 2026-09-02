@@ -87,9 +87,7 @@ describe('the guard responses of the OpenAPI document', () => {
       expect(describedBy(path, method, '401')).toBe(
         'Missing, expired or revoked api key.',
       );
-      expect(describedBy(path, method, '403')).toBe(
-        'The policy refuses this call.',
-      );
+      expect(describedBy(path, method, '403')).toBe('Banned account.');
     });
   });
 
@@ -102,13 +100,17 @@ describe('the guard responses of the OpenAPI document', () => {
       [
         '/v1/polls',
         'post',
-        'A room was named the caller cannot file a poll in.',
+        'Banned account, or a room was named the caller cannot file a poll in.',
       ],
-      ['/v1/polls/{id}', 'patch', 'Not your poll.'],
-      ['/v1/polls/{id}', 'delete', 'Not your poll.'],
-      ['/v1/polls/{id}/vote', 'post', 'A poll the caller may not vote in.'],
-      ['/v1/rooms/{id}', 'patch', 'Not your room.'],
-      ['/v1/rooms/{id}', 'delete', 'Not your room.'],
+      ['/v1/polls/{id}', 'patch', 'Banned account, or not your poll.'],
+      ['/v1/polls/{id}', 'delete', 'Banned account, or not your poll.'],
+      [
+        '/v1/polls/{id}/vote',
+        'post',
+        'Banned account, or a poll the caller may not vote in.',
+      ],
+      ['/v1/rooms/{id}', 'patch', 'Banned account, or not your room.'],
+      ['/v1/rooms/{id}', 'delete', 'Banned account, or not your room.'],
     ])('%s %s says exactly what is refused', (path, method, text) => {
       expect(describedBy(path, method, '403')).toBe(text);
       expect(describedBy(path, method, '401')).toBe(
@@ -135,13 +137,25 @@ describe('the guard responses of the OpenAPI document', () => {
     });
 
     it.each([
-      ['/v1/me', 'get', 'An account the policy no longer lets read itself.'],
-      ['/v1/me', 'patch', 'A field the policy keeps read-only.'],
-      ['/v1/me', 'delete', 'An account the policy does not let delete itself.'],
+      [
+        '/v1/me',
+        'get',
+        'Banned account, or one the policy no longer lets read itself.',
+      ],
+      [
+        '/v1/me',
+        'patch',
+        'Banned account, or a field the policy keeps read-only.',
+      ],
+      [
+        '/v1/me',
+        'delete',
+        'Banned account, or one the policy does not let delete itself.',
+      ],
       [
         '/v1/me/avatar',
         'post',
-        'An account the policy keeps out of its avatar.',
+        'Banned account, or one the policy keeps out of its avatar.',
       ],
     ])('%s %s says exactly what the policy refuses', (path, method, text) => {
       expect(describedBy(path, method, '403')).toBe(text);

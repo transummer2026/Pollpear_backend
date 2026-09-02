@@ -213,4 +213,14 @@ export class RoomsController {
   ) {
     return this.messagesService.listForRoom(id, viewer, query);
   }
+
+  @Delete(':id/messages/:messageId')
+  @HttpCode(503)
+  @CheckAbilities(['delete', 'Message'])
+  removeMessage(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('messageId', ParseIntPipe) messageId: number,
+  ) {
+    return this.roomsService.removeMessage(+id, +messageId);
+  }
 }

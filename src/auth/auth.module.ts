@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from 'src/users/users.module';
 import { MailModule } from 'src/mail/mail.module';
+import { BanModule } from 'src/ban/ban.module';
 import { OauthService } from './oauth.service';
 import { OauthStateStore } from './oauth-state.store';
 import { OauthGuard } from './oauth.guard';
@@ -15,7 +16,13 @@ import { AuthGuard } from './auth.guard';
 import { RevocationModule } from 'src/revocation/revocation.module';
 
 @Module({
-  imports: [UsersModule, MailModule, PassportModule, RevocationModule],
+  imports: [
+    UsersModule,
+    MailModule,
+    PassportModule,
+    BanModule,
+    RevocationModule,
+  ],
   exports: [AuthService],
   controllers: [AuthController],
   providers: [
