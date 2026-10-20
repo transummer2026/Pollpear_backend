@@ -1,4 +1,4 @@
 [submodule "Pollpear_shared"]
 	path = Pollpear_shared
-	url = git@github.com:transummer2026/Pollpear_shared.git
+	url = https://github.com/transummer2026/Pollpear_shared.git
 	branch = dev
