@@ -90,7 +90,7 @@ export class ApiRoomsService {
     caller: User,
   ): Promise<ApiRoomPageDTO> {
     const ability = this.abilityFactory.createForUser(caller);
-    assertLimitAllowed(query, caller);
+    assertLimitAllowed(query, ability);
 
     const where: Prisma.RoomWhereInput = {
       AND: [accessibleBy(ability, 'read').ofType('Room'), matching(query)],

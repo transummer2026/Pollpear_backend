@@ -43,6 +43,10 @@ export class MeService {
     return UserSchema.parse(updatedUser);
   }
 
+  settings() {
+    return 'settings route works';
+  }
+
   async changePassword(userId: number, body: UserChangePasswordDTO) {
     const user = await this.userService.findByUserId(userId);
     if (!user) throw new UnauthorizedException('Invalid credentials');

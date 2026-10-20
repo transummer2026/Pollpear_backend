@@ -25,6 +25,7 @@ import { hash, argon2id, verify } from 'argon2';
 import { UserDTO, UserSchema } from 'Pollpear_shared/src/schemas/users.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
+import { BanService } from 'src/ban/ban.service';
 import { RedisService } from 'src/redis/redis.service';
 import { MailService } from 'src/mail/mail.service';
 import { randomUUID } from 'crypto';
@@ -48,6 +49,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private readonly userService: UsersService,
+    private readonly banService: BanService,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly vault: VaultService,
@@ -151,6 +153,11 @@ export class AuthService {
 
     if (!user.isEmailVerified) {
       throw new ForbiddenException('Email not verified.');
+    }
+
+    const userisBanned = await this.banService.findByBanStatus(user.id);
+    if (userisBanned) {
+      throw new ForbiddenException('User is banned.');
     }
 
     await this.createSession(user.id, response);

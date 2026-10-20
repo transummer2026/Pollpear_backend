@@ -17,6 +17,7 @@ import type {
   User,
   Friendship,
   Block,
+  Ban,
   Option,
   Vote,
   Invitation,
@@ -47,6 +48,7 @@ export type AppSubjects =
       Room: Room;
       Friendship: Friendship;
       Block: Block;
+      Ban: Ban;
       Invitation: Invitation;
     }>;
 
@@ -57,6 +59,8 @@ export type AppAbility = Ability<
       | 'read'
       | 'update'
       | 'delete'
+      | 'ban'
+      | 'report'
       | 'interact'
       | 'join'
       | 'invite'

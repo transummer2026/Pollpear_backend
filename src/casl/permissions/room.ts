@@ -3,7 +3,13 @@ import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type RoomActions = CrudAction | 'join' | 'invite' | 'kick' | 'leave';
+export type RoomActions =
+  | CrudAction
+  | 'join'
+  | 'invite'
+  | 'kick'
+  | 'leave'
+  | 'report';
 
 export type RoomAbilities = [RoomActions, 'Room'];
 
@@ -90,7 +96,7 @@ export function defineRoomPermissions(
   allow('create', 'Room');
 
   for (const condition of roomReadConditions(user)) {
-    allow(['read'], 'Room', condition);
+    allow(['read', 'report'], 'Room', condition);
   }
 
   for (const condition of roomJoinConditions(user)) {

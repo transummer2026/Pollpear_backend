@@ -67,7 +67,7 @@ export function ApiGuardDocs() {
     ApiUnauthorizedResponse({
       description: 'Missing, expired or revoked api key.',
     }),
-    ApiForbiddenResponse({ description: 'The policy refuses this call.' }),
+    ApiForbiddenResponse({ description: 'Banned account.' }),
   );
 }
 

@@ -104,7 +104,7 @@ export class ApiRoomsController {
   @ApiBadRequestResponse({
     description: 'Unknown field, invalid value, or empty body.',
   })
-  @ApiForbiddenResponse({ description: 'Not your room.' })
+  @ApiForbiddenResponse({ description: 'Banned account, or not your room.' })
   @ApiConflictResponse({ description: 'The room is no longer active.' })
   @ApiNotFoundResponse({ description: 'No such room, or not visible to you.' })
   @ApiIdParamDocs('Room to edit.')
@@ -125,7 +125,7 @@ export class ApiRoomsController {
       'Soft delete, by the owner or a moderator. A closed room can still be deleted: no deadline stands in the way here. Whatever the room already holds stays where it is — nothing is erased, the room simply stops being served.',
   })
   @ApiNoContentResponse({ description: 'Room deleted.' })
-  @ApiForbiddenResponse({ description: 'Not your room.' })
+  @ApiForbiddenResponse({ description: 'Banned account, or not your room.' })
   @ApiNotFoundResponse({ description: 'No such room, or not visible to you.' })
   @ApiIdParamDocs('Room to delete.')
   removeRoom(@IdParam() id: number, @CurrentUser() caller: User) {

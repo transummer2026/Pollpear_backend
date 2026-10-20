@@ -3,7 +3,7 @@ import { AuthorizationUser } from './role';
 import { CrudAction } from './crud';
 import { AppAbility } from '../casl-prisma';
 
-export type PollActions = CrudAction;
+export type PollActions = CrudAction | 'report';
 
 export type PollSubject = 'Poll' | 'PollOption';
 
@@ -125,7 +125,11 @@ export function definePollPermissions(
   });
 
   for (const condition of pollReadConditions(user)) {
-    allow(['read'], 'Poll', condition);
+    allow(['read', 'report'], 'Poll', condition);
+    allow(['report'], 'PollOption', {
+      deletedAt: null,
+      poll: { is: condition },
+    });
   }
 
   allow(['update', 'delete'], 'Poll', {
